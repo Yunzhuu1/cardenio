@@ -82,6 +82,7 @@ Common allowed types:
 - `chore`: project configuration, scaffolding, or dependency maintenance
 
 Do not use vague commit messages such as `update`, `fix bug`, `wip`, or `misc`.
+Commit subjects must be written in ASCII English. Do not use full-width punctuation such as `，`, `。`, or `：`.
 
 ## PR Rules
 

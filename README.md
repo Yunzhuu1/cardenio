@@ -401,8 +401,8 @@ pnpm exec lefthook install
 当前 hooks 会执行以下检查：
 
 - `pre-commit`：禁止在 `main` / `master` 分支提交，检查 `.env`、密钥、token，按项目脚本尝试执行 lint 或格式检查，并在依赖文件变化时提醒同步 README。
-- `commit-msg`：要求 commit message 符合 `type: message` 格式，且 type 只能是 `feat`、`fix`、`docs`、`chore`、`test`、`refactor`、`style`。
-- `pre-push`：禁止直接 push `main` / `master`，检查分支名是否符合 `feature/*`、`fix/*`、`docs/*`、`chore/*`，按项目脚本尝试执行测试或构建，并提醒确认 commit 时间在开发窗口内。
+- `commit-msg`：要求 commit message 符合 `type: message` 格式，type 只能是 `feat`、`fix`、`docs`、`chore`、`test`、`refactor`、`style`；提交信息必须使用 ASCII English，不能包含全角逗号、句号、冒号等全角字符。
+- `pre-push`：禁止直接 push `main` / `master`，按 [Conventional Branch](https://conventionalbranch.org/) 检查分支名是否符合 `<type>/<description>`，按项目脚本尝试执行测试或构建，并提醒确认 commit 时间在开发窗口内。
 
 ## License
 
