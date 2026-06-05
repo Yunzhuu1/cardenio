@@ -16,6 +16,7 @@ This file defines execution instructions for AI agents working in this repositor
 Before modifying code or documentation, complete these checks:
 
 - Run or inspect `git status` to understand the current working tree.
+- Read `docs/project-context.md` to understand current project progress and roadmap.
 - Decide whether the task should be implemented on a separate branch and delivered through a separate PR.
 - Decide whether the task has exactly one clear goal; split it first if it contains multiple goals.
 - Check whether the task introduces any third-party library, framework, template, example code, generated asset, external API, model, or data source.
