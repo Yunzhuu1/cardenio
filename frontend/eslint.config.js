@@ -26,6 +26,8 @@ export default tseslint.config(
             "buttonVariants",
             "links",
             "meta",
+            "themeScript",
+            "useTheme",
           ],
         },
       ],
