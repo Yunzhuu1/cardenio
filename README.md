@@ -387,6 +387,23 @@ docs/
 
 计划优先完成产品主流程，再补充工程细节、运行方式、环境变量、部署说明和贡献指南。
 
+### Git hooks
+
+本仓库使用 [lefthook](https://github.com/evilmartians/lefthook) 管理本地 Git hooks。lefthook 是第三方开发工具，当前仅用于提交前和推送前的工程规范检查，不属于产品原创功能。
+
+首次克隆仓库后，安装依赖并启用 hooks：
+
+```bash
+pnpm install
+pnpm exec lefthook install
+```
+
+当前 hooks 会执行以下检查：
+
+- `pre-commit`：禁止在 `main` / `master` 分支提交，检查 `.env`、密钥、token，按项目脚本尝试执行 lint 或格式检查，并在依赖文件变化时提醒同步 README。
+- `commit-msg`：要求 commit message 符合 `type: message` 格式，且 type 只能是 `feat`、`fix`、`docs`、`chore`、`test`、`refactor`、`style`。
+- `pre-push`：禁止直接 push `main` / `master`，检查分支名是否符合 `feature/*`、`fix/*`、`docs/*`、`chore/*`，按项目脚本尝试执行测试或构建，并提醒确认 commit 时间在开发窗口内。
+
 ## License
 
 待定。

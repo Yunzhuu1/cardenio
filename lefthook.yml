@@ -1,0 +1,26 @@
+pre-commit:
+  commands:
+    guard-main-commit:
+      run: scripts/hooks/guard-main-commit.sh
+    scan-staged-secrets:
+      run: scripts/hooks/scan-staged-secrets.sh
+    remind-readme-dependencies:
+      run: scripts/hooks/remind-readme-dependencies.sh
+    verify-format-or-lint:
+      run: scripts/hooks/verify-format-or-lint.sh
+
+commit-msg:
+  commands:
+    check-commit-msg:
+      run: scripts/hooks/check-commit-msg.sh {1}
+
+pre-push:
+  commands:
+    guard-main-push:
+      run: scripts/hooks/guard-main-push.sh
+    check-branch-name:
+      run: scripts/hooks/check-branch-name.sh
+    verify-project:
+      run: scripts/hooks/verify-project.sh
+    remind-commit-window:
+      run: scripts/hooks/remind-commit-window.sh
