@@ -12,6 +12,7 @@ import "@fontsource/ibm-plex-sans/400.css";
 import "@fontsource/ibm-plex-sans/500.css";
 import "@fontsource/ibm-plex-sans/600.css";
 import "./app.css";
+import { I18nProvider } from "~/i18n/provider";
 import { ThemeProvider, themeScript } from "~/theme/provider";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -34,9 +35,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <Outlet />
-    </ThemeProvider>
+    <I18nProvider>
+      <ThemeProvider>
+        <Outlet />
+      </ThemeProvider>
+    </I18nProvider>
   );
 }
 

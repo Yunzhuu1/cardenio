@@ -1,0 +1,15 @@
+{
+  "app": {
+    "name": "Cardenio"
+  },
+  "home": {
+    "eyebrow": "M0 foundation",
+    "title": "Novels enter the stage here",
+    "summary": "The frontend scaffold now connects React Router, Tailwind, theme tokens, and UI language switching."
+  },
+  "language": {
+    "label": "UI language",
+    "zh-CN": "中文",
+    "en": "English"
+  }
+}

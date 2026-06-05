@@ -1,0 +1,15 @@
+{
+  "app": {
+    "name": "Cardenio 入戏"
+  },
+  "home": {
+    "eyebrow": "M0 工程地基",
+    "title": "小说在这里入戏",
+    "summary": "前端骨架已接入 React Router、Tailwind、主题令牌和 UI 语言切换。"
+  },
+  "language": {
+    "label": "界面语言",
+    "zh-CN": "中文",
+    "en": "English"
+  }
+}
