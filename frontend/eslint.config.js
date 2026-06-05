@@ -20,7 +20,13 @@ export default tseslint.config(
         "warn",
         {
           allowConstantExport: true,
-          allowExportNames: ["ErrorBoundary", "Layout", "links", "meta"],
+          allowExportNames: [
+            "ErrorBoundary",
+            "Layout",
+            "buttonVariants",
+            "links",
+            "meta",
+          ],
         },
       ],
     },
