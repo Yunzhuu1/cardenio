@@ -10,9 +10,9 @@ fi
 
 subject="$(sed -n '1p' "$commit_msg_file")"
 
-if ! printf '%s\n' "$subject" | grep -E '^(feat|fix|docs|chore|test|refactor|style): .+' >/dev/null 2>&1; then
+if ! printf '%s\n' "$subject" | grep -E '^(feat|fix|docs|chore|test|refactor|style)(\([A-Za-z0-9._-]+\))?: .+' >/dev/null 2>&1; then
   echo "Invalid commit message." >&2
-  echo "Expected format: type: message" >&2
+  echo "Expected format: type: message or type(scope): message" >&2
   echo "Allowed types: feat, fix, docs, chore, test, refactor, style" >&2
   exit 1
 fi
