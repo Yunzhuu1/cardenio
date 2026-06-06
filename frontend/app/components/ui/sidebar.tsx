@@ -97,7 +97,7 @@ export function SidebarContent({
   return (
     <div
       data-slot="sidebar-content"
-      className={cn("flex min-h-0 flex-1 flex-col gap-2", className)}
+      className={cn("flex min-h-0 flex-1 flex-col gap-2 p-2", className)}
       {...props}
     />
   );
@@ -110,7 +110,7 @@ export function SidebarFooter({
   return (
     <div
       data-slot="sidebar-footer"
-      className={cn("flex flex-col gap-1 pt-2", className)}
+      className={cn("flex flex-col gap-1 p-2", className)}
       {...props}
     />
   );
@@ -123,7 +123,7 @@ export function SidebarGroup({
   return (
     <div
       data-slot="sidebar-group"
-      className={cn("flex flex-col gap-1", className)}
+      className={cn("flex flex-col gap-1 p-2", className)}
       {...props}
     />
   );
