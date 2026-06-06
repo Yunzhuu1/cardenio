@@ -68,7 +68,7 @@ export function Sidebar({
       data-variant={variant}
       data-slot="sidebar"
       className={cn(
-        "peer hidden w-64 shrink-0 flex-col gap-2 border-r border-sidebar-border bg-background px-3 py-4 text-sidebar-foreground md:flex",
+        "peer hidden w-64 shrink-0 flex-col gap-2 border-r border-sidebar-border bg-background p-2 text-sidebar-foreground md:flex",
         variant === "inset" && "border-r-0",
         className,
       )}
