@@ -246,9 +246,12 @@ def _extract_character_profiles(
     chapters: list[dict[str, Any]],
     understanding: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    names = _extract_character_names(chapters)
+    name_counts = _extract_character_name_counts(chapters)
+    names = list(name_counts)
     if not names:
         names = ["Protagonist"]
+        name_counts = {"Protagonist": 1}
+    relations_by_name = _infer_relations_by_name(chapters, names)
 
     characters: list[dict[str, Any]] = []
     for index, name in enumerate(names):
@@ -256,7 +259,7 @@ def _extract_character_profiles(
             {
                 "id": _character_id(name),
                 "name": name,
-                "role": "protagonist" if index == 0 else "supporting",
+                "role": _role_for(index, name_counts.get(name, 1)),
                 "voice": _voice_for(name, understanding),
                 "desire": _understanding_field(
                     understanding,
@@ -269,7 +272,7 @@ def _extract_character_profiles(
                     "Lose the relationship or secret that anchors the story.",
                 ),
                 "arc": _arc_for(index),
-                "relations": [],
+                "relations": relations_by_name.get(name, []),
                 "hard_rules": [
                     f"{name} must keep a consistent motivation across generated scenes."
                 ],
@@ -278,21 +281,55 @@ def _extract_character_profiles(
     return characters
 
 
-def _extract_character_names(chapters: list[dict[str, Any]]) -> list[str]:
+def _extract_character_name_counts(chapters: list[dict[str, Any]]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for chapter in chapters:
         for paragraph in chapter["paragraphs"]:
             text = paragraph["text"]
-            for name in re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b", text):
+            for name in _names_in_text(text):
                 if name in _STOP_NAMES or name.split()[0] in _STOP_NAMES:
                     continue
                 counts[name] = counts.get(name, 0) + 1
-    return [
-        name
-        for name, _count in sorted(
-            counts.items(), key=lambda item: (-item[1], item[0])
-        )[:8]
-    ]
+    return dict(sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:8])
+
+
+def _names_in_text(text: str) -> list[str]:
+    return re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}\b", text)
+
+
+def _infer_relations_by_name(
+    chapters: list[dict[str, Any]],
+    names: list[str],
+) -> dict[str, list[dict[str, str]]]:
+    relations: dict[str, dict[str, dict[str, str]]] = {name: {} for name in names}
+    known_names = set(names)
+    for chapter in chapters:
+        for paragraph in chapter["paragraphs"]:
+            present = [name for name in _names_in_text(paragraph["text"]) if name in known_names]
+            for source in present:
+                for target in present:
+                    if source == target:
+                        continue
+                    relations[source][_character_id(target)] = {
+                        "to": _character_id(target),
+                        "type": "co_occurs",
+                        "change": (
+                            "Appears together in the source and should stay "
+                            "relationally consistent."
+                        ),
+                    }
+    return {
+        name: list(by_target.values())
+        for name, by_target in relations.items()
+    }
+
+
+def _role_for(index: int, count: int) -> str:
+    if index == 0:
+        return "protagonist"
+    if count <= 1:
+        return "mentioned"
+    return "supporting"
 
 
 def _character_id(name: str) -> str:
