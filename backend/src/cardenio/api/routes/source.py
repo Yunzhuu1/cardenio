@@ -12,7 +12,7 @@ from __future__ import annotations
 import io
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
 
 from cardenio.api.deps import get_artifact_store
@@ -145,6 +145,26 @@ async def get_threshold(
         )
 
     return result
+
+
+@router.get(":resolve")
+async def resolve_source_ref(
+    project_id: str,
+    chapter: int = Query(..., ge=1),
+    paragraphs: str = Query(..., min_length=1),
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
+    """API-24: Resolve a source_ref to source paragraphs for traceability."""
+    proj = await store.get_project(project_id)
+    if proj is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    paragraph_indices = _parse_paragraph_selector(paragraphs)
+    resolved = await _resolve_source_ref(store, project_id, chapter, paragraph_indices)
+    if not resolved:
+        raise HTTPException(status_code=404, detail="Source reference not found")
+
+    return {"chapter": chapter, "paragraphs": resolved}
 
 
 # =============================================================================
@@ -557,3 +577,58 @@ def _split_paragraphs(text: str) -> list[str]:
 
 def _char_sum(paras: list[SourceParagraph]) -> int:
     return sum(len(p.text) for p in paras)
+
+
+def _parse_paragraph_selector(selector: str) -> list[int]:
+    """Parse API-24 paragraph selectors like ``1-3`` or ``1,3``."""
+    indices: list[int] = []
+    for part in selector.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            start_text, end_text = part.split("-", 1)
+            try:
+                start = int(start_text)
+                end = int(end_text)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=422, detail="Invalid paragraph range"
+                ) from exc
+            if start <= 0 or end < start:
+                raise HTTPException(status_code=422, detail="Invalid paragraph range")
+            indices.extend(range(start, end + 1))
+        else:
+            try:
+                value = int(part)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=422, detail="Invalid paragraph index"
+                ) from exc
+            if value <= 0:
+                raise HTTPException(status_code=422, detail="Invalid paragraph index")
+            indices.append(value)
+    if not indices:
+        raise HTTPException(status_code=422, detail="No paragraph indices provided")
+    return list(dict.fromkeys(indices))
+
+
+async def _resolve_source_ref(
+    store: SqliteArtifactStore,
+    project_id: str,
+    chapter: int,
+    paragraph_indices: list[int],
+) -> list[dict]:
+    chapter_id = f"ch_{chapter}"
+    rows = await store.get_paragraphs(project_id, chapter_id=chapter_id)
+    by_index = {row["paragraph_index"]: row["text"] for row in rows}
+    if not by_index:
+        return []
+    resolved = [
+        {"index": index, "text": by_index[index]}
+        for index in paragraph_indices
+        if index in by_index
+    ]
+    if len(resolved) != len(paragraph_indices):
+        return []
+    return resolved

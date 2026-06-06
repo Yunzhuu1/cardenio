@@ -3,6 +3,8 @@
 import pytest
 from httpx import AsyncClient
 
+from cardenio.gateway.providers.stub import StubLlmGateway
+
 
 @pytest.fixture
 async def project_id(app_client: AsyncClient) -> str:
@@ -124,9 +126,60 @@ class TestOutlineGeneration:
         assert first_scene["foreshadowing"]
         assert first_scene["relation_changes"]
 
+        resolve_resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/source:resolve",
+            params={"chapter": 1, "paragraphs": "1-2"},
+        )
+        assert resolve_resp.status_code == 200
+        assert resolve_resp.json()["paragraphs"] == [
+            {"index": 1, "text": "Lin Wan opened the archive."},
+            {"index": 2, "text": "Chen Mo watched Lin Wan hide the letter."},
+        ]
+
         get_resp = await app_client.get(f"/api/v1/projects/{project_id}/outline")
         assert get_resp.status_code == 200
         assert get_resp.json()["version"] == generated["version"]
+
+    async def test_generated_source_refs_must_resolve_to_existing_paragraphs(
+        self,
+        app_client: AsyncClient,
+        project_id: str,
+        stub_gateway: StubLlmGateway,
+    ) -> None:
+        await move_project_to_confirmed_characters(app_client, project_id)
+        stub_gateway.fixtures = {
+            **stub_gateway.fixtures,
+            "outline": {
+                "scenes": [
+                    {
+                        "id": "sc_bad",
+                        "heading": {
+                            "int_ext": "INT",
+                            "location": "Archive",
+                            "time": "DAY",
+                        },
+                        "source_ref": {"chapter": 1, "paragraphs": [99]},
+                        "synopsis": "Invalid source reference.",
+                        "goal": "Test validation.",
+                        "conflict": "Invalid reference should not be saved.",
+                        "mood": "tense",
+                        "characters": ["lin_wan"],
+                        "foreshadowing": [],
+                        "relation_changes": [],
+                        "ending_state": "Blocked.",
+                    }
+                ],
+                "merge_suggestions": [],
+            },
+        }
+
+        resp = await app_client.post(f"/api/v1/projects/{project_id}/outline:generate")
+
+        assert resp.status_code == 422
+        assert resp.json()["detail"]["code"] == "invalid_source_ref"
+
+        get_resp = await app_client.get(f"/api/v1/projects/{project_id}/outline")
+        assert get_resp.status_code == 404
 
     async def test_generate_after_intent_updates_project_state(
         self, app_client: AsyncClient, project_id: str

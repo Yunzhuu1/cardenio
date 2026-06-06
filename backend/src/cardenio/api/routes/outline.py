@@ -60,6 +60,7 @@ async def generate_outline(
     data = OutlineData.model_validate(
         _with_outline_defaults(result.data, chapters, characters.data)
     )
+    await _validate_outline_source_refs(store, project_id, data)
     previous = await store.get_artifact(project_id, "outline")
     envelope = ArtifactEnvelope[OutlineData](
         type="outline",
@@ -153,6 +154,30 @@ def _characters_gate_error(current_state: ArtifactState | None) -> JSONResponse:
             }
         },
     )
+
+
+async def _validate_outline_source_refs(
+    store: SqliteArtifactStore,
+    project_id: str,
+    data: OutlineData,
+) -> None:
+    for scene in data.scenes:
+        chapter_id = f"ch_{scene.source_ref.chapter}"
+        rows = await store.get_paragraphs(project_id, chapter_id=chapter_id)
+        available = {row["paragraph_index"] for row in rows}
+        missing = [
+            index for index in scene.source_ref.paragraphs if index not in available
+        ]
+        if missing or not scene.source_ref.paragraphs:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "invalid_source_ref",
+                    "scene_id": scene.id,
+                    "chapter": scene.source_ref.chapter,
+                    "missing_paragraphs": missing,
+                },
+            )
 
 
 def _chapter_context(chapter: dict[str, Any]) -> dict[str, Any]:
