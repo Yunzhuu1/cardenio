@@ -69,11 +69,11 @@
   --todo-foreground: #ffffff;
 
   --font-sans:
-    "Source Han Sans SC", "Noto Sans SC", "IBM Plex Sans", ui-sans-serif,
+    "IBM Plex Sans", "Source Han Sans SC", "Noto Sans SC", ui-sans-serif,
     system-ui, sans-serif;
-  --font-serif: "Noto Serif SC", "Courier Prime", "Songti SC", "SimSun", serif;
+  --font-serif: "Courier Prime", "Noto Serif SC", "Songti SC", "SimSun", serif;
   --font-mono:
-    "Sarasa Mono SC", "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    "IBM Plex Mono", "Sarasa Mono SC", "SFMono-Regular", Consolas, monospace;
 }
 
 .dark {
