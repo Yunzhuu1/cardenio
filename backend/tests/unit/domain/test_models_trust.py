@@ -8,8 +8,10 @@ from cardenio.domain.models.base import Flag
 from cardenio.domain.models.intent import IntentConstraints
 from cardenio.domain.models.screenplay import Beat, BeatType
 from cardenio.domain.validation.trust import (
+    TrustEnforcementError,
     enforce_ai_inferred_flag,
     enforce_intent_gating,
+    enforce_must_keep_lines,
     enforce_trust,
 )
 
@@ -85,3 +87,54 @@ def test_enforce_trust_composition() -> None:
     # First beat should be flagged ai_inferred, then potentially converted to TODO
     # (since it's a "plot" type dialogue without source)
     assert len(result) == 2
+
+
+def test_must_keep_lines_pass_when_verbatim_from_source() -> None:
+    """FR-4: must_keep_lines must appear verbatim and be marked from_source."""
+    beats = [
+        Beat(
+            type=BeatType.DIALOGUE,
+            character="lin_wan",
+            dialogue="You hid this from me.",
+            flag=Flag.FROM_SOURCE,
+        )
+    ]
+
+    result = enforce_must_keep_lines(beats, ["You hid this from me."])
+
+    assert result == beats
+
+
+def test_must_keep_lines_fail_when_missing() -> None:
+    """FR-4: missing must-keep lines force retry/failure."""
+    beats = [
+        Beat(type=BeatType.DIALOGUE, character="lin_wan", dialogue="Different line."),
+    ]
+
+    try:
+        enforce_must_keep_lines(beats, ["You hid this from me."])
+    except TrustEnforcementError as exc:
+        assert exc.retryable is True
+        assert exc.details["missing_lines"] == ["You hid this from me."]
+    else:
+        raise AssertionError("Expected TrustEnforcementError")
+
+
+def test_must_keep_lines_fail_when_not_from_source() -> None:
+    """FR-4: must-keep lines cannot be satisfied by ai_inferred dialogue."""
+    beats = [
+        Beat(
+            type=BeatType.DIALOGUE,
+            character="lin_wan",
+            dialogue="You hid this from me.",
+            flag=Flag.AI_INFERRED,
+        )
+    ]
+
+    try:
+        enforce_must_keep_lines(beats, ["You hid this from me."])
+    except TrustEnforcementError as exc:
+        assert exc.retryable is True
+        assert exc.details["untrusted_lines"] == ["You hid this from me."]
+    else:
+        raise AssertionError("Expected TrustEnforcementError")
