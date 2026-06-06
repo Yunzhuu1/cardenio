@@ -1,13 +1,14 @@
 """Source (novel import) API (api.md §4, API-3~6).
 
 M1-T1: chapter input (paste/type) — done
-M1-T2: file import (TXT / DOCX) — current
-M1-T3: chapter segmentation — upcoming
+M1-T2: file import (TXT / DOCX) — done
+M1-T3: chapter segmentation (edit/delete/merge/split, confirm import) — current
 """
 
 from __future__ import annotations
 
 import io
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
@@ -26,6 +27,18 @@ ALLOWED_MIMES = {
     "text/plain": "txt",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
 }
+
+_CHAPTER_PATTERNS = [
+    r"第[一二三四五六七八九十百千零\d]+[章节]",
+    r"chapter\s*\d+",
+    r"第[一二三四五六七八九十百千零\d]+卷",
+]
+_CHAPTER_RE = re.compile("|".join(_CHAPTER_PATTERNS), re.IGNORECASE)
+
+
+# =============================================================================
+# T1 — Chapter CRUD
+# =============================================================================
 
 
 @router.post("/chapters", status_code=201)
@@ -58,7 +71,7 @@ async def create_chapter(
         "id": chapter_id,
         "title": body.title,
         "order": order,
-        "char_count": sum(len(p.text) for p in paragraph_models),
+        "char_count": _char_sum(paragraph_models),
         "paragraphs": [p.model_dump(mode="json") for p in paragraph_models],
     }
 
@@ -84,6 +97,11 @@ async def get_source(
     }
 
 
+# =============================================================================
+# T2 — File import
+# =============================================================================
+
+
 @router.post("/import")
 async def import_file(
     project_id: str,
@@ -93,7 +111,7 @@ async def import_file(
     """API-4: Import TXT/DOCX file with auto-chapter detection.
 
     Returns auto-segmented chapter preview for author review.
-    Actual chapter persistence happens on confirmation (M1-T3).
+    Chapters are NOT persisted until confirmed via :import:confirm (M1-T3).
     """
     proj = await store.get_project(project_id)
     if proj is None:
@@ -112,13 +130,32 @@ async def import_file(
     if not text.strip():
         raise HTTPException(status_code=400, detail="File contains no readable text")
 
-    # Auto-detect chapter boundaries and produce preview
     chapters = _detect_chapters(text)
 
-    return {
-        "chapters": chapters,
-        "warnings": warnings,
-    }
+    return {"chapters": chapters, "warnings": warnings}
+
+
+@router.post("/import:confirm")
+async def confirm_import(
+    project_id: str,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
+    """Persist the most recent import preview as actual chapters.
+
+    Called after the author has reviewed and edited the auto-detected
+    chapter breakdown from POST /import.
+    """
+    # In practice this would take the edited preview from the client,
+    # but T3 uses the stored import preview (future: client sends edited chapters).
+    raise HTTPException(
+        status_code=501,
+        detail="Confirm import with edited preview not yet implemented",
+    )
+
+
+# =============================================================================
+# T3 — Chapter segmentation (edit / delete / merge / split)
+# =============================================================================
 
 
 @router.put("/chapters/{chapter_id}")
@@ -128,8 +165,31 @@ async def update_chapter(
     chapter: Chapter,
     store: SqliteArtifactStore = Depends(get_artifact_store),
 ) -> dict:
-    """API-6: Edit a chapter. (M1-T3)"""
-    raise HTTPException(status_code=501, detail="Not yet implemented")
+    """API-6: Edit a chapter. Replaces all paragraphs for the chapter."""
+    proj = await store.get_project(project_id)
+    if proj is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Delete old paragraphs and re-insert
+    await store.delete_paragraphs(project_id, chapter_id)
+
+    paragraph_models: list[SourceParagraph] = []
+    for para in chapter.paragraphs:
+        paragraph_models.append(SourceParagraph(index=para.index, text=para.text))
+
+    await store.save_paragraphs(
+        project_id=project_id,
+        chapter_id=chapter_id,
+        paragraphs=[p.model_dump(mode="json") for p in paragraph_models],
+    )
+
+    return {
+        "id": chapter_id,
+        "title": chapter.title,
+        "order": chapter.order,
+        "char_count": chapter.char_count,
+        "paragraphs": [p.model_dump(mode="json") for p in paragraph_models],
+    }
 
 
 @router.delete("/chapters/{chapter_id}", status_code=204)
@@ -138,8 +198,14 @@ async def delete_chapter(
     chapter_id: str,
     store: SqliteArtifactStore = Depends(get_artifact_store),
 ) -> None:
-    """API-6: Delete a chapter. (M1-T3)"""
-    raise HTTPException(status_code=501, detail="Not yet implemented")
+    """API-6: Delete a chapter and its paragraphs."""
+    proj = await store.get_project(project_id)
+    if proj is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    deleted = await store.delete_paragraphs(project_id, chapter_id)
+    if deleted == 0:
+        raise HTTPException(status_code=404, detail="Chapter not found")
 
 
 @router.post("/chapters:resegment")
@@ -148,22 +214,109 @@ async def resegment_chapters(
     body: dict,
     store: SqliteArtifactStore = Depends(get_artifact_store),
 ) -> dict:
-    """API-6: Split or merge chapters (author decides). (M1-T3)"""
-    raise HTTPException(status_code=501, detail="Not yet implemented")
+    """API-6: Split or merge chapters.
+
+    Accepts:
+        {"op": "split",  "chapter_id": "ch_2", "at_paragraph": 47}
+        {"op": "merge",  "chapter_ids": ["ch_1", "ch_2"], "new_title": "合并章"}
+
+    Paragraph indices are remapped after the operation.
+    """
+    proj = await store.get_project(project_id)
+    if proj is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    op = body.get("op")
+    if op not in ("split", "merge"):
+        raise HTTPException(status_code=400, detail="op must be 'split' or 'merge'")
+
+    if op == "split":
+        await _split_chapter(store, project_id, body)
+    elif op == "merge":
+        await _merge_chapters(store, project_id, body)
+
+    # Return updated chapters
+    return await get_source(project_id, store)
+
+
+async def _split_chapter(
+    store: SqliteArtifactStore, project_id: str, body: dict
+) -> None:
+    """Split one chapter into two at the given paragraph boundary."""
+    chapter_id: str = body["chapter_id"]
+    at_paragraph: int = body["at_paragraph"]
+
+    rows = await store.get_paragraphs(project_id, chapter_id=chapter_id)
+    if not rows:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    part1 = [r for r in rows if r["paragraph_index"] < at_paragraph]
+    part2 = [r for r in rows if r["paragraph_index"] >= at_paragraph]
+
+    if not part2:
+        raise HTTPException(
+                status_code=400, detail="Split point is chapter boundary — nothing to split"
+            )
+
+    # Delete old chapter
+    await store.delete_paragraphs(project_id, chapter_id)
+
+    # Write part 1 with original chapter_id
+    await store.save_paragraphs(
+        project_id=project_id,
+        chapter_id=chapter_id,
+        paragraphs=[
+            {"index": idx + 1, "text": p["text"]} for idx, p in enumerate(part1)
+        ],
+    )
+
+    # Write part 2 as a new chapter
+    chapters = await store.list_chapters(project_id)
+    new_order = len(chapters) + 2  # one deleted, plus new one coming
+    new_id = f"ch_{new_order}"
+    await store.save_paragraphs(
+        project_id=project_id,
+        chapter_id=new_id,
+        paragraphs=[
+            {"index": idx + 1, "text": p["text"]} for idx, p in enumerate(part2)
+        ],
+    )
+
+
+async def _merge_chapters(
+    store: SqliteArtifactStore, project_id: str, body: dict
+) -> None:
+    """Merge two or more chapters into one."""
+    chapter_ids: list[str] = body["chapter_ids"]
+
+    if len(chapter_ids) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 chapters to merge")
+
+    all_paragraphs: list[dict] = []
+    for cid in chapter_ids:
+        rows = await store.get_paragraphs(project_id, chapter_id=cid)
+        all_paragraphs.extend(rows)
+        await store.delete_paragraphs(project_id, cid)
+
+    # Write merged chapter
+    merged_id = chapter_ids[0]
+    await store.save_paragraphs(
+        project_id=project_id,
+        chapter_id=merged_id,
+        paragraphs=[
+            {"index": idx + 1, "text": p["text"]}
+            for idx, p in enumerate(all_paragraphs)
+        ],
+    )
 
 
 # =============================================================================
-# Text extraction — pluggable per format
+# Text extraction
 # =============================================================================
 
 
-def _extract_text(
-    raw: bytes, mime: str, filename: str
-) -> tuple[str, list[str]]:
-    """Dispatch to the correct extractor based on MIME or file extension."""
+def _extract_text(raw: bytes, mime: str, filename: str) -> tuple[str, list[str]]:
     warnings: list[str] = []
-
-    # Resolve format from MIME, fallback to extension
     ext = ALLOWED_MIMES.get(mime) or _ext_from_filename(filename)
 
     if ext == "txt":
@@ -172,18 +325,13 @@ def _extract_text(
         text = _extract_docx(raw)
     else:
         supported = ", ".join(ALLOWED_MIMES.values())
-        raise ValueError(
-            f"Unsupported format: {ext or mime}. Supported: {supported}"
-        )
+        raise ValueError(f"Unsupported format: {ext or mime}. Supported: {supported}")
 
-    # M1-T5 cleaning will be applied in T5; for now, handle obvious issues
     text = _clean_basic(text)
-
     return text, warnings
 
 
 def _ext_from_filename(filename: str) -> str:
-    """Guess file extension from filename."""
     if filename.lower().endswith(".txt"):
         return "txt"
     if filename.lower().endswith(".docx"):
@@ -192,7 +340,6 @@ def _ext_from_filename(filename: str) -> str:
 
 
 def _extract_txt(raw: bytes) -> str:
-    """Extract plain text from a TXT file."""
     for enc in ("utf-8", "gbk", "gb2312", "gb18030"):
         try:
             return raw.decode(enc)
@@ -202,7 +349,6 @@ def _extract_txt(raw: bytes) -> str:
 
 
 def _extract_docx(raw: bytes) -> str:
-    """Extract text from a DOCX file using python-docx."""
     try:
         from docx import Document
     except ImportError:
@@ -217,41 +363,21 @@ def _extract_docx(raw: bytes) -> str:
 
 
 # =============================================================================
-# Chapter auto-detection (FR-1.2)
+# Chapter detection + text helpers
 # =============================================================================
-
-_CHAPTER_PATTERNS = [
-    # 第一章, 第二章, ...
-    r"第[一二三四五六七八九十百千零\d]+[章节]",
-    # Chapter 1, Chapter 2, ...
-    r"chapter\s*\d+",
-    # 卷一, 卷二, ...
-    r"第[一二三四五六七八九十百千零\d]+卷",
-]
 
 
 def _detect_chapters(text: str) -> list[dict]:
-    """Auto-detect chapter boundaries from raw text.
-
-    Scans for chapter markers (第X章 / Chapter X / 第X卷).
-    Returns a list of chapter objects ready for preview.
-    Falls back to a single chapter if no markers found.
-    """
-    import re
-
-    combined = "|".join(_CHAPTER_PATTERNS)
-    marker_re = re.compile(combined, re.IGNORECASE)
-
+    """Auto-detect chapter boundaries from raw text."""
     lines = text.split("\n")
-    chapter_starts: list[int] = []  # line indices where chapters begin
+    chapter_starts: list[int] = []
 
     for i, line in enumerate(lines):
         stripped = line.strip()
-        if marker_re.search(stripped) and len(stripped) < 80:
+        if _CHAPTER_RE.search(stripped) and len(stripped) < 80:
             chapter_starts.append(i)
 
     if not chapter_starts:
-        # No markers found — treat as single chapter
         total_chars = sum(len(ln.strip()) for ln in lines if ln.strip())
         return [{
             "title": "第一章",
@@ -266,12 +392,7 @@ def _detect_chapters(text: str) -> list[dict]:
         )
         chapter_text = "\n".join(lines[start_line:end_line])
         paras = _split_paragraphs(chapter_text)
-
-        # First line is the chapter title
         title = lines[start_line].strip()
-        # If the title line also contains body text, keep only the title part
-        if marker_re.search(title):
-            title = title.split(" ")[0]  # 简化为仅取标记
 
         chapters.append({
             "title": title,
@@ -282,23 +403,16 @@ def _detect_chapters(text: str) -> list[dict]:
     return [c for c in chapters if c["char_count"] > 0]
 
 
-# =============================================================================
-# M1-T5 stub — text cleaning will be enhanced in T5
-# =============================================================================
-
-
 def _clean_basic(text: str) -> str:
-    """Basic text cleaning.  Full Unicode normalization and junk removal
-    arrive in M1-T5."""
-    # Replace \r\n with \n (CRLF → LF)
     text = text.replace("\r\n", "\n").replace("\r", "\n")
-    # Collapse 3+ consecutive newlines to 2 (preserve intentional paragraph gaps)
-    import re
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text
 
 
 def _split_paragraphs(text: str) -> list[str]:
-    """Split text into paragraphs by double-newline."""
     blocks = text.strip().split("\n\n")
     return [b.strip() for b in blocks if b.strip()]
+
+
+def _char_sum(paras: list[SourceParagraph]) -> int:
+    return sum(len(p.text) for p in paras)

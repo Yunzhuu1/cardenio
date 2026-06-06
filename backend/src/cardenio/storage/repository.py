@@ -106,6 +106,21 @@ class ArtifactRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def delete_paragraphs(
+        self, project_id: str, chapter_id: str
+    ) -> int:
+        """Delete all paragraphs for a chapter. Returns count deleted."""
+        from sqlalchemy import delete
+
+        stmt = (
+            delete(SourceParagraphModel)
+            .where(SourceParagraphModel.project_id == project_id)
+            .where(SourceParagraphModel.chapter_id == chapter_id)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.flush()
+        return result.rowcount
+
 
 class JobRepository:
     """Repository for job status tracking."""
