@@ -34,10 +34,7 @@ export function SidebarProvider({
       <div
         data-sidebar-open={open}
         data-slot="sidebar-provider"
-        className={cn(
-          "flex min-h-dvh bg-background text-foreground",
-          className,
-        )}
+        className={cn("flex min-h-dvh bg-sidebar text-foreground", className)}
         {...props}
       >
         {children}
@@ -54,15 +51,22 @@ export function useSidebar(): SidebarContextValue {
   return context;
 }
 
+type SidebarVariant = "sidebar" | "inset";
+
 export function Sidebar({
   className,
+  variant = "sidebar",
   ...props
-}: React.ComponentProps<"aside">): React.ReactElement {
+}: React.ComponentProps<"aside"> & {
+  variant?: SidebarVariant;
+}): React.ReactElement {
   return (
     <aside
+      data-variant={variant}
       data-slot="sidebar"
       className={cn(
-        "hidden w-64 shrink-0 flex-col gap-2 border-r border-sidebar-border bg-sidebar px-3 py-4 text-sidebar-foreground md:flex",
+        "peer hidden w-64 shrink-0 flex-col gap-2 border-r border-sidebar-border bg-sidebar px-3 py-4 text-sidebar-foreground md:flex",
+        variant === "inset" && "border-r-0",
         className,
       )}
       {...props}
@@ -225,7 +229,11 @@ export function SidebarInset({
   return (
     <div
       data-slot="sidebar-inset"
-      className={cn("flex min-w-0 flex-1 flex-col", className)}
+      className={cn(
+        "flex min-w-0 flex-1 flex-col bg-background",
+        "md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:overflow-hidden md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm",
+        className,
+      )}
       {...props}
     />
   );
