@@ -447,7 +447,22 @@ pnpm preview
 
 当前前端构建产物为静态 SPA，输出到 `frontend/build/client`。React Router v7 的 SPA 模式配置为 `ssr: false`；`@react-router/node` 仍作为 React Router 构建期运行时依赖保留。
 
-计划优先完成产品主流程，再补充后端、环境变量、部署说明和贡献指南。
+### 前后端联调
+
+前端默认通过真实 HTTP API 运行。联调时先在 `backend/` 目录按后端自身工具启动 dev 服务，默认监听 `http://localhost:8000`；再在仓库根目录执行：
+
+```bash
+pnpm dev
+```
+
+Vite dev server 会把前端相对路径 `/api` 代理到后端服务，不改写路径；后端接口自身保留 `/api/v1` 前缀。可用以下环境变量调整：
+
+- `VITE_API_MODE`：默认 `http`。设为 `mock` 时使用前端内存 mock，适合离线开发。
+- `VITE_BACKEND_URL`：默认 `http://localhost:8000`。后端运行在其他地址时可覆盖代理目标。
+
+当前生产构建仍是静态 SPA；上述 `/api` 代理只作用于 Vite dev server。
+
+计划优先完成产品主流程，再补充部署说明和贡献指南。
 
 ### 依赖与来源
 
