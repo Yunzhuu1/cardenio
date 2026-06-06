@@ -49,6 +49,16 @@ class InvalidTransitionError(Exception):
         super().__init__(msg)
 
 
+class ChapterThresholdUnmetError(Exception):
+    """Raised when source has fewer than 3 chapters (FR-1.3)."""
+
+    def __init__(self, *, current: int, required: int = 3) -> None:
+        self.current = current
+        self.required = required
+        msg = f"Need at least {required} chapters, but only {current} exist"
+        super().__init__(msg)
+
+
 class ProjectStateMachine:
     """Enforces P1: understand before adapting.
 
