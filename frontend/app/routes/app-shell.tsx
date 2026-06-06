@@ -43,16 +43,16 @@ function AppTopbar(): React.ReactElement {
   const titleKey = getTopbarTitleKey(pathname);
 
   return (
-    <header className="flex min-h-14 items-center justify-between gap-3 border-b border-border px-5 py-3 sm:px-8">
+    <header className="flex min-h-14 items-center justify-between gap-3 border-b border-border p-3">
       <div className="flex min-w-0 items-center gap-3">
         <SidebarTrigger
           aria-label={open ? t("nav.collapseSidebar") : t("nav.expandSidebar")}
-          className="size-9 shrink-0 border border-border"
+          className="size-8 shrink-0"
         >
           <SidebarToggleIcon aria-hidden="true" className="size-4" />
         </SidebarTrigger>
         <NavLink
-          className="app-heading truncate text-sm font-semibold text-foreground"
+          className="app-heading truncate text-md text-foreground"
           to="/"
         >
           {titleKey ? t(titleKey) : t("app.name")}
