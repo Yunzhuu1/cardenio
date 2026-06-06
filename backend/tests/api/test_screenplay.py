@@ -422,6 +422,47 @@ class TestScreenplayGeneration:
         assert dialogue["source_ref"] == scene["source_ref"]
         assert dialogue["flag"] == "ai_inferred"
 
+    async def test_filter_beats_by_source_reference(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        outline = await generate_confirmed_outline(app_client, project_id)
+        source_ref = outline["data"]["scenes"][0]["source_ref"]
+        await app_client.post(f"/api/v1/projects/{project_id}/screenplay:generate")
+
+        resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/screenplay/beats",
+            params={
+                "source_chapter": source_ref["chapter"],
+                "source_paragraph": source_ref["paragraphs"][0],
+            },
+        )
+
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload["count"] > 0
+        assert {item["scene_id"] for item in payload["items"]} == {
+            outline["data"]["scenes"][0]["id"]
+        }
+        assert all(
+            item["beat"]["source_ref"]["chapter"] == source_ref["chapter"]
+            and source_ref["paragraphs"][0]
+            in item["beat"]["source_ref"]["paragraphs"]
+            for item in payload["items"]
+        )
+
+    async def test_source_reference_filter_requires_complete_pair(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        await app_client.post(f"/api/v1/projects/{project_id}/screenplay:generate")
+
+        resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/screenplay/beats",
+            params={"source_chapter": 1},
+        )
+
+        assert resp.status_code == 422
+
     async def test_missing_subtext_and_mood_are_annotated(
         self,
         app_client: AsyncClient,
@@ -482,6 +523,59 @@ class TestScreenplayGeneration:
         assert resp.status_code == 200
         assert resp.json()["id"] == "sc_001"
         assert resp.json()["beats"]
+
+    async def test_get_scene_trace_resolves_source_paragraphs(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        await app_client.post(f"/api/v1/projects/{project_id}/screenplay:generate")
+
+        resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/sc_001/trace"
+        )
+
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload["scene_id"] == "sc_001"
+        assert payload["source_ref"] == {"chapter": 1, "paragraphs": [1, 2]}
+        assert payload["paragraphs"] == [
+            {"index": 1, "text": "Lin Wan opened the archive."},
+            {"index": 2, "text": "Chen Mo watched Lin Wan hide the letter."},
+        ]
+        assert payload["beats"]
+        assert all("beat_index" in item for item in payload["beats"])
+        assert payload["beats"][0]["source_ref"] == payload["source_ref"]
+        assert payload["beats"][0]["flag"] in {"from_source", "ai_inferred"}
+
+    async def test_get_scene_trace_missing_scene_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        await app_client.post(f"/api/v1/projects/{project_id}/screenplay:generate")
+
+        resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/missing/trace"
+        )
+
+        assert resp.status_code == 404
+
+    async def test_get_scene_trace_missing_screenplay_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/sc_001/trace"
+        )
+
+        assert resp.status_code == 404
+
+    async def test_get_scene_trace_missing_project_returns_404(
+        self, app_client: AsyncClient
+    ) -> None:
+        resp = await app_client.get(
+            "/api/v1/projects/missing/screenplay/scenes/sc_001/trace"
+        )
+
+        assert resp.status_code == 404
 
     async def test_generate_after_outlined_project_updates_state(
         self, app_client: AsyncClient, project_id: str
