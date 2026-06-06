@@ -19,7 +19,11 @@ export function SidebarProvider({
 }: React.ComponentProps<"div"> & {
   defaultOpen?: boolean;
 }): React.ReactElement {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useState(() =>
+    typeof window === "undefined"
+      ? defaultOpen
+      : window.matchMedia("(min-width: 768px)").matches && defaultOpen,
+  );
   const value = useMemo(
     () => ({
       open,
@@ -35,7 +39,7 @@ export function SidebarProvider({
         data-sidebar-open={open}
         data-slot="sidebar-provider"
         className={cn(
-          "flex min-h-dvh bg-background text-foreground dark:bg-sidebar",
+          "flex h-dvh min-h-0 overflow-hidden bg-background text-foreground dark:bg-sidebar",
           className,
         )}
         {...props}
@@ -236,7 +240,7 @@ export function SidebarInset({
     <div
       data-slot="sidebar-inset"
       className={cn(
-        "flex min-w-0 flex-1 flex-col bg-sidebar dark:bg-background",
+        "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-sidebar dark:bg-background",
         "md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:overflow-hidden md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm",
         className,
       )}
