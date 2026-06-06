@@ -106,6 +106,55 @@
     "chapterActions": "Chapter actions",
     "newMergedTitle": "Merged chapter"
   },
+  "analysis": {
+    "navLabel": "Understanding substeps",
+    "locked": "Complete the previous step first",
+    "stepOf": "Step {{current}}/{{total}}",
+    "currentStatus": "Current status",
+    "backToUnderstanding": "Back to understanding",
+    "backToCharacters": "Back to character profiles",
+    "steps": {
+      "understanding": "Understanding",
+      "characters": "Character profiles",
+      "intent": "Intent & direction"
+    },
+    "status": {
+      "empty": "Not generated",
+      "draft": "Draft",
+      "confirmed": "Confirmed",
+      "needs_recompute": "Needs recompute"
+    },
+    "understanding": {
+      "title": "Work understanding",
+      "description": "Generate the prerequisite understanding before the author confirms the storyline, themes, motivations, and adaptation difficulty.",
+      "thresholdTitle": "Not enough chapters",
+      "thresholdDescription": "Work understanding requires at least {{min}} source chapters. Return to import and add more chapters first.",
+      "cardTitle": "Understanding artifact",
+      "cardDescription": "A later PR will connect generation, editing, read-only trust signals, and confirmation here.",
+      "emptyTitle": "No understanding generated",
+      "emptyDescription": "A later PR will add the generate action here. This PR only scaffolds routing and gates."
+    },
+    "characters": {
+      "title": "Character profiles",
+      "description": "Character profiles are generated after understanding is confirmed and constrain downstream behavior, dialogue, and relationship changes.",
+      "lockedTitle": "Confirm understanding first",
+      "lockedDescription": "The frontend locks this step for the P1 flow: continue only after the understanding artifact is confirmed.",
+      "cardTitle": "Character profile artifact",
+      "cardDescription": "A later PR will connect generation, role grouping, add/edit/delete, and confirmation here.",
+      "emptyTitle": "No character profiles generated",
+      "emptyDescription": "After understanding is confirmed, a later PR will add the character profile generation entry here."
+    },
+    "intent": {
+      "title": "Author intent & direction",
+      "description": "Author intent is filled after character profiles are confirmed and combined with adaptation direction for downstream conflict checks.",
+      "lockedTitle": "Confirm character profiles first",
+      "lockedDescription": "The frontend locks this step for the P1 flow: continue only after the character profile artifact is confirmed.",
+      "cardTitle": "Author intent artifact",
+      "cardDescription": "A later PR will connect intent constraints, direction selection, conflict validation, and the outline CTA here.",
+      "emptyTitle": "No author intent saved",
+      "emptyDescription": "After character profiles are confirmed, a later PR will add the intent form and direction selection here."
+    }
+  },
   "pages": {
     "import": {
       "milestone": "M1",

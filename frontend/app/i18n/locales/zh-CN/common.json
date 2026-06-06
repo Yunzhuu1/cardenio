@@ -106,6 +106,55 @@
     "chapterActions": "章节操作",
     "newMergedTitle": "合并章节"
   },
+  "analysis": {
+    "navLabel": "理解阶段子步骤",
+    "locked": "请先完成上一步",
+    "stepOf": "第 {{current}}/{{total}} 步",
+    "currentStatus": "当前状态",
+    "backToUnderstanding": "返回作品理解",
+    "backToCharacters": "返回人物档案",
+    "steps": {
+      "understanding": "作品理解",
+      "characters": "人物档案",
+      "intent": "意图与方向"
+    },
+    "status": {
+      "empty": "未生成",
+      "draft": "草稿",
+      "confirmed": "已确认",
+      "needs_recompute": "需重新生成"
+    },
+    "understanding": {
+      "title": "作品理解",
+      "description": "生成前置理解后，作者会在下一步确认主线、主题、人物动机和改编难点。",
+      "thresholdTitle": "章节数量不足",
+      "thresholdDescription": "作品理解需要至少 {{min}} 章原文。请先回到导入阶段补足章节。",
+      "cardTitle": "作品理解工件",
+      "cardDescription": "后续 PR 会在此接入生成、编辑、只读信任信号与确认操作。",
+      "emptyTitle": "尚未生成作品理解",
+      "emptyDescription": "后续 PR 会在此提供生成按钮。当前 PR 只搭建路由和门控骨架。"
+    },
+    "characters": {
+      "title": "人物档案",
+      "description": "人物档案必须在作品理解确认后生成，用于约束后续人物行为、对白和关系变化。",
+      "lockedTitle": "请先确认作品理解",
+      "lockedDescription": "人物档案步骤由前端按 P1 流程锁定：作品理解工件达到已确认后才可继续。",
+      "cardTitle": "人物档案工件",
+      "cardDescription": "后续 PR 会在此接入生成、按角色分类、增删改和确认操作。",
+      "emptyTitle": "尚未生成人物档案",
+      "emptyDescription": "理解确认后，后续 PR 会在此提供生成人物档案入口。"
+    },
+    "intent": {
+      "title": "作者意图与改编方向",
+      "description": "作者意图必须在人物档案确认后填写，并与改编方向一起用于下游冲突校验。",
+      "lockedTitle": "请先确认人物档案",
+      "lockedDescription": "意图步骤由前端按 P1 流程锁定：人物档案工件达到已确认后才可继续。",
+      "cardTitle": "作者意图工件",
+      "cardDescription": "后续 PR 会在此接入意图约束、方向选择、冲突校验和进入大纲 CTA。",
+      "emptyTitle": "尚未保存作者意图",
+      "emptyDescription": "人物档案确认后，后续 PR 会在此提供意图表单和方向选择。"
+    }
+  },
   "pages": {
     "import": {
       "milestone": "M1",

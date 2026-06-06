@@ -11,7 +11,11 @@ export default [
     route("projects/:projectId", "routes/project-layout.tsx", [
       index("routes/project-index.tsx"),
       route("import", "routes/project-import.tsx"),
-      route("analysis", "routes/project-analysis.tsx"),
+      route("analysis", "routes/analysis-layout.tsx", [
+        index("routes/analysis-understanding.tsx"),
+        route("characters", "routes/analysis-characters.tsx"),
+        route("intent", "routes/analysis-intent.tsx"),
+      ]),
       route("outline", "routes/project-outline.tsx"),
       route("script", "routes/project-script.tsx"),
       route("editor", "routes/project-editor.tsx"),

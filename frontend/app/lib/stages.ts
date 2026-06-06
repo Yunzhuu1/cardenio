@@ -24,6 +24,17 @@ export function stagePath(projectId: string, segment: string): string {
   return `/projects/${projectId}/${segment}`;
 }
 
+export type AnalysisStep = "understanding" | "characters" | "intent";
+
+export function analysisStepPath(
+  projectId: string,
+  step: AnalysisStep,
+): string {
+  const base = stagePath(projectId, "analysis");
+  if (step === "understanding") return base;
+  return `${base}/${step}`;
+}
+
 const stateOrder: ProjectState[] = [
   "empty",
   "imported",
