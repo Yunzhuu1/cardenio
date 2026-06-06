@@ -5,6 +5,7 @@ import type { ProjectSummary } from "~/lib/api/types";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -71,7 +72,9 @@ export function AppSidebar({
             </nav>
           </SidebarGroupContent>
         </SidebarGroup>
+      </SidebarContent>
 
+      <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -83,7 +86,7 @@ export function AppSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-      </SidebarContent>
+      </SidebarFooter>
     </Sidebar>
   );
 }
