@@ -25,12 +25,12 @@ export function AppSidebar({
   return (
     <Sidebar>
       <SidebarHeader>
-        <div className="flex items-baseline gap-1.5 text-sidebar-foreground">
-          <span className="[font-family:var(--font-brand-latin)] text-[1.35rem] font-light italic leading-none">
+        <div className="flex items-baseline gap-2 text-sidebar-foreground">
+          <span className="[font-family:var(--font-brand-latin)] text-[1.75rem] font-light italic leading-none">
             {brandLatin}
           </span>
           {brandCjk && (
-            <span className="[font-family:var(--font-brand-cjk)] text-sm font-normal leading-none">
+            <span className="[font-family:var(--font-brand-cjk)] text-base font-normal leading-none">
               {brandCjk}
             </span>
           )}
