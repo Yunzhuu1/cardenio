@@ -459,7 +459,8 @@ pnpm preview
 - `@base-ui/react`、`class-variance-authority`、`clsx`、`tailwind-merge`、`lucide-react`：coss Button 及本地 UI 组件所需的组合、样式和图标依赖。
 - `i18next`、`react-i18next`、`i18next-browser-languagedetector`：UI Language 的国际化骨架。Source Language 与 Output Language 当前仅作为数据类型预留。
 - ESLint、typescript-eslint、eslint-plugin-react-hooks、eslint-plugin-react-refresh、eslint-config-prettier、Prettier：前端 lint、类型风格约束和格式化。
-- `@fontsource/ibm-plex-sans`、`@fontsource/courier-prime`：轻量西文字体包。CJK 字体当前只声明 `Source Han Sans SC` / `Noto Sans SC` / `Noto Serif SC` family stack 并依赖系统或后续子集化交付；完整 CJK 字体子集化仍是后续工作。
+- `@fontsource/ibm-plex-sans`、`@fontsource/courier-prime`、`@fontsource/cormorant-garamond`：轻量西文字体包。侧边栏品牌西文使用 Cormorant Garamond 300 italic。
+- ZeoSeven Fonts 的 `LXGW WenKai`（霞鹜文楷）CSS：侧边栏品牌中文使用 400 normal，运行时从 `https://fontsapi.zeoseven.com/292/main/result.css` 加载。CJK 正文字体当前只声明 `Source Han Sans SC` / `Noto Sans SC` / `Noto Serif SC` family stack 并依赖系统或后续子集化交付；完整 CJK 字体子集化仍是后续工作。
 - lefthook：本地 Git hooks 管理。
 
 当前 `frontend/` 中的产品文案、设计令牌、主题实现、i18n 资源和演示首页为本项目原创实现。第三方 CLI 生成的 coss/shadcn 基座仅作为通用 UI 基础设施，不代表产品原创业务功能。本地侧边栏 primitive 按 coss Sidebar 文档的组件结构与命名约定实现，用于应用外壳导航组合，不包含 Cardenio 的业务逻辑。

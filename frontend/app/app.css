@@ -53,6 +53,8 @@
     "IBM Plex Sans", "Noto Sans SC", ui-sans-serif, sans-serif, system-ui;
   --font-serif: "Courier Prime", "Noto Serif SC", ui-serif, serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-brand-latin: "Cormorant Garamond", ui-serif, serif;
+  --font-brand-cjk: "LXGW WenKai", "Noto Serif SC", ui-serif, serif;
   --radius: 0.5rem;
   --shadow-x: 0px;
   --shadow-y: 4px;

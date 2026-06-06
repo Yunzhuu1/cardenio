@@ -20,12 +20,20 @@ export function AppSidebar({
   projects: ProjectSummary[];
 }): React.ReactElement {
   const { t } = useTranslation();
+  const [brandLatin, brandCjk] = t("app.name").split(" ");
 
   return (
     <Sidebar>
       <SidebarHeader>
-        <div className="text-sm font-semibold text-sidebar-foreground">
-          {t("app.name")}
+        <div className="flex items-baseline gap-1.5 text-sidebar-foreground">
+          <span className="[font-family:var(--font-brand-latin)] text-[1.35rem] font-light italic leading-none">
+            {brandLatin}
+          </span>
+          {brandCjk && (
+            <span className="[font-family:var(--font-brand-cjk)] text-sm font-normal leading-none">
+              {brandCjk}
+            </span>
+          )}
         </div>
       </SidebarHeader>
 
