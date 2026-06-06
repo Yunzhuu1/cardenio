@@ -44,6 +44,31 @@
     "badge": "占位页",
     "note": "此功能尚在规划中，当前为路由骨架占位。"
   },
+  "import": {
+    "titleLabel": "章节标题",
+    "titlePlaceholder": "例如：第一章 风起",
+    "textLabel": "正文",
+    "textPlaceholder": "粘贴本章正文。段落之间请保留一个空行。",
+    "addChapter": "添加为新章节",
+    "chapterLabel": "第 {{n}} 章",
+    "charCount": "{{count}} 字",
+    "paragraphCount": "{{count}} 段",
+    "delete": "删除",
+    "deleteConfirm": "确定删除这一章？此操作无法撤销。",
+    "deleteCancel": "取消",
+    "deleteConfirmAction": "确认删除",
+    "empty": "还没有章节。先粘贴一章原文，满足至少 3 章后即可进入理解阶段。",
+    "thresholdMet": "已满足 {{min}} 章门槛，可以进入下一步。",
+    "thresholdUnmet": "已 {{current}} 章，还需 {{need}} 章。",
+    "nextStep": "进入下一步",
+    "titleNotPersistedHint": "章节标题当前不会被后端持久保存，列表会按章节顺序显示本地化标题。",
+    "paragraphSpacingHint": "段落之间请空一行，以保留后续 source_ref 溯源粒度。",
+    "previewToggle": "查看原文",
+    "sourcePreview": "原文段落",
+    "addSuccess": "章节已添加",
+    "deleteSuccess": "章节已删除",
+    "actionError": "操作失败"
+  },
   "pages": {
     "import": {
       "milestone": "M1",

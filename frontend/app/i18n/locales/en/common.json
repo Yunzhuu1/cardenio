@@ -44,6 +44,31 @@
     "badge": "Placeholder",
     "note": "This feature is still planned; the page is a routing-scaffold placeholder."
   },
+  "import": {
+    "titleLabel": "Chapter title",
+    "titlePlaceholder": "For example: Chapter 1",
+    "textLabel": "Body text",
+    "textPlaceholder": "Paste this chapter. Keep one blank line between paragraphs.",
+    "addChapter": "Add as chapter",
+    "chapterLabel": "Chapter {{n}}",
+    "charCount": "{{count}} chars",
+    "paragraphCount": "{{count}} paragraphs",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this chapter? This action cannot be undone.",
+    "deleteCancel": "Cancel",
+    "deleteConfirmAction": "Delete chapter",
+    "empty": "No chapters yet. Paste the first source chapter; at least 3 chapters are required before the understanding stage.",
+    "thresholdMet": "The {{min}}-chapter threshold is met. You can continue.",
+    "thresholdUnmet": "{{current}} chapters added. {{need}} more needed.",
+    "nextStep": "Continue",
+    "titleNotPersistedHint": "Chapter titles are not persisted by the backend yet; the list uses localized titles derived from chapter order.",
+    "paragraphSpacingHint": "Keep a blank line between paragraphs to preserve source_ref granularity later.",
+    "previewToggle": "View source",
+    "sourcePreview": "Source paragraphs",
+    "addSuccess": "Chapter added",
+    "deleteSuccess": "Chapter deleted",
+    "actionError": "Action failed"
+  },
   "pages": {
     "import": {
       "milestone": "M1",
