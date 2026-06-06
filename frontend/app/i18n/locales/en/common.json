@@ -536,6 +536,25 @@
       "annotation": "Annotation",
       "unknown": "Option"
     },
+    "filter": {
+      "label": "Beat source filter",
+      "description": "Filtering highlights matching beats in the loaded screenplay without refetching the full draft.",
+      "all": "All",
+      "from_source": "Source only",
+      "ai_inferred": "AI inferred only",
+      "noSceneMatches": "This scene has no beats matching the current filter."
+    },
+    "aiList": {
+      "title": "AI inferred content list",
+      "description": "Review beats the backend marked as AI inferred in one place.",
+      "count": "{{count}} AI inferred items",
+      "empty": "This screenplay has no AI inferred beats.",
+      "refresh": "Refresh list",
+      "refreshSuccess": "AI inferred content list refreshed",
+      "review": "Review",
+      "itemTitle": "{{sceneTitle}} · Beat {{number}}",
+      "unknownScene": "Unknown scene {{id}}"
+    },
     "fields": {
       "synopsis": "Synopsis",
       "goal": "Scene goal",

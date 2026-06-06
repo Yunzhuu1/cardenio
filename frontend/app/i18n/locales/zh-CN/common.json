@@ -536,6 +536,25 @@
       "annotation": "注释",
       "unknown": "方案"
     },
+    "filter": {
+      "label": "节拍来源筛选",
+      "description": "筛选只在当前已加载剧本中高亮匹配节拍，不会重新请求整稿。",
+      "all": "全部",
+      "from_source": "仅原文",
+      "ai_inferred": "仅 AI 新增",
+      "noSceneMatches": "本场没有匹配当前筛选的节拍。"
+    },
+    "aiList": {
+      "title": "AI 新增内容清单",
+      "description": "集中复查后端标记为 AI 新增的节拍。",
+      "count": "共 {{count}} 条 AI 新增内容",
+      "empty": "当前剧本没有 AI 新增节拍。",
+      "refresh": "刷新清单",
+      "refreshSuccess": "AI 新增内容清单已刷新",
+      "review": "定位复查",
+      "itemTitle": "{{sceneTitle}} · 第 {{number}} 个节拍",
+      "unknownScene": "未知场景 {{id}}"
+    },
     "fields": {
       "synopsis": "场景梗概",
       "goal": "场景目标",
