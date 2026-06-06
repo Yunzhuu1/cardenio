@@ -175,3 +175,72 @@ class TestAdaptationDirection:
             json={"direction": "faithful"},
         )
         assert resp.status_code == 404
+
+
+class TestIntentDirectionValidation:
+    """API-13: direction-intent conflicts are surfaced without blocking."""
+
+    async def test_faithful_direction_conflicts_with_new_ending(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        payload = intent_payload()
+        payload["allow_new_ending"] = True
+        await app_client.put(f"/api/v1/projects/{project_id}/intent", json=payload)
+        await app_client.put(
+            f"/api/v1/projects/{project_id}/intent/direction",
+            json={"direction": "faithful"},
+        )
+
+        resp = await app_client.post(f"/api/v1/projects/{project_id}/intent:validate")
+
+        assert resp.status_code == 200
+        conflicts = resp.json()["conflicts"]
+        assert any(
+            conflict["code"] == "faithful_vs_new_ending"
+            and conflict["fields"] == ["direction", "allow_new_ending"]
+            for conflict in conflicts
+        )
+
+    async def test_no_conflicts_returns_empty_list(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        payload = intent_payload()
+        payload["allow_reorder"] = True
+        payload["allow_new_ending"] = False
+        payload["allow_new_plot"] = False
+        await app_client.put(f"/api/v1/projects/{project_id}/intent", json=payload)
+        await app_client.put(
+            f"/api/v1/projects/{project_id}/intent/direction",
+            json={"direction": "cinematic"},
+        )
+
+        resp = await app_client.post(f"/api/v1/projects/{project_id}/intent:validate")
+
+        assert resp.status_code == 200
+        assert resp.json()["conflicts"] == []
+
+    async def test_short_drama_conflicts_when_reorder_is_disallowed(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        payload = intent_payload()
+        payload["allow_reorder"] = False
+        await app_client.put(f"/api/v1/projects/{project_id}/intent", json=payload)
+        await app_client.put(
+            f"/api/v1/projects/{project_id}/intent/direction",
+            json={"direction": "short_drama"},
+        )
+
+        resp = await app_client.post(f"/api/v1/projects/{project_id}/intent:validate")
+
+        assert resp.status_code == 200
+        assert resp.json()["conflicts"][0]["code"] == "short_drama_vs_no_reorder"
+
+    async def test_missing_intent_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        resp = await app_client.post(f"/api/v1/projects/{project_id}/intent:validate")
+        assert resp.status_code == 404
+
+    async def test_missing_project_returns_404(self, app_client: AsyncClient) -> None:
+        resp = await app_client.post("/api/v1/projects/missing/intent:validate")
+        assert resp.status_code == 404
