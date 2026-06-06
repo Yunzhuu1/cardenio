@@ -61,6 +61,13 @@ class SqliteArtifactStore:
     ) -> None:
         await self._projects.update_style_fingerprint(project_id, style_fingerprint)
 
+    async def update_project_adaptation_direction(
+        self, project_id: str, adaptation_direction: str
+    ) -> None:
+        await self._projects.update_adaptation_direction(
+            project_id, adaptation_direction
+        )
+
     async def list_projects(
         self, *, limit: int = 20, cursor: str | None = None
     ) -> list[dict[str, Any]]:
