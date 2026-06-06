@@ -122,6 +122,10 @@ class SqliteArtifactStore:
         """Delete all paragraphs for a chapter. Returns count deleted."""
         return await self._artifacts.delete_paragraphs(project_id, chapter_id)
 
+    async def delete_all_paragraphs(self, project_id: str) -> int:
+        """Delete all source paragraphs for a project."""
+        return await self._artifacts.delete_all_paragraphs(project_id)
+
     async def get_paragraphs(
         self, project_id: str, chapter_id: str | None = None
     ) -> list[dict[str, Any]]:
