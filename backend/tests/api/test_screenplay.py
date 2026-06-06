@@ -338,6 +338,68 @@ class TestScreenplayGeneration:
         assert payload["items"][0]["beat_index"] == 0
         assert payload["items"][0]["beat"]["flag"] == "ai_inferred"
 
+    async def test_must_keep_lines_are_verbatim_from_source_dialogue(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id, set_intent=True)
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+
+        assert resp.status_code == 202
+        dialogues = [
+            beat
+            for scene in resp.json()["data"]["scenes"]
+            for beat in scene["beats"]
+            if beat["type"] == "dialogue"
+        ]
+        kept = [
+            beat
+            for beat in dialogues
+            if beat["dialogue"] == intent_payload()["must_keep_lines"][0]
+        ]
+        assert kept
+        assert kept[0]["source_ref"]["paragraphs"]
+        assert kept[0]["flag"] == "from_source"
+
+    async def test_dialogue_without_source_ref_gets_scene_trace_and_ai_flag(
+        self,
+        app_client: AsyncClient,
+        project_id: str,
+        stub_gateway: StubLlmGateway,
+    ) -> None:
+        outline = await generate_confirmed_outline(app_client, project_id)
+        scene = outline["data"]["scenes"][0]
+        stub_gateway.fixtures = {
+            **stub_gateway.fixtures,
+            "scene": {
+                "scenes": [
+                    {
+                        **scene,
+                        "beats": [
+                            {
+                                "type": "dialogue",
+                                "character": scene["characters"][0],
+                                "dialogue": "This line is newly inferred.",
+                            },
+                        ],
+                    }
+                ],
+                "shot_hints": {"enabled": False},
+            },
+        }
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+
+        assert resp.status_code == 202
+        dialogue = resp.json()["data"]["scenes"][0]["beats"][0]
+        assert dialogue["type"] == "dialogue"
+        assert dialogue["source_ref"] == scene["source_ref"]
+        assert dialogue["flag"] == "ai_inferred"
+
     async def test_get_single_screenplay_scene(
         self, app_client: AsyncClient, project_id: str
     ) -> None:
