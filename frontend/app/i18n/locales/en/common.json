@@ -11,6 +11,67 @@
     "scriptText": "INT. STUDY DOORWAY - NIGHT. She grips the handle, then stops. Rain cuts the voices inside into fragments.",
     "note": "AI-added staging is marked so the author can confirm it scene by scene."
   },
+  "steps": {
+    "import": "Import",
+    "analysis": "Understanding",
+    "outline": "Outline",
+    "script": "Screenplay",
+    "editor": "Editing",
+    "report": "Report"
+  },
+  "state": {
+    "empty": "Empty",
+    "imported": "Source imported",
+    "understood": "Understanding generated",
+    "profiled": "Profiles generated",
+    "intent_set": "Intent set",
+    "outlined": "Outline generated",
+    "generated": "Draft generated",
+    "editing": "Editing",
+    "report": "Report generated",
+    "exported": "Exported"
+  },
+  "placeholder": {
+    "badge": "Placeholder",
+    "note": "This feature is still planned; the page is a routing-scaffold placeholder."
+  },
+  "pages": {
+    "import": {
+      "milestone": "M1",
+      "title": "Import & Preprocessing",
+      "description": "Paste or upload TXT/DOCX novels, split by chapter, and validate at least 3 chapters before continuing."
+    },
+    "analysis": {
+      "milestone": "M2 · M3",
+      "title": "Understanding & Character Profiles",
+      "description": "Generate editable story understanding, character profiles, author intent, and adaptation direction—understand first, then adapt."
+    },
+    "outline": {
+      "milestone": "M4",
+      "title": "Scene Outline",
+      "description": "Generate a per-scene outline with source_ref bindings; add, remove, reorder, and edit fields."
+    },
+    "script": {
+      "milestone": "M5",
+      "title": "Screenplay Generation",
+      "description": "Translate the outline into a YAML screenplay: externalization, dialogue scripting, added-content flags, and line-level sourcing."
+    },
+    "editor": {
+      "milestone": "M6",
+      "title": "Editing Workbench",
+      "description": "Side-by-side source vs. screenplay, scoped regeneration, WYSIWYG editing, and TODO markers."
+    },
+    "report": {
+      "milestone": "M7",
+      "title": "Adaptation Report",
+      "description": "Summarize kept/cut/merged/added/externalized changes, consistent with screenplay flags, each traceable to the source."
+    },
+    "settings": {
+      "milestone": "M8",
+      "title": "Project Settings",
+      "description": "Privacy and no-training commitment, shot-hint defaults, storage region, and other project-level settings."
+    }
+  },
   "trust": {
     "source": "source_ref: ch3.p18",
     "inferred": "AI inferred",
