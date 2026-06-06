@@ -89,12 +89,13 @@ Commit subjects must be written in ASCII English. Do not use full-width punctuat
 When creating or helping write a PR, ensure:
 
 - The PR title states in one sentence what was added or changed.
+- The PR title must follow the same Conventional Commits format used for commit messages.
 - The PR description is not blank.
 - The PR description matches the actual code changes.
 - The PR covers only one feature or one clearly bounded change.
 - The main branch will remain runnable after the PR is merged.
 
-The PR description must use this structure:
+The PR description must use the repository template at [`pull_request_template.md`](.github/pull_request_template.md), whose required structure is:
 
 ```markdown
 ## 功能描述
