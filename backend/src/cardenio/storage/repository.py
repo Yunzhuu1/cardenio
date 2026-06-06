@@ -40,6 +40,14 @@ class ProjectRepository:
             project.state = state
             await self.session.flush()
 
+    async def update_style_fingerprint(
+        self, project_id: str, style_fingerprint: str
+    ) -> None:
+        project = await self.get(project_id)
+        if project:
+            project.style_fingerprint = style_fingerprint
+            await self.session.flush()
+
     async def list_projects(
         self, *, limit: int = 20, cursor: str | None = None
     ) -> list[ProjectModel]:

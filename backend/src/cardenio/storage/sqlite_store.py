@@ -56,6 +56,11 @@ class SqliteArtifactStore:
     async def update_project_state(self, project_id: str, state: ProjectState) -> None:
         await self._projects.update_state(project_id, state.value)
 
+    async def update_project_style_fingerprint(
+        self, project_id: str, style_fingerprint: str
+    ) -> None:
+        await self._projects.update_style_fingerprint(project_id, style_fingerprint)
+
     async def list_projects(
         self, *, limit: int = 20, cursor: str | None = None
     ) -> list[dict[str, Any]]:
