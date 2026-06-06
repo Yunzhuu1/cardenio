@@ -149,6 +149,44 @@ async def generate_confirmed_outline_with_non_visualizable_mark(
     assert outline_confirm_resp.status_code == 200
 
 
+async def generate_confirmed_outline_with_custom_voice(
+    app_client: AsyncClient,
+    project_id: str,
+) -> None:
+    await add_screenplay_source(app_client, project_id)
+    understanding_resp = await app_client.post(
+        f"/api/v1/projects/{project_id}/understanding:generate"
+    )
+    assert understanding_resp.status_code == 202
+    understanding_confirm_resp = await app_client.post(
+        f"/api/v1/projects/{project_id}/understanding:confirm"
+    )
+    assert understanding_confirm_resp.status_code == 200
+    characters_resp = await app_client.post(
+        f"/api/v1/projects/{project_id}/characters:generate"
+    )
+    assert characters_resp.status_code == 202
+    character = characters_resp.json()["data"]["characters"][0]
+    character["voice"] = "Quiet, clipped, avoids direct answers."
+    update_resp = await app_client.put(
+        f"/api/v1/projects/{project_id}/characters/{character['id']}",
+        json=character,
+    )
+    assert update_resp.status_code == 200
+    characters_confirm_resp = await app_client.post(
+        f"/api/v1/projects/{project_id}/characters:confirm"
+    )
+    assert characters_confirm_resp.status_code == 200
+    outline_resp = await app_client.post(
+        f"/api/v1/projects/{project_id}/outline:generate"
+    )
+    assert outline_resp.status_code == 202
+    outline_confirm_resp = await app_client.post(
+        f"/api/v1/projects/{project_id}/outline:confirm"
+    )
+    assert outline_confirm_resp.status_code == 200
+
+
 class TestScreenplayGeneration:
     """API-17/18: confirmed outline generates a structured screenplay draft."""
 
@@ -227,6 +265,23 @@ class TestScreenplayGeneration:
             "dialogue",
             "annotation",
         }
+
+    async def test_dialogue_uses_character_voice_fingerprint(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline_with_custom_voice(app_client, project_id)
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+
+        assert resp.status_code == 202
+        beats = resp.json()["data"]["scenes"][0]["beats"]
+        dialogue = next(beat for beat in beats if beat["type"] == "dialogue")
+        assert dialogue["parenthetical"] == "(quiet, clipped)"
+        assert dialogue["dialogue"].startswith("Enough.")
+        assert len(dialogue["dialogue"]) <= 88
+        assert "Voice: Quiet, clipped, avoids direct answers." in dialogue["subtext"]
 
     async def test_get_single_screenplay_scene(
         self, app_client: AsyncClient, project_id: str

@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from cardenio.api.deps import get_artifact_store, get_gateway
 from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, Flag, ProjectState
+from cardenio.domain.models.characters import CharactersData
 from cardenio.domain.models.outline import OutlineData, OutlineScene
 from cardenio.domain.models.screenplay import Beat, BeatType, ScreenplayData, ScreenplayScene
 from cardenio.domain.models.understanding import NonVisualizableMark, UnderstandingData
@@ -41,15 +42,24 @@ async def generate_screenplay(
         if understanding_artifact is not None
         else None
     )
+    characters_artifact = await store.get_artifact(project_id, "characters")
+    characters = (
+        CharactersData.model_validate(characters_artifact.data)
+        if characters_artifact is not None
+        else None
+    )
+    character_voices = _character_voices(characters)
     result = await gateway.generate(
         GenerateRequest(
             task="scene",
             system_constraints=SystemConstraints(
                 style_fingerprint=project["style_fingerprint"],
+                voice=character_voices,
                 shot_hints_enabled=False,
             ),
             context=[
                 {"type": "outline", "data": outline.model_dump(mode="json")},
+                {"type": "character_voices", "data": character_voices},
                 {
                     "type": "non_visualizable",
                     "data": [
@@ -64,7 +74,7 @@ async def generate_screenplay(
         )
     )
     data = ScreenplayData.model_validate(
-        _with_screenplay_defaults(result.data, outline, understanding)
+        _with_screenplay_defaults(result.data, outline, understanding, character_voices)
     )
     previous = await store.get_artifact(project_id, "screenplay")
     envelope = ArtifactEnvelope[ScreenplayData](
@@ -198,6 +208,7 @@ def _with_screenplay_defaults(
     generated: dict[str, Any],
     outline: OutlineData,
     understanding: UnderstandingData | None,
+    character_voices: dict[str, str],
 ) -> dict[str, Any]:
     if generated.get("scenes"):
         return generated
@@ -206,6 +217,7 @@ def _with_screenplay_defaults(
             _scene_from_outline(
                 scene,
                 _matching_non_visualizable_marks(scene, understanding),
+                character_voices,
             )
             for scene in outline.scenes
         ],
@@ -216,6 +228,7 @@ def _with_screenplay_defaults(
 def _scene_from_outline(
     scene: OutlineScene,
     non_visualizable: list[NonVisualizableMark],
+    character_voices: dict[str, str],
 ) -> dict[str, Any]:
     screenplay_scene = ScreenplayScene(
         id=scene.id,
@@ -229,7 +242,7 @@ def _scene_from_outline(
         foreshadowing=scene.foreshadowing,
         relation_changes=scene.relation_changes,
         ending_state=scene.ending_state,
-        beats=_beats_from_outline(scene, non_visualizable),
+        beats=_beats_from_outline(scene, non_visualizable, character_voices),
     )
     return screenplay_scene.model_dump(mode="json")
 
@@ -237,6 +250,7 @@ def _scene_from_outline(
 def _beats_from_outline(
     scene: OutlineScene,
     non_visualizable: list[NonVisualizableMark],
+    character_voices: dict[str, str],
 ) -> list[Beat]:
     beats = [
         Beat(
@@ -248,13 +262,15 @@ def _beats_from_outline(
         )
     ]
     if scene.characters:
+        character_id = scene.characters[0]
+        voice = character_voices.get(character_id)
         beats.append(
             Beat(
                 type=BeatType.DIALOGUE,
-                character=scene.characters[0],
-                parenthetical="(keeps control)",
-                dialogue=_dialogue_text(scene),
-                subtext=scene.goal,
+                character=character_id,
+                parenthetical=_parenthetical_for_voice(voice),
+                dialogue=_dialogue_text(scene, voice),
+                subtext=_dialogue_subtext(scene, voice),
                 source_ref=scene.source_ref,
                 flag=Flag.FROM_SOURCE,
             )
@@ -271,6 +287,16 @@ def _beats_from_outline(
     for mark in non_visualizable:
         beats.append(_externalization_note(scene, mark))
     return beats
+
+
+def _character_voices(characters: CharactersData | None) -> dict[str, str]:
+    if characters is None:
+        return {}
+    return {
+        character.id: character.voice
+        for character in characters.characters
+        if character.voice.strip()
+    }
 
 
 def _matching_non_visualizable_marks(
@@ -331,10 +357,59 @@ def _action_text(scene: OutlineScene) -> str:
     )
 
 
-def _dialogue_text(scene: OutlineScene) -> str:
+def _dialogue_text(scene: OutlineScene, voice: str | None) -> str:
+    pressure = _dialogue_pressure(scene)
+    if _prefers_indirect_voice(voice):
+        return f"You already know {pressure}."
+    if _prefers_clipped_voice(voice):
+        return f"Enough. {pressure}."
+    return f"We face it now: {pressure}."
+
+
+def _dialogue_pressure(scene: OutlineScene) -> str:
     if scene.conflict:
-        return f"We cannot ignore this: {scene.conflict}"
-    return "We need to decide before this goes further."
+        return _compact_sentence(scene.conflict)
+    if scene.goal:
+        return _compact_sentence(scene.goal)
+    return "this cannot wait"
+
+
+def _compact_sentence(text: str) -> str:
+    cleaned = text.strip().rstrip(".")
+    if len(cleaned) <= 72:
+        return cleaned
+    return f"{cleaned[:69].rstrip()}..."
+
+
+def _parenthetical_for_voice(voice: str | None) -> str | None:
+    if voice is None:
+        return "(plain)"
+    lowered = voice.lower()
+    if "quiet" in lowered or "clipped" in lowered or "restrained" in lowered:
+        return "(quiet, clipped)"
+    if "indirect" in lowered:
+        return "(indirect)"
+    return "(in character)"
+
+
+def _dialogue_subtext(scene: OutlineScene, voice: str | None) -> str:
+    parts = []
+    if scene.goal:
+        parts.append(scene.goal)
+    if voice:
+        parts.append(f"Voice: {voice}")
+    return "; ".join(parts) if parts else "Voice-constrained spoken line."
+
+
+def _prefers_indirect_voice(voice: str | None) -> bool:
+    return voice is not None and "indirect" in voice.lower()
+
+
+def _prefers_clipped_voice(voice: str | None) -> bool:
+    if voice is None:
+        return False
+    lowered = voice.lower()
+    return "clipped" in lowered or "quiet" in lowered or "restrained" in lowered
 
 
 def _ending_action(scene: OutlineScene) -> str:
