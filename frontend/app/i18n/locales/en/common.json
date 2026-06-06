@@ -463,6 +463,90 @@
       "ending_state": "Ending state"
     }
   },
+  "script": {
+    "status": {
+      "empty": "Not generated",
+      "draft": "Draft",
+      "confirmed": "Confirmed",
+      "needs_recompute": "Needs recompute"
+    },
+    "lockedTitle": "Confirm the scene outline first",
+    "lockedDescription": "Screenplay draft generation requires the scene outline artifact to be confirmed. Return to the outline step and confirm it first.",
+    "outlineCta": "Back to scene outline",
+    "gateBlocked": "The backend still requires a confirmed scene outline. Return to the outline step and confirm before generating.",
+    "emptyTitle": "No screenplay draft generated",
+    "emptyDescription": "Generate a structured screenplay from the confirmed outline, including action, dialogue, subtext, source markers, and TODO blanks.",
+    "generate": "Generate screenplay draft",
+    "generateSuccess": "Screenplay draft generated",
+    "regenerate": "Regenerate",
+    "regenerateTitle": "Regenerate screenplay draft?",
+    "regenerateDescription": "Regeneration overwrites the current screenplay content and keeps it in draft state.",
+    "regenerateConfirm": "Regenerate",
+    "cancel": "Cancel",
+    "actionError": "Action failed",
+    "cardTitle": "Screenplay artifact",
+    "cardDescription": "{{sceneCount}} scenes, {{beatCount}} beats. This is a read-only structured viewer.",
+    "shotHintsLabel": "Generate shot hints",
+    "shotHintsDescription": "Shot sizes and camera movement are generated as suggestions only. This switch only affects the current generation.",
+    "shotHintsState": "Current shot hints: {{state}}",
+    "shotHintsOn": "On",
+    "shotHintsOff": "Off",
+    "editorCta": "Continue to editing workbench",
+    "sceneNumber": "Scene {{number}}",
+    "sourceRef": "Chapter {{chapter}} · Paragraphs {{paragraphs}}",
+    "noSourceRef": "No source_ref",
+    "emptyField": "Not filled",
+    "characterSeparator": ", ",
+    "subtext": "Subtext",
+    "source": "Source",
+    "todoBadge": "TODO",
+    "noteTitle": "Adaptation note",
+    "optionsToggle": "Externalization options ({{count}})",
+    "dialogueSuffix": {
+      "voice_over": "V.O.",
+      "off_screen": "O.S."
+    },
+    "int_ext": {
+      "INT": "Interior",
+      "EXT": "Exterior"
+    },
+    "time": {
+      "DAY": "Day",
+      "NIGHT": "Night",
+      "DAWN": "Dawn",
+      "DUSK": "Dusk"
+    },
+    "beatTypes": {
+      "action": "Action",
+      "dialogue": "Dialogue",
+      "voice_over": "Voice-over",
+      "off_screen": "Off-screen",
+      "note": "Note",
+      "todo": "TODO"
+    },
+    "flags": {
+      "from_source": "From source",
+      "ai_inferred": "AI inferred",
+      "unknown": "Unmarked"
+    },
+    "optionKinds": {
+      "voice_over": "Voice-over",
+      "action": "Action",
+      "dialogue": "Dialogue",
+      "annotation": "Annotation",
+      "unknown": "Option"
+    },
+    "fields": {
+      "synopsis": "Synopsis",
+      "goal": "Scene goal",
+      "conflict": "Conflict",
+      "mood": "Mood",
+      "characters": "Characters",
+      "foreshadowing": "Foreshadowing",
+      "relation_changes": "Relationship changes",
+      "ending_state": "Ending state"
+    }
+  },
   "pages": {
     "import": {
       "milestone": "M1",

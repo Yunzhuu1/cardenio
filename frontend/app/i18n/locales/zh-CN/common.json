@@ -463,6 +463,90 @@
       "ending_state": "结尾状态"
     }
   },
+  "script": {
+    "status": {
+      "empty": "未生成",
+      "draft": "草稿",
+      "confirmed": "已确认",
+      "needs_recompute": "需重新生成"
+    },
+    "lockedTitle": "请先确认分场大纲",
+    "lockedDescription": "剧本初稿需要在分场大纲工件达到已确认后生成。请先返回分场大纲步骤完成确认。",
+    "outlineCta": "返回分场大纲",
+    "gateBlocked": "后端仍要求先确认分场大纲。请返回大纲步骤确认后再生成。",
+    "emptyTitle": "尚未生成剧本初稿",
+    "emptyDescription": "基于已确认的分场大纲生成结构化剧本，包含动作、对白、潜台词、来源标记和留白。",
+    "generate": "生成剧本初稿",
+    "generateSuccess": "剧本初稿已生成",
+    "regenerate": "重新生成",
+    "regenerateTitle": "重新生成剧本初稿？",
+    "regenerateDescription": "重新生成会覆盖当前剧本内容，并保留为草稿状态。",
+    "regenerateConfirm": "确认重新生成",
+    "cancel": "取消",
+    "actionError": "操作失败",
+    "cardTitle": "剧本工件",
+    "cardDescription": "共 {{sceneCount}} 场，{{beatCount}} 个节拍。当前为只读结构化查看器。",
+    "shotHintsLabel": "生成镜头建议",
+    "shotHintsDescription": "景别和运镜只作为建议生成，可关闭；本开关仅影响本次生成结果。",
+    "shotHintsState": "当前镜头建议：{{state}}",
+    "shotHintsOn": "开",
+    "shotHintsOff": "关",
+    "editorCta": "进入打磨工作台",
+    "sceneNumber": "第 {{number}} 场",
+    "sourceRef": "第 {{chapter}} 章 · 第 {{paragraphs}} 段",
+    "noSourceRef": "无 source_ref",
+    "emptyField": "未填写",
+    "characterSeparator": "、",
+    "subtext": "潜台词",
+    "source": "来源",
+    "todoBadge": "待补充",
+    "noteTitle": "改编注释",
+    "optionsToggle": "心理外化方案（{{count}}）",
+    "dialogueSuffix": {
+      "voice_over": "V.O.",
+      "off_screen": "O.S."
+    },
+    "int_ext": {
+      "INT": "内景",
+      "EXT": "外景"
+    },
+    "time": {
+      "DAY": "日",
+      "NIGHT": "夜",
+      "DAWN": "黎明",
+      "DUSK": "黄昏"
+    },
+    "beatTypes": {
+      "action": "动作",
+      "dialogue": "对白",
+      "voice_over": "旁白",
+      "off_screen": "画外音",
+      "note": "注释",
+      "todo": "TODO"
+    },
+    "flags": {
+      "from_source": "原文已有",
+      "ai_inferred": "AI 新增",
+      "unknown": "未标注"
+    },
+    "optionKinds": {
+      "voice_over": "旁白",
+      "action": "动作",
+      "dialogue": "对白",
+      "annotation": "注释",
+      "unknown": "方案"
+    },
+    "fields": {
+      "synopsis": "场景梗概",
+      "goal": "场景目标",
+      "conflict": "冲突",
+      "mood": "情绪基调",
+      "characters": "出场人物",
+      "foreshadowing": "伏笔",
+      "relation_changes": "关系变化",
+      "ending_state": "结尾状态"
+    }
+  },
   "pages": {
     "import": {
       "milestone": "M1",
