@@ -25,7 +25,7 @@ export function AppSidebar({
   return (
     <Sidebar variant="inset">
       <SidebarHeader>
-        <div className="flex items-baseline gap-2 text-sidebar-foreground">
+        <div className="flex items-baseline gap-2 p-2 text-sidebar-foreground">
           <span className="[font-family:var(--font-brand-latin)] text-[1.75rem] font-light italic leading-none">
             {brandLatin}
           </span>
