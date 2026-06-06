@@ -24,6 +24,6 @@ export type ApiClient = {
   projects: ProjectsApi;
 };
 
-const mode = import.meta.env.VITE_API_MODE ?? "mock";
+const mode = import.meta.env.VITE_API_MODE ?? "http";
 
 export const api: ApiClient = mode === "http" ? httpClient : mockClient;
