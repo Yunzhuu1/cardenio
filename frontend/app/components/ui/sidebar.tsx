@@ -34,7 +34,10 @@ export function SidebarProvider({
       <div
         data-sidebar-open={open}
         data-slot="sidebar-provider"
-        className={cn("flex min-h-dvh bg-sidebar text-foreground", className)}
+        className={cn(
+          "flex min-h-dvh bg-background text-foreground",
+          className,
+        )}
         {...props}
       >
         {children}
@@ -65,7 +68,7 @@ export function Sidebar({
       data-variant={variant}
       data-slot="sidebar"
       className={cn(
-        "peer hidden w-64 shrink-0 flex-col gap-2 border-r border-sidebar-border bg-sidebar px-3 py-4 text-sidebar-foreground md:flex",
+        "peer hidden w-64 shrink-0 flex-col gap-2 border-r border-sidebar-border bg-background px-3 py-4 text-sidebar-foreground md:flex",
         variant === "inset" && "border-r-0",
         className,
       )}
@@ -230,7 +233,7 @@ export function SidebarInset({
     <div
       data-slot="sidebar-inset"
       className={cn(
-        "flex min-w-0 flex-1 flex-col bg-background",
+        "flex min-w-0 flex-1 flex-col bg-sidebar",
         "md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:overflow-hidden md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm",
         className,
       )}
