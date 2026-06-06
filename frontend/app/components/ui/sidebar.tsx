@@ -123,7 +123,7 @@ export function SidebarGroup({
   return (
     <div
       data-slot="sidebar-group"
-      className={cn("flex flex-col gap-1 p-2", className)}
+      className={cn("flex flex-col gap-1", className)}
       {...props}
     />
   );
