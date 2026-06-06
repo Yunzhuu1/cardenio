@@ -3,6 +3,8 @@
 import pytest
 from httpx import AsyncClient
 
+from cardenio.gateway.providers.stub import StubLlmGateway
+
 
 @pytest.fixture
 async def project_id(app_client: AsyncClient) -> str:
@@ -282,6 +284,59 @@ class TestScreenplayGeneration:
         assert dialogue["dialogue"].startswith("Enough.")
         assert len(dialogue["dialogue"]) <= 88
         assert "Voice: Quiet, clipped, avoids direct answers." in dialogue["subtext"]
+
+    async def test_ai_inferred_beats_are_forced_and_filterable(
+        self,
+        app_client: AsyncClient,
+        project_id: str,
+        stub_gateway: StubLlmGateway,
+    ) -> None:
+        outline = await generate_confirmed_outline(app_client, project_id)
+        scene = outline["data"]["scenes"][0]
+        stub_gateway.fixtures = {
+            **stub_gateway.fixtures,
+            "scene": {
+                "scenes": [
+                    {
+                        **scene,
+                        "beats": [
+                            {
+                                "type": "action",
+                                "text": "A new bridge beat not anchored in the source.",
+                            },
+                            {
+                                "type": "dialogue",
+                                "character": scene["characters"][0],
+                                "dialogue": "You hid this from me.",
+                                "source_ref": scene["source_ref"],
+                                "flag": "from_source",
+                            },
+                        ],
+                    }
+                ],
+                "shot_hints": {"enabled": False},
+            },
+        }
+
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        assert generate_resp.status_code == 202
+        beats = generate_resp.json()["data"]["scenes"][0]["beats"]
+        assert beats[0]["flag"] == "ai_inferred"
+        assert beats[1]["flag"] == "from_source"
+
+        filter_resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/screenplay/beats",
+            params={"flag": "ai_inferred"},
+        )
+
+        assert filter_resp.status_code == 200
+        payload = filter_resp.json()
+        assert payload["count"] == 1
+        assert payload["items"][0]["scene_id"] == scene["id"]
+        assert payload["items"][0]["beat_index"] == 0
+        assert payload["items"][0]["beat"]["flag"] == "ai_inferred"
 
     async def test_get_single_screenplay_scene(
         self, app_client: AsyncClient, project_id: str

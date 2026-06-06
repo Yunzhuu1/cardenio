@@ -14,6 +14,7 @@ from cardenio.domain.models.outline import OutlineData, OutlineScene
 from cardenio.domain.models.screenplay import Beat, BeatType, ScreenplayData, ScreenplayScene
 from cardenio.domain.models.understanding import NonVisualizableMark, UnderstandingData
 from cardenio.gateway.protocol import GenerateRequest, LlmGateway, SystemConstraints
+from cardenio.orchestrator.trust_enforcer import enforce_pipeline_trust
 from cardenio.storage.sqlite_store import SqliteArtifactStore
 
 router = APIRouter(prefix="/projects/{project_id}/screenplay")
@@ -76,6 +77,7 @@ async def generate_screenplay(
     data = ScreenplayData.model_validate(
         _with_screenplay_defaults(result.data, outline, understanding, character_voices)
     )
+    data = _enforce_screenplay_trust(data, outline)
     previous = await store.get_artifact(project_id, "screenplay")
     envelope = ArtifactEnvelope[ScreenplayData](
         type="screenplay",
@@ -144,10 +146,35 @@ async def update_scene(project_id: str, scene_id: str, body: dict) -> dict:
 
 @router.get("/beats")
 async def get_beats(
-    project_id: str, *, flag: str | None = None
+    project_id: str,
+    *,
+    flag: str | None = None,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
 ) -> dict:
     """API-20: Filter beats by flag (from_source/ai_inferred)."""
-    raise NotImplementedError("Beat filtering not yet implemented")
+    project = await store.get_project(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    requested_flag = _parse_flag(flag)
+    artifact = await store.get_artifact(project_id, "screenplay")
+    if artifact is None:
+        raise HTTPException(status_code=404, detail="Screenplay not found")
+
+    data = ScreenplayData.model_validate(artifact.data)
+    items = []
+    for scene in data.scenes:
+        for beat_index, beat in enumerate(scene.beats):
+            if requested_flag is not None and beat.flag != requested_flag:
+                continue
+            items.append(
+                {
+                    "scene_id": scene.id,
+                    "beat_index": beat_index,
+                    "beat": beat.model_dump(mode="json"),
+                }
+            )
+    return {"items": items, "count": len(items)}
 
 
 @router.get("/todos")
@@ -223,6 +250,34 @@ def _with_screenplay_defaults(
         ],
         "shot_hints": generated.get("shot_hints", {"enabled": False}),
     }
+
+
+def _enforce_screenplay_trust(
+    data: ScreenplayData,
+    outline: OutlineData,
+) -> ScreenplayData:
+    source_paragraph_indices = {
+        paragraph
+        for scene in outline.scenes
+        for paragraph in scene.source_ref.paragraphs
+    }
+    scenes = enforce_pipeline_trust(
+        data.scenes,
+        source_paragraph_indices=source_paragraph_indices,
+    )
+    return data.model_copy(update={"scenes": scenes})
+
+
+def _parse_flag(flag: str | None) -> Flag | None:
+    if flag is None:
+        return None
+    try:
+        return Flag(flag)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail="flag must be one of: from_source, ai_inferred",
+        ) from exc
 
 
 def _scene_from_outline(
