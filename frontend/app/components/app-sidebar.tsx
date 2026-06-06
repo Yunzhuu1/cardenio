@@ -31,7 +31,7 @@ export function AppSidebar({
             {brandLatin}
           </span>
           {brandCjk && (
-            <span className="[font-family:var(--font-brand-cjk)] text-base font-normal leading-none">
+            <span className="relative -top-0.25 [font-family:var(--font-brand-cjk)] text-base font-normal leading-none">
               {brandCjk}
             </span>
           )}
