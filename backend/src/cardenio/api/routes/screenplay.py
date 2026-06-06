@@ -11,6 +11,7 @@ from cardenio.api.deps import get_artifact_store, get_gateway
 from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, Flag, ProjectState
 from cardenio.domain.models.outline import OutlineData, OutlineScene
 from cardenio.domain.models.screenplay import Beat, BeatType, ScreenplayData, ScreenplayScene
+from cardenio.domain.models.understanding import NonVisualizableMark, UnderstandingData
 from cardenio.gateway.protocol import GenerateRequest, LlmGateway, SystemConstraints
 from cardenio.storage.sqlite_store import SqliteArtifactStore
 
@@ -34,6 +35,12 @@ async def generate_screenplay(
         return _outline_gate_error(outline_artifact.state if outline_artifact else None)
 
     outline = OutlineData.model_validate(outline_artifact.data)
+    understanding_artifact = await store.get_artifact(project_id, "understanding")
+    understanding = (
+        UnderstandingData.model_validate(understanding_artifact.data)
+        if understanding_artifact is not None
+        else None
+    )
     result = await gateway.generate(
         GenerateRequest(
             task="scene",
@@ -43,6 +50,13 @@ async def generate_screenplay(
             ),
             context=[
                 {"type": "outline", "data": outline.model_dump(mode="json")},
+                {
+                    "type": "non_visualizable",
+                    "data": [
+                        mark.model_dump(mode="json")
+                        for mark in (understanding.non_visualizable if understanding else [])
+                    ],
+                },
                 {"type": "adaptation_direction", "data": project["adaptation_direction"]},
                 {"type": "request", "data": body or {}},
             ],
@@ -50,7 +64,7 @@ async def generate_screenplay(
         )
     )
     data = ScreenplayData.model_validate(
-        _with_screenplay_defaults(result.data, outline)
+        _with_screenplay_defaults(result.data, outline, understanding)
     )
     previous = await store.get_artifact(project_id, "screenplay")
     envelope = ArtifactEnvelope[ScreenplayData](
@@ -180,16 +194,29 @@ def _outline_gate_error(current_state: ArtifactState | None) -> JSONResponse:
     )
 
 
-def _with_screenplay_defaults(generated: dict[str, Any], outline: OutlineData) -> dict[str, Any]:
+def _with_screenplay_defaults(
+    generated: dict[str, Any],
+    outline: OutlineData,
+    understanding: UnderstandingData | None,
+) -> dict[str, Any]:
     if generated.get("scenes"):
         return generated
     return {
-        "scenes": [_scene_from_outline(scene) for scene in outline.scenes],
+        "scenes": [
+            _scene_from_outline(
+                scene,
+                _matching_non_visualizable_marks(scene, understanding),
+            )
+            for scene in outline.scenes
+        ],
         "shot_hints": generated.get("shot_hints", {"enabled": False}),
     }
 
 
-def _scene_from_outline(scene: OutlineScene) -> dict[str, Any]:
+def _scene_from_outline(
+    scene: OutlineScene,
+    non_visualizable: list[NonVisualizableMark],
+) -> dict[str, Any]:
     screenplay_scene = ScreenplayScene(
         id=scene.id,
         heading=scene.heading,
@@ -202,12 +229,15 @@ def _scene_from_outline(scene: OutlineScene) -> dict[str, Any]:
         foreshadowing=scene.foreshadowing,
         relation_changes=scene.relation_changes,
         ending_state=scene.ending_state,
-        beats=_beats_from_outline(scene),
+        beats=_beats_from_outline(scene, non_visualizable),
     )
     return screenplay_scene.model_dump(mode="json")
 
 
-def _beats_from_outline(scene: OutlineScene) -> list[Beat]:
+def _beats_from_outline(
+    scene: OutlineScene,
+    non_visualizable: list[NonVisualizableMark],
+) -> list[Beat]:
     beats = [
         Beat(
             type=BeatType.ACTION,
@@ -238,7 +268,60 @@ def _beats_from_outline(scene: OutlineScene) -> list[Beat]:
             flag=Flag.FROM_SOURCE,
         )
     )
+    for mark in non_visualizable:
+        beats.append(_externalization_note(scene, mark))
     return beats
+
+
+def _matching_non_visualizable_marks(
+    scene: OutlineScene,
+    understanding: UnderstandingData | None,
+) -> list[NonVisualizableMark]:
+    if understanding is None:
+        return []
+    scene_paragraphs = set(scene.source_ref.paragraphs)
+    return [
+        mark
+        for mark in understanding.non_visualizable
+        if mark.source_ref.chapter == scene.source_ref.chapter
+        and bool(scene_paragraphs & set(mark.source_ref.paragraphs))
+    ]
+
+
+def _externalization_note(
+    scene: OutlineScene,
+    mark: NonVisualizableMark,
+) -> Beat:
+    lead_character = scene.characters[0] if scene.characters else None
+    return Beat(
+        type=BeatType.NOTE,
+        text=(
+            f"Non-visualizable source passage requires externalization: {mark.note}"
+        ),
+        source_ref=mark.source_ref,
+        flag=Flag.AI_INFERRED,
+        options=[
+            {
+                "kind": "voice_over",
+                "text": "Use V.O. to preserve the inner thought without inventing dialogue.",
+            },
+            {
+                "kind": "action",
+                "text": "Translate the mental state into a concrete gesture or choice.",
+            },
+            {
+                "kind": "dialogue",
+                "text": (
+                    f"Let {lead_character or 'a character'} externalize only what can "
+                    "be defended by the source."
+                ),
+            },
+            {
+                "kind": "annotation",
+                "text": "Keep this as an author/director note if it should not be performed.",
+            },
+        ],
+    )
 
 
 def _action_text(scene: OutlineScene) -> str:
