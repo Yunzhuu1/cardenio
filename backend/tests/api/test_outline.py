@@ -350,3 +350,95 @@ class TestOutlineEditing:
         )
 
         assert resp.status_code == 404
+
+
+class TestOutlineMergeSuggestions:
+    """API-16: merge candidates are suggestions and never auto-merge scenes."""
+
+    async def test_get_merge_suggestions_does_not_change_outline_structure(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        generated = await generate_outline(app_client, project_id)
+        scene_ids_before = [
+            scene["id"] for scene in generated["data"]["scenes"]
+        ]
+
+        resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/outline/merge-suggestions"
+        )
+
+        assert resp.status_code == 200
+        suggestions = resp.json()["suggestions"]
+        assert suggestions
+        assert suggestions[0]["status"] == "pending"
+        assert len(suggestions[0]["scene_ids"]) == 2
+
+        get_resp = await app_client.get(f"/api/v1/projects/{project_id}/outline")
+        scene_ids_after = [
+            scene["id"] for scene in get_resp.json()["data"]["scenes"]
+        ]
+        assert scene_ids_after == scene_ids_before
+
+    async def test_apply_merge_suggestion_marks_status_without_merging(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        generated = await generate_outline(app_client, project_id)
+        suggestions_resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/outline/merge-suggestions"
+        )
+        suggestion_id = suggestions_resp.json()["suggestions"][0]["id"]
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/outline/merge-suggestions/{suggestion_id}:apply"
+        )
+
+        assert resp.status_code == 200
+        saved = resp.json()
+        suggestion = saved["data"]["merge_suggestions"][0]
+        assert suggestion["id"] == suggestion_id
+        assert suggestion["status"] == "applied"
+        assert [scene["id"] for scene in saved["data"]["scenes"]] == [
+            scene["id"] for scene in generated["data"]["scenes"]
+        ]
+
+    async def test_dismiss_merge_suggestion_marks_status_without_merging(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        generated = await generate_outline(app_client, project_id)
+        suggestions_resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/outline/merge-suggestions"
+        )
+        suggestion_id = suggestions_resp.json()["suggestions"][0]["id"]
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/outline/merge-suggestions/{suggestion_id}:dismiss"
+        )
+
+        assert resp.status_code == 200
+        saved = resp.json()
+        suggestion = saved["data"]["merge_suggestions"][0]
+        assert suggestion["id"] == suggestion_id
+        assert suggestion["status"] == "dismissed"
+        assert [scene["id"] for scene in saved["data"]["scenes"]] == [
+            scene["id"] for scene in generated["data"]["scenes"]
+        ]
+
+    async def test_get_merge_suggestions_missing_outline_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/outline/merge-suggestions"
+        )
+
+        assert resp.status_code == 404
+
+    async def test_missing_merge_suggestion_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_outline(app_client, project_id)
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/outline/merge-suggestions/missing:apply"
+        )
+
+        assert resp.status_code == 404

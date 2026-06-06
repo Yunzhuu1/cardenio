@@ -10,7 +10,12 @@ from pydantic import BaseModel, ConfigDict
 
 from cardenio.api.deps import get_artifact_store, get_gateway
 from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, ProjectState
-from cardenio.domain.models.outline import OutlineData, OutlineScene
+from cardenio.domain.models.outline import (
+    MergeSuggestion,
+    MergeSuggestionStatus,
+    OutlineData,
+    OutlineScene,
+)
 from cardenio.gateway.protocol import GenerateRequest, LlmGateway, SystemConstraints
 from cardenio.storage.sqlite_store import SqliteArtifactStore
 
@@ -185,21 +190,48 @@ async def confirm_outline(
 
 
 @router.get("/merge-suggestions")
-async def get_merge_suggestions(project_id: str) -> dict:
+async def get_merge_suggestions(
+    project_id: str,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-16: Get merge suggestions (suggestions, not auto-applied)."""
-    raise NotImplementedError("Merge suggestions not yet implemented")
+    previous, data = await _get_outline_data(store, project_id)
+    data.merge_suggestions = _merge_suggestions_for(data)
+    await _save_outline(store, project_id, data, previous, previous.state)
+    return {
+        "suggestions": [
+            suggestion.model_dump(mode="json")
+            for suggestion in data.merge_suggestions
+        ]
+    }
 
 
 @router.post("/merge-suggestions/{suggestion_id}:apply")
-async def apply_merge_suggestion(project_id: str, suggestion_id: str) -> dict:
+async def apply_merge_suggestion(
+    project_id: str,
+    suggestion_id: str,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-16: Author accepts a merge suggestion."""
-    raise NotImplementedError("Merge application not yet implemented")
+    previous, data = await _get_outline_data(store, project_id)
+    suggestion = _find_merge_suggestion(data, suggestion_id)
+    suggestion.status = MergeSuggestionStatus.APPLIED
+    saved = await _save_outline(store, project_id, data, previous, previous.state)
+    return saved.model_dump(mode="json")
 
 
 @router.post("/merge-suggestions/{suggestion_id}:dismiss")
-async def dismiss_merge_suggestion(project_id: str, suggestion_id: str) -> dict:
+async def dismiss_merge_suggestion(
+    project_id: str,
+    suggestion_id: str,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-16: Author dismisses a merge suggestion."""
-    raise NotImplementedError("Merge dismissal not yet implemented")
+    previous, data = await _get_outline_data(store, project_id)
+    suggestion = _find_merge_suggestion(data, suggestion_id)
+    suggestion.status = MergeSuggestionStatus.DISMISSED
+    saved = await _save_outline(store, project_id, data, previous, previous.state)
+    return saved.model_dump(mode="json")
 
 
 async def _get_outline_data(
@@ -248,6 +280,82 @@ def _characters_gate_error(current_state: ArtifactState | None) -> JSONResponse:
             }
         },
     )
+
+
+def _merge_suggestions_for(data: OutlineData) -> list[MergeSuggestion]:
+    existing = {suggestion.id: suggestion for suggestion in data.merge_suggestions}
+    suggestions: list[MergeSuggestion] = []
+    for index, (left, right) in enumerate(
+        zip(data.scenes, data.scenes[1:], strict=False),
+        start=1,
+    ):
+        if not _is_merge_candidate(left, right):
+            continue
+        suggestion_id = f"mg_{left.id}_{right.id}"
+        current = existing.get(suggestion_id)
+        suggestions.append(
+            MergeSuggestion(
+                id=suggestion_id,
+                scene_ids=[left.id, right.id],
+                reason=_merge_reason(left, right),
+                status=current.status if current else MergeSuggestionStatus.PENDING,
+            )
+        )
+    return suggestions
+
+
+def _is_merge_candidate(left: OutlineScene, right: OutlineScene) -> bool:
+    light_bridge = _is_light_scene(left) or _is_light_scene(right)
+    shared_characters = bool(set(left.characters) & set(right.characters))
+    return light_bridge and shared_characters
+
+
+def _is_light_scene(scene: OutlineScene) -> bool:
+    content = " ".join(
+        filter(
+            None,
+            [
+                scene.synopsis,
+                scene.goal,
+                scene.conflict,
+                scene.ending_state,
+            ],
+        )
+    ).lower()
+    bridge_markers = (
+        "transition",
+        "bridge",
+        "wait",
+        "watch",
+        "warn",
+        "clue",
+        "过场",
+        "转场",
+        "铺垫",
+    )
+    sparse_fields = (
+        not scene.foreshadowing
+        and not scene.relation_changes
+        and len(scene.characters) <= 2
+    )
+    return sparse_fields or any(marker in content for marker in bridge_markers)
+
+
+def _merge_reason(left: OutlineScene, right: OutlineScene) -> str:
+    return (
+        f"{left.id} and {right.id} are adjacent bridge-like scenes with "
+        "overlapping source or staging; consider merging them after author review."
+    )
+
+
+def _find_merge_suggestion(
+    data: OutlineData,
+    suggestion_id: str,
+) -> MergeSuggestion:
+    for suggestion in data.merge_suggestions:
+        if suggestion.id == suggestion_id:
+            return suggestion
+    raise HTTPException(status_code=404, detail="Merge suggestion not found")
 
 
 async def _validate_outline_source_refs(
