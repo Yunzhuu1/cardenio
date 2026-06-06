@@ -32,6 +32,27 @@ async def add_three_chapters(app_client: AsyncClient, project_id: str) -> None:
         assert resp.status_code == 201
 
 
+async def add_chapters_with_internal_monologue(
+    app_client: AsyncClient, project_id: str
+) -> None:
+    texts = [
+        (
+            "I am standing in the archive now.\n\n"
+            "I remembered the locked room and felt afraid because maybe my "
+            "father had hidden the letter from me for years, and I thought "
+            "the truth would destroy every memory I still trusted."
+        ),
+        "She opens the cabinet.\n\nThe dust rises under the lamp.",
+        "He waits outside.\n\nThe rain keeps falling.",
+    ]
+    for i, text in enumerate(texts):
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/source/chapters",
+            json={"title": f"Chapter {i + 1}", "text": text, "order": i + 1},
+        )
+        assert resp.status_code == 201
+
+
 class TestUnderstandingGeneration:
     """API-7/8: understanding is generated, editable, and confirmable."""
 
@@ -70,6 +91,27 @@ class TestUnderstandingGeneration:
         current = get_resp.json()
         assert current["version"] == generated["version"]
         assert current["data"] == generated["data"]
+
+    async def test_generate_marks_internal_monologue_as_non_visualizable(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await add_chapters_with_internal_monologue(app_client, project_id)
+
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/understanding:generate"
+        )
+        assert generate_resp.status_code == 202
+        data = generate_resp.json()["data"]
+
+        assert data["narrative"] == {
+            "perspective": "first_person",
+            "tense": "present",
+            "unreliable": True,
+        }
+        assert len(data["non_visualizable"]) >= 1
+        mark = data["non_visualizable"][0]
+        assert mark["source_ref"] == {"chapter": 1, "paragraphs": [2]}
+        assert "externalized" in mark["note"]
 
     async def test_update_understanding_persists_editable_fields(
         self, app_client: AsyncClient, project_id: str

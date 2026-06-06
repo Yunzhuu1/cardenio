@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,6 +16,31 @@ from cardenio.storage.sqlite_store import SqliteArtifactStore
 
 router = APIRouter(prefix="/projects/{project_id}/understanding")
 _STUB_VALUES = {"", "stub"}
+_FIRST_PERSON_MARKERS = ("我", "我们", "I ", "I'", "my ", "me ")
+_THIRD_PERSON_MARKERS = ("他", "她", "他们", "她们", "he ", "she ", "they ")
+_PRESENT_TENSE_MARKERS = ("正在", "此刻", "现在", "is ", "are ", "am ")
+_UNRELIABLE_MARKERS = ("也许", "或许", "我不确定", "我记不清", "maybe", "perhaps")
+_INTERNAL_MONOLOGUE_MARKERS = (
+    "心想",
+    "心里",
+    "内心",
+    "独白",
+    "想起",
+    "想象",
+    "意识到",
+    "明白",
+    "害怕",
+    "恐惧",
+    "后悔",
+    "记得",
+    "不敢",
+    "觉得",
+    "thought",
+    "remembered",
+    "realized",
+    "felt",
+    "afraid",
+)
 
 
 @router.post(":generate", status_code=202)
@@ -161,17 +187,15 @@ def _with_m2_t1_defaults(
         "central_conflict": "主角目标与外部阻力、内心犹疑之间的冲突。",
         "mood": "克制、悬念、带有情绪张力",
         "style_fingerprint": "以原文段落为约束，保持叙述节奏、意象密度和对白克制感。",
-        "narrative": {
-            "perspective": "third_person_limited",
-            "tense": "past",
-            "unreliable": False,
-        },
-        "non_visualizable": [],
+        "narrative": _detect_narrative(chapters),
+        "non_visualizable": _detect_non_visualizable(chapters),
         "strengths": ["已有至少三章连续素材，可支撑改编前理解。"],
         "difficulties": ["人物动机和心理段落需要在后续任务中继续细化。"],
     }
     merged = defaults.copy()
     for key, value in generated.items():
+        if key in {"narrative", "non_visualizable"}:
+            continue
         if _is_meaningful(value):
             merged[key] = value
     return merged
@@ -200,3 +224,79 @@ def _first_paragraph(chapters: list[dict[str, Any]]) -> str:
         if chapter["paragraphs"]:
             return chapter["paragraphs"][0]["text"].strip()
     return ""
+
+
+def _detect_narrative(chapters: list[dict[str, Any]]) -> dict[str, Any]:
+    text = _all_source_text(chapters)
+    lower_text = text.lower()
+    first_person_count = _count_markers(text, lower_text, _FIRST_PERSON_MARKERS)
+    third_person_count = _count_markers(text, lower_text, _THIRD_PERSON_MARKERS)
+    perspective = (
+        "first_person"
+        if first_person_count > third_person_count
+        else "third_person_limited"
+    )
+    tense = (
+        "present"
+        if _count_markers(text, lower_text, _PRESENT_TENSE_MARKERS) > 0
+        else "past"
+    )
+    unreliable = _count_markers(text, lower_text, _UNRELIABLE_MARKERS) > 0
+    return {
+        "perspective": perspective,
+        "tense": tense,
+        "unreliable": unreliable,
+    }
+
+
+def _detect_non_visualizable(chapters: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    marks: list[dict[str, Any]] = []
+    for chapter in chapters:
+        chapter_order = int(chapter["order"])
+        for paragraph in chapter["paragraphs"]:
+            text = paragraph["text"].strip()
+            if _is_non_visualizable_paragraph(text):
+                marks.append(
+                    {
+                        "source_ref": {
+                            "chapter": chapter_order,
+                            "paragraphs": [int(paragraph["index"])],
+                        },
+                        "note": (
+                            "This passage is likely internal narration or mental "
+                            "state and should be externalized later instead of "
+                            "being silently dropped or turned into filler dialogue."
+                        ),
+                    }
+                )
+    return marks
+
+
+def _is_non_visualizable_paragraph(text: str) -> bool:
+    lower_text = text.lower()
+    marker_count = _count_markers(text, lower_text, _INTERNAL_MONOLOGUE_MARKERS)
+    long_reflective = len(text) >= 80 and marker_count > 0
+    dense_first_person = (
+        len(text) >= 60
+        and _count_markers(text, lower_text, _FIRST_PERSON_MARKERS) >= 2
+        and marker_count > 0
+    )
+    return long_reflective or dense_first_person
+
+
+def _all_source_text(chapters: list[dict[str, Any]]) -> str:
+    paragraphs = []
+    for chapter in chapters:
+        paragraphs.extend(paragraph["text"] for paragraph in chapter["paragraphs"])
+    return "\n".join(paragraphs)
+
+
+def _count_markers(text: str, lower_text: str, markers: tuple[str, ...]) -> int:
+    count = 0
+    for marker in markers:
+        if marker.isascii():
+            needle = marker.strip().lower()
+            count += len(re.findall(rf"\b{re.escape(needle)}\b", lower_text))
+        else:
+            count += text.count(marker)
+    return count
