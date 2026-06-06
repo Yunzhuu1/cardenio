@@ -15,6 +15,8 @@
     "projectsHeading": "项目",
     "noProjects": "暂无项目",
     "newProject": "新建项目",
+    "collapseSidebar": "收起侧边栏",
+    "expandSidebar": "展开侧边栏",
     "stages": "改编步骤",
     "projectSettings": "项目设置"
   },

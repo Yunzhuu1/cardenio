@@ -63,12 +63,15 @@ export function Sidebar({
 }: React.ComponentProps<"aside"> & {
   variant?: SidebarVariant;
 }): React.ReactElement {
+  const { open } = useSidebar();
+
   return (
     <aside
       data-variant={variant}
       data-slot="sidebar"
       className={cn(
-        "peer hidden w-64 shrink-0 flex-col gap-2 border-r border-sidebar-border bg-background p-2 text-sidebar-foreground dark:bg-sidebar md:flex",
+        "peer fixed inset-y-0 left-0 z-20 w-64 shrink-0 flex-col gap-2 border-r border-sidebar-border bg-background p-2 text-sidebar-foreground dark:bg-sidebar md:static md:z-auto",
+        open ? "flex" : "hidden",
         variant === "inset" && "border-r-0",
         className,
       )}
