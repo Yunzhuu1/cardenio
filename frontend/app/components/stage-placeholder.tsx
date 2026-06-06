@@ -23,13 +23,7 @@ export function StagePlaceholder({
             <Icon aria-hidden className="size-5" />
           </span>
         )}
-        <h2 className="text-xl font-semibold text-balance text-foreground">
-          {t(`pages.${stageKey}.title`)}
-        </h2>
       </div>
-      <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-        {t(`pages.${stageKey}.description`)}
-      </p>
       <p className="text-sm text-muted-foreground">{t("placeholder.note")}</p>
     </section>
   );

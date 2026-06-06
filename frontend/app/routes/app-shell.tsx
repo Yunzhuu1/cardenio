@@ -1,5 +1,5 @@
 import { MenuIcon, PanelLeftCloseIcon } from "lucide-react";
-import { NavLink, Outlet } from "react-router";
+import { NavLink, Outlet, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/app-shell";
 import { AppSidebar } from "~/components/app-sidebar";
@@ -38,7 +38,9 @@ export default function AppShell({
 function AppTopbar(): React.ReactElement {
   const { t } = useTranslation();
   const { open } = useSidebar();
+  const { pathname } = useLocation();
   const SidebarToggleIcon = open ? PanelLeftCloseIcon : MenuIcon;
+  const titleKey = getTopbarTitleKey(pathname);
 
   return (
     <header className="flex min-h-14 items-center justify-between gap-3 border-b border-border px-5 py-3 sm:px-8">
@@ -50,12 +52,34 @@ function AppTopbar(): React.ReactElement {
           <SidebarToggleIcon aria-hidden="true" className="size-4" />
         </SidebarTrigger>
         <NavLink
-          className="app-heading truncate text-sm font-semibold text-foreground md:hidden"
+          className="app-heading truncate text-sm font-semibold text-foreground"
           to="/"
         >
-          {t("app.name")}
+          {titleKey ? t(titleKey) : t("app.name")}
         </NavLink>
       </div>
     </header>
   );
+}
+
+function getTopbarTitleKey(pathname: string): string {
+  if (pathname === "/") return "overview.title";
+
+  const projectStage = pathname.match(/^\/projects\/[^/]+\/([^/]+)/)?.[1];
+  if (
+    !projectStage ||
+    ![
+      "import",
+      "analysis",
+      "outline",
+      "script",
+      "editor",
+      "report",
+      "settings",
+    ].includes(projectStage)
+  ) {
+    return "app.name";
+  }
+
+  return `pages.${projectStage}.title`;
 }
