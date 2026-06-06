@@ -118,3 +118,44 @@ class TestChapterInput:
             json={"title": "Test", "text": "Text.", "order": 1},
         )
         assert resp.status_code == 404
+
+    async def test_resolve_source_ref_returns_paragraph_text(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        """GET /source:resolve resolves chapter and paragraph indices."""
+        await app_client.post(
+            f"/api/v1/projects/{project_id}/source/chapters",
+            json={
+                "title": "Chapter 1",
+                "text": "First paragraph.\n\nSecond paragraph.\n\nThird paragraph.",
+                "order": 1,
+            },
+        )
+
+        resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/source:resolve",
+            params={"chapter": 1, "paragraphs": "1-2"},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["chapter"] == 1
+        assert data["paragraphs"] == [
+            {"index": 1, "text": "First paragraph."},
+            {"index": 2, "text": "Second paragraph."},
+        ]
+
+    async def test_resolve_source_ref_missing_paragraph_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await app_client.post(
+            f"/api/v1/projects/{project_id}/source/chapters",
+            json={"title": "Chapter 1", "text": "Only paragraph.", "order": 1},
+        )
+
+        resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/source:resolve",
+            params={"chapter": 1, "paragraphs": "1-2"},
+        )
+
+        assert resp.status_code == 404
