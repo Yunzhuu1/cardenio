@@ -7,7 +7,11 @@ from pydantic import BaseModel, ConfigDict
 
 from cardenio.api.deps import get_artifact_store
 from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, ProjectState
-from cardenio.domain.models.intent import AdaptationDirection, IntentConstraints
+from cardenio.domain.models.intent import (
+    AdaptationDirection,
+    IntentConflict,
+    IntentConstraints,
+)
 from cardenio.storage.sqlite_store import SqliteArtifactStore
 
 router = APIRouter(prefix="/projects/{project_id}/intent")
@@ -96,6 +100,66 @@ async def set_direction(
 
 
 @router.post(":validate")
-async def validate_intent(project_id: str) -> dict:
+async def validate_intent(
+    project_id: str,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-13: Check for intent-direction conflicts (deterministic)."""
-    raise NotImplementedError("Intent validation not yet implemented")
+    project = await store.get_project(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    artifact = await store.get_artifact(project_id, "intent")
+    if artifact is None:
+        raise HTTPException(status_code=404, detail="Intent not found")
+
+    intent = IntentConstraints.model_validate(artifact.data)
+    direction = project["adaptation_direction"]
+    conflicts = _intent_direction_conflicts(intent, direction)
+    return {"conflicts": [conflict.model_dump(mode="json") for conflict in conflicts]}
+
+
+def _intent_direction_conflicts(
+    intent: IntentConstraints,
+    direction: str | None,
+) -> list[IntentConflict]:
+    if direction is None:
+        return []
+
+    conflicts: list[IntentConflict] = []
+    if direction == AdaptationDirection.FAITHFUL.value:
+        if intent.allow_new_ending:
+            conflicts.append(
+                IntentConflict(
+                    code="faithful_vs_new_ending",
+                    message="Faithful adaptation conflicts with allowing a new ending.",
+                    fields=["direction", "allow_new_ending"],
+                )
+            )
+        if intent.allow_new_plot:
+            conflicts.append(
+                IntentConflict(
+                    code="faithful_vs_new_plot",
+                    message="Faithful adaptation conflicts with allowing new plot.",
+                    fields=["direction", "allow_new_plot"],
+                )
+            )
+        if intent.allow_reorder:
+            conflicts.append(
+                IntentConflict(
+                    code="faithful_vs_reorder",
+                    message="Faithful adaptation may conflict with free scene reordering.",
+                    fields=["direction", "allow_reorder"],
+                )
+            )
+
+    if direction == AdaptationDirection.SHORT_DRAMA.value and not intent.allow_reorder:
+        conflicts.append(
+            IntentConflict(
+                code="short_drama_vs_no_reorder",
+                message="Short-drama pacing usually needs scene reordering permission.",
+                fields=["direction", "allow_reorder"],
+            )
+        )
+
+    return conflicts
