@@ -26,7 +26,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Meta />
         <link rel="preconnect" href="https://fontsapi.zeoseven.com" />
         <link
-          href="https://fontsapi.zeoseven.com/292/main/result.css"
+          href="https://fontsapi.zeoseven.com/292/light/result.css"
           rel="stylesheet"
         />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />

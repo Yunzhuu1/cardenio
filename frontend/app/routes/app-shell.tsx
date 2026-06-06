@@ -25,7 +25,7 @@ export default function AppShell({
       <SidebarInset>
         <header className="flex items-center justify-between gap-3 border-b border-border px-5 py-3 sm:px-8">
           <NavLink
-            className="text-sm font-semibold text-foreground md:hidden"
+            className="app-heading text-sm font-semibold text-foreground md:hidden"
             to="/"
           >
             {t("app.name")}
