@@ -3,6 +3,8 @@ import {
   ApiError,
   type AdaptationDirection,
   type ApiErrorBody,
+  type DirectionResponse,
+  type MvpDirection,
   type Project,
   type ProjectGates,
   type ProjectId,
@@ -24,6 +26,11 @@ type FlatProjectPayload = {
   adaptation_direction: AdaptationDirection | null;
   style_fingerprint?: string | null;
   updated_at?: string;
+};
+
+type DirectionPayload = {
+  direction: MvpDirection;
+  project: FlatProjectPayload;
 };
 
 const defaultGates: ProjectGates = {
@@ -155,6 +162,72 @@ export const httpClient: ApiClient = {
       request(`/projects/${projectId}/source/import:confirm`, {
         method: "POST",
         body: JSON.stringify(input),
+      }),
+  },
+  understanding: {
+    get: (projectId) => request(`/projects/${projectId}/understanding`),
+    generate: (projectId) =>
+      request(`/projects/${projectId}/understanding:generate`, {
+        method: "POST",
+      }),
+    update: (projectId, data) =>
+      request(`/projects/${projectId}/understanding`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    confirm: (projectId) =>
+      request(`/projects/${projectId}/understanding:confirm`, {
+        method: "POST",
+      }),
+  },
+  characters: {
+    get: (projectId) => request(`/projects/${projectId}/characters`),
+    generate: (projectId) =>
+      request(`/projects/${projectId}/characters:generate`, {
+        method: "POST",
+      }),
+    add: (projectId, character) =>
+      request(`/projects/${projectId}/characters`, {
+        method: "POST",
+        body: JSON.stringify(character),
+      }),
+    update: (projectId, characterId, character) =>
+      request(`/projects/${projectId}/characters/${characterId}`, {
+        method: "PUT",
+        body: JSON.stringify(character),
+      }),
+    remove: (projectId, characterId) =>
+      request<void>(`/projects/${projectId}/characters/${characterId}`, {
+        method: "DELETE",
+      }).then(() => undefined),
+    confirm: (projectId) =>
+      request(`/projects/${projectId}/characters:confirm`, {
+        method: "POST",
+      }),
+  },
+  intent: {
+    get: (projectId) => request(`/projects/${projectId}/intent`),
+    save: (projectId, data) =>
+      request(`/projects/${projectId}/intent`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    setDirection: async (projectId, direction): Promise<DirectionResponse> => {
+      const payload = await request<DirectionPayload>(
+        `/projects/${projectId}/intent/direction`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ direction }),
+        },
+      );
+      return {
+        direction: payload.direction,
+        project: normalizeProject(payload.project),
+      };
+    },
+    validate: (projectId) =>
+      request(`/projects/${projectId}/intent:validate`, {
+        method: "POST",
       }),
   },
 };
