@@ -14,12 +14,17 @@ import {
   type IntentConflict,
   type IntentConstraints,
   type IntentValidateResponse,
+  type MergeSuggestion,
   type MvpDirection,
+  type OutlineData,
+  type OutlineScene,
   type Paginated,
   type PatchProjectInput,
   type Project,
   type ProjectId,
   type ProjectSummary,
+  type ScreenplayData,
+  type ScreenplayScene,
   type Source,
   type SourceParagraph,
   type UnderstandingData,
@@ -38,6 +43,8 @@ const understandingStore = new Map<
 >();
 const charactersStore = new Map<ProjectId, ArtifactEnvelope<CharactersData>>();
 const intentStore = new Map<ProjectId, ArtifactEnvelope<IntentConstraints>>();
+const outlineStore = new Map<ProjectId, ArtifactEnvelope<OutlineData>>();
+const screenplayStore = new Map<ProjectId, ArtifactEnvelope<ScreenplayData>>();
 let seeded = false;
 
 function ensureSeed(): void {
@@ -84,6 +91,28 @@ function ensureSeed(): void {
   ];
 
   for (const project of seeds) store.set(project.id, project);
+
+  const outlinedChapters = [
+    chapterFromText({
+      id: "ch_1",
+      title: "第一章",
+      order: 1,
+      text: "旧书店的门铃响了一声。\n\n林澈在柜台下找到没有署名的信。",
+    }),
+    chapterFromText({
+      id: "ch_2",
+      title: "第二章",
+      order: 2,
+      text: "雨水沿着旧邮亭的玻璃往下滑。\n\n母亲在电话里问她是不是又回去了。",
+    }),
+    chapterFromText({
+      id: "ch_3",
+      title: "第三章",
+      order: 3,
+      text: "夜里十一点，邮亭的灯自己亮了。\n\n林澈听见门内有人轻轻敲了三下。",
+    }),
+  ];
+  sourceStore.set("prj_demo_outlined", outlinedChapters);
 
   sourceStore.set("prj_demo_imported", [
     chapterFromText({
@@ -526,6 +555,238 @@ function getIntentEnvelope(
   return envelope;
 }
 
+function getOutlineEnvelope(
+  projectId: ProjectId,
+): ArtifactEnvelope<OutlineData> {
+  const envelope = outlineStore.get(projectId);
+  if (!envelope) throw notFound("Outline not found");
+  return envelope;
+}
+
+function getScreenplayEnvelope(
+  projectId: ProjectId,
+): ArtifactEnvelope<ScreenplayData> {
+  const envelope = screenplayStore.get(projectId);
+  if (!envelope) throw notFound("Screenplay not found");
+  return envelope;
+}
+
+function stateGateBlocked(
+  artifact: string,
+  requiredState: string,
+  currentState: string,
+): ApiError {
+  return new ApiError(409, {
+    code: "state_gate_blocked",
+    message: `Please confirm ${artifact} before continuing`,
+    retryable: false,
+    details: {
+      artifact,
+      required_state: requiredState,
+      current_state: currentState,
+    },
+  });
+}
+
+function validateMockSourceRef(scene: OutlineScene): void {
+  if (scene.source_ref.paragraphs.length > 0) return;
+  throw new ApiError(422, {
+    code: "invalid_source_ref",
+    message: "Invalid source reference",
+    retryable: false,
+    details: {
+      scene_id: scene.id,
+      chapter: scene.source_ref.chapter,
+      missing_paragraphs: [],
+    },
+  });
+}
+
+function makeOutlineData(projectId: ProjectId): OutlineData {
+  const characterIds =
+    charactersStore.get(projectId)?.data.characters.map((item) => item.id) ??
+    [];
+  const protagonist = characterIds[0] ?? "lin_che";
+  const supporting = characterIds[1] ?? "mother";
+  const scenes: OutlineScene[] = [
+    {
+      id: "sc_001",
+      heading: {
+        int_ext: "INT",
+        location: "旧书店",
+        time: "DUSK",
+      },
+      source_ref: { chapter: 1, paragraphs: [1, 2] },
+      synopsis: "林澈在旧书店发现父亲留下的无名信。",
+      goal: "确认信件是否与父亲失踪有关",
+      conflict: "老板回避关键信息，林澈不愿暴露自己的慌乱",
+      mood: "压抑、潮湿、带有试探",
+      characters: [protagonist, "bookstore_owner"].filter(Boolean),
+      foreshadowing: ["火漆印章", "缺页账本"],
+      relation_changes: [
+        {
+          characters: [protagonist, "bookstore_owner"].filter(Boolean),
+          change: "从陌生试探转为有限信任",
+        },
+      ],
+      ending_state: "林澈决定连夜去旧邮亭",
+    },
+    {
+      id: "sc_002",
+      heading: {
+        int_ext: "EXT",
+        location: "旧邮亭",
+        time: "NIGHT",
+      },
+      source_ref: { chapter: 2, paragraphs: [1, 2] },
+      synopsis: "林澈在邮亭听见母亲来电，旧事被重新逼近。",
+      goal: "找到信中提到的投递记录",
+      conflict: "母亲要求她离开，邮亭里又出现新的线索",
+      mood: "悬疑、紧绷",
+      characters: [protagonist, supporting].filter(Boolean),
+      foreshadowing: ["三下敲门声"],
+      relation_changes: [
+        {
+          characters: [protagonist, supporting].filter(Boolean),
+          change: "母女之间的隐瞒被撕开一个缺口",
+        },
+      ],
+      ending_state: "邮亭灯光突然亮起",
+    },
+    {
+      id: "sc_003",
+      heading: {
+        int_ext: "INT",
+        location: "邮亭值班室",
+        time: "NIGHT",
+      },
+      source_ref: { chapter: 3, paragraphs: [1, 2] },
+      synopsis: "林澈发现一封写给自己的迟到信件。",
+      goal: "确认父亲最后留下的信息",
+      conflict: "信件内容指向母亲当年的选择",
+      mood: "克制、刺痛",
+      characters: [protagonist, supporting].filter(Boolean),
+      foreshadowing: ["迟到的邮戳"],
+      relation_changes: [
+        {
+          characters: [protagonist, supporting].filter(Boolean),
+          change: "林澈开始理解母亲的沉默并非单纯逃避",
+        },
+      ],
+      ending_state: "林澈带着信回到旧书店",
+    },
+  ];
+  const merge_suggestions: MergeSuggestion[] = [
+    {
+      id: "mg_sc_002_sc_003",
+      scene_ids: ["sc_002", "sc_003"],
+      reason: "两场都围绕邮亭线索展开，可考虑压缩过场以提高节奏。",
+      status: "pending",
+    },
+  ];
+  return { scenes, merge_suggestions };
+}
+
+function saveOutline(
+  projectId: ProjectId,
+  state: ArtifactState,
+  data: OutlineData,
+  parentVersion: string | null,
+): ArtifactEnvelope<OutlineData> {
+  const envelope = makeEnvelope("outline", state, data, parentVersion);
+  outlineStore.set(projectId, envelope);
+  updateProject(projectId, (project) => ({
+    ...project,
+    gates: {
+      ...project.gates,
+      outline: state === "confirmed" ? "confirmed" : "draft",
+    },
+    updated_at: new Date().toISOString(),
+  }));
+  return envelope;
+}
+
+function updateSuggestionStatus(
+  projectId: ProjectId,
+  suggestionId: string,
+  status: MergeSuggestion["status"],
+): ArtifactEnvelope<OutlineData> {
+  const previous = getOutlineEnvelope(projectId);
+  const index = previous.data.merge_suggestions.findIndex(
+    (suggestion) => suggestion.id === suggestionId,
+  );
+  if (index < 0) throw notFound("Merge suggestion not found");
+  const merge_suggestions = [...previous.data.merge_suggestions];
+  merge_suggestions[index] = { ...merge_suggestions[index], status };
+  return saveOutline(
+    projectId,
+    previous.state,
+    {
+      ...previous.data,
+      merge_suggestions,
+    },
+    previous.version,
+  );
+}
+
+function sceneToScreenplayScene(scene: OutlineScene): ScreenplayScene {
+  const speaker = scene.characters[0] ?? null;
+  return {
+    ...scene,
+    beats: [
+      {
+        type: "action",
+        text: `${scene.synopsis}镜头停在关键道具上，人物没有立刻开口。`,
+        character: null,
+        parenthetical: null,
+        dialogue: null,
+        subtext: "人物用动作压住真实情绪。",
+        source_ref: scene.source_ref,
+        flag: "from_source",
+        options: null,
+      },
+      {
+        type: "dialogue",
+        text: null,
+        character: speaker,
+        parenthetical: "压低声音",
+        dialogue: "这件事不能再拖了。",
+        subtext: "她已经意识到沉默会继续伤害彼此。",
+        source_ref: scene.source_ref,
+        flag: "from_source",
+        options: null,
+      },
+      {
+        type: "note",
+        text: "心理外化建议：把迟疑转化为停顿、触碰旧物或避开视线。",
+        character: null,
+        parenthetical: null,
+        dialogue: null,
+        subtext: "这是改编层新增的表达方案。",
+        source_ref: null,
+        flag: "ai_inferred",
+        options: [
+          { kind: "voice_over", text: "用一句短旁白点出未说出口的愧疚。" },
+          { kind: "action", text: "让人物反复摩挲信封边缘。" },
+          { kind: "dialogue", text: "把解释改成一句追问。" },
+          { kind: "annotation", text: "保留空白，让演员用停顿完成情绪。" },
+        ],
+      },
+      {
+        type: "todo",
+        text: "TODO: 作者确认是否保留这处新增桥段。",
+        character: null,
+        parenthetical: null,
+        dialogue: null,
+        subtext: null,
+        source_ref: null,
+        flag: "ai_inferred",
+        options: null,
+      },
+    ],
+  };
+}
+
 function validateIntentConflicts(
   direction: MvpDirection | null,
   intent: IntentConstraints,
@@ -648,6 +909,8 @@ export const mockClient: ApiClient = {
       await delay();
       store.delete(id);
       sourceStore.delete(id);
+      outlineStore.delete(id);
+      screenplayStore.delete(id);
     },
   },
   source: {
@@ -1043,6 +1306,222 @@ export const mockClient: ApiClient = {
           intent.data,
         ),
       };
+    },
+  },
+  outline: {
+    async get(projectId) {
+      getProjectOrThrow(projectId);
+      await delay();
+      return getOutlineEnvelope(projectId);
+    },
+    async generate(projectId) {
+      const project = getProjectOrThrow(projectId);
+      await delay();
+      const characters = charactersStore.get(projectId);
+      if (characters?.state !== "confirmed") {
+        throw stateGateBlocked(
+          "characters",
+          "confirmed",
+          characters?.state ?? "empty",
+        );
+      }
+      const previous = outlineStore.get(projectId);
+      const envelope = saveOutline(
+        projectId,
+        "draft",
+        makeOutlineData(projectId),
+        previous?.version ?? null,
+      );
+      if (project.state === "intent_set") {
+        updateProject(projectId, (current) => ({
+          ...current,
+          state: "outlined",
+          updated_at: new Date().toISOString(),
+        }));
+      }
+      return envelope;
+    },
+    async addScene(projectId, scene) {
+      getProjectOrThrow(projectId);
+      await delay();
+      validateMockSourceRef(scene);
+      const previous = getOutlineEnvelope(projectId);
+      if (previous.data.scenes.some((item) => item.id === scene.id)) {
+        throw new ApiError(409, {
+          code: "conflict",
+          message: "Scene already exists",
+          retryable: false,
+        });
+      }
+      return saveOutline(
+        projectId,
+        "draft",
+        {
+          ...previous.data,
+          scenes: [...previous.data.scenes, scene],
+        },
+        previous.version,
+      );
+    },
+    async updateScene(projectId, sceneId, scene) {
+      getProjectOrThrow(projectId);
+      await delay();
+      validateMockSourceRef(scene);
+      const previous = getOutlineEnvelope(projectId);
+      const index = previous.data.scenes.findIndex(
+        (item) => item.id === sceneId,
+      );
+      if (index < 0) throw notFound("Scene not found");
+      const scenes = [...previous.data.scenes];
+      scenes[index] = scene;
+      return saveOutline(
+        projectId,
+        "draft",
+        {
+          ...previous.data,
+          scenes,
+        },
+        previous.version,
+      );
+    },
+    async deleteScene(projectId, sceneId) {
+      getProjectOrThrow(projectId);
+      await delay();
+      const previous = getOutlineEnvelope(projectId);
+      if (!previous.data.scenes.some((item) => item.id === sceneId)) {
+        throw notFound("Scene not found");
+      }
+      saveOutline(
+        projectId,
+        "draft",
+        {
+          ...previous.data,
+          scenes: previous.data.scenes.filter((item) => item.id !== sceneId),
+        },
+        previous.version,
+      );
+    },
+    async reorder(projectId, order) {
+      getProjectOrThrow(projectId);
+      await delay();
+      const previous = getOutlineEnvelope(projectId);
+      const currentIds = previous.data.scenes.map((scene) => scene.id).sort();
+      const requestedIds = [...order].sort();
+      const matches =
+        currentIds.length === requestedIds.length &&
+        currentIds.every((id, index) => id === requestedIds[index]);
+      if (!matches) {
+        throw new ApiError(422, {
+          code: "validation_error",
+          message: "Order must include every scene once",
+          retryable: false,
+        });
+      }
+      const scenesById = new Map(
+        previous.data.scenes.map((scene) => [scene.id, scene]),
+      );
+      return saveOutline(
+        projectId,
+        "draft",
+        {
+          ...previous.data,
+          scenes: order.map((id) => scenesById.get(id) as OutlineScene),
+        },
+        previous.version,
+      );
+    },
+    async confirm(projectId) {
+      getProjectOrThrow(projectId);
+      await delay();
+      const previous = getOutlineEnvelope(projectId);
+      return saveOutline(
+        projectId,
+        "confirmed",
+        previous.data,
+        previous.version,
+      );
+    },
+    async getMergeSuggestions(projectId) {
+      getProjectOrThrow(projectId);
+      await delay();
+      return {
+        suggestions: getOutlineEnvelope(projectId).data.merge_suggestions,
+      };
+    },
+    async applyMergeSuggestion(projectId, suggestionId) {
+      getProjectOrThrow(projectId);
+      await delay();
+      return updateSuggestionStatus(projectId, suggestionId, "applied");
+    },
+    async dismissMergeSuggestion(projectId, suggestionId) {
+      getProjectOrThrow(projectId);
+      await delay();
+      return updateSuggestionStatus(projectId, suggestionId, "dismissed");
+    },
+  },
+  screenplay: {
+    async get(projectId) {
+      getProjectOrThrow(projectId);
+      await delay();
+      return getScreenplayEnvelope(projectId);
+    },
+    async generate(projectId, options) {
+      const project = getProjectOrThrow(projectId);
+      await delay();
+      const outline = outlineStore.get(projectId);
+      if (outline?.state !== "confirmed") {
+        throw stateGateBlocked(
+          "outline",
+          "confirmed",
+          outline?.state ?? "empty",
+        );
+      }
+      const previous = screenplayStore.get(projectId);
+      const envelope = makeEnvelope(
+        "screenplay",
+        "draft",
+        {
+          scenes: outline.data.scenes.map(sceneToScreenplayScene),
+          shot_hints: { enabled: options?.shot_hints ?? false },
+        },
+        previous?.version ?? null,
+      );
+      screenplayStore.set(projectId, envelope);
+      if (project.state === "outlined") {
+        updateProject(projectId, (current) => ({
+          ...current,
+          state: "generated",
+          updated_at: new Date().toISOString(),
+        }));
+      }
+      return envelope;
+    },
+    async getScene(projectId, sceneId) {
+      getProjectOrThrow(projectId);
+      await delay();
+      const scene = getScreenplayEnvelope(projectId).data.scenes.find(
+        (item) => item.id === sceneId,
+      );
+      if (!scene) throw notFound("Screenplay scene not found");
+      return scene;
+    },
+    async getBeats(projectId, flag) {
+      getProjectOrThrow(projectId);
+      await delay();
+      const items = getScreenplayEnvelope(projectId).data.scenes.flatMap(
+        (scene) =>
+          scene.beats.flatMap((beat, beatIndex) => {
+            if (flag && beat.flag !== flag) return [];
+            return [
+              {
+                scene_id: scene.id,
+                beat_index: beatIndex,
+                beat,
+              },
+            ];
+          }),
+      );
+      return { items, count: items.length };
     },
   },
 };
