@@ -53,6 +53,29 @@ async def add_chapters_with_internal_monologue(
         assert resp.status_code == 201
 
 
+async def add_style_sample_chapters(app_client: AsyncClient, project_id: str) -> None:
+    texts = [
+        (
+            "Rain tapped the locked archive. The room stayed dark. "
+            "A secret note waited under the cold light."
+        ),
+        (
+            "The knife was missing. Fear moved through the hallway. "
+            "Every shadow looked like a warning."
+        ),
+        (
+            "She read the letter in silence. Memory returned with the rain. "
+            "No one laughed."
+        ),
+    ]
+    for i, text in enumerate(texts):
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/source/chapters",
+            json={"title": f"Chapter {i + 1}", "text": text, "order": i + 1},
+        )
+        assert resp.status_code == 201
+
+
 class TestUnderstandingGeneration:
     """API-7/8: understanding is generated, editable, and confirmable."""
 
@@ -113,6 +136,24 @@ class TestUnderstandingGeneration:
         assert mark["source_ref"] == {"chapter": 1, "paragraphs": [2]}
         assert "externalized" in mark["note"]
 
+    async def test_generate_samples_style_fingerprint_into_project_meta(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await add_style_sample_chapters(app_client, project_id)
+
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/understanding:generate"
+        )
+        assert generate_resp.status_code == 202
+        style_fingerprint = generate_resp.json()["data"]["style_fingerprint"]
+        assert "image-dense" in style_fingerprint
+        assert "avg_sentence_length=" in style_fingerprint
+        assert style_fingerprint != "stub"
+
+        project_resp = await app_client.get(f"/api/v1/projects/{project_id}")
+        assert project_resp.status_code == 200
+        assert project_resp.json()["style_fingerprint"] == style_fingerprint
+
     async def test_update_understanding_persists_editable_fields(
         self, app_client: AsyncClient, project_id: str
     ) -> None:
@@ -140,6 +181,9 @@ class TestUnderstandingGeneration:
             f"/api/v1/projects/{project_id}/understanding"
         )
         assert get_resp.json()["data"]["strengths"] == ["人物目标清晰"]
+
+        project_resp = await app_client.get(f"/api/v1/projects/{project_id}")
+        assert project_resp.json()["style_fingerprint"] == data["style_fingerprint"]
 
     async def test_confirm_understanding_marks_gate_confirmed(
         self, app_client: AsyncClient, project_id: str

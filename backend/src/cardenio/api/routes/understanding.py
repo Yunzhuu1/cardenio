@@ -41,6 +41,17 @@ _INTERNAL_MONOLOGUE_MARKERS = (
     "felt",
     "afraid",
 )
+_LYRICAL_MARKERS = (
+    "moon",
+    "rain",
+    "shadow",
+    "silence",
+    "memory",
+    "dream",
+    "light",
+)
+_TENSE_MARKERS = ("blood", "knife", "locked", "dark", "secret", "fear", "afraid")
+_HUMOR_MARKERS = ("laugh", "joke", "funny", "smile")
 
 
 @router.post(":generate", status_code=202)
@@ -75,6 +86,7 @@ async def generate_understanding(
         data=data,
     )
     saved = await store.save_artifact(project_id, envelope)
+    await store.update_project_style_fingerprint(project_id, data.style_fingerprint)
     if project["state"] == ProjectState.IMPORTED:
         await store.update_project_state(project_id, ProjectState.UNDERSTOOD)
     return saved.model_dump(mode="json")
@@ -115,6 +127,7 @@ async def update_understanding(
         data=body,
     )
     saved = await store.save_artifact(project_id, envelope)
+    await store.update_project_style_fingerprint(project_id, body.style_fingerprint)
     return saved.model_dump(mode="json")
 
 
@@ -140,6 +153,7 @@ async def confirm_understanding(
         data=data,
     )
     saved = await store.save_artifact(project_id, envelope)
+    await store.update_project_style_fingerprint(project_id, data.style_fingerprint)
     if project["state"] == ProjectState.IMPORTED:
         await store.update_project_state(project_id, ProjectState.UNDERSTOOD)
     return saved.model_dump(mode="json")
@@ -186,7 +200,7 @@ def _with_m2_t1_defaults(
         "protagonist_fear": "失去关键关系、秘密或自我判断。",
         "central_conflict": "主角目标与外部阻力、内心犹疑之间的冲突。",
         "mood": "克制、悬念、带有情绪张力",
-        "style_fingerprint": "以原文段落为约束，保持叙述节奏、意象密度和对白克制感。",
+        "style_fingerprint": _sample_style_fingerprint(chapters),
         "narrative": _detect_narrative(chapters),
         "non_visualizable": _detect_non_visualizable(chapters),
         "strengths": ["已有至少三章连续素材，可支撑改编前理解。"],
@@ -270,6 +284,59 @@ def _detect_non_visualizable(chapters: list[dict[str, Any]]) -> list[dict[str, A
                     }
                 )
     return marks
+
+
+def _sample_style_fingerprint(chapters: list[dict[str, Any]]) -> str:
+    paragraphs = [
+        paragraph["text"].strip()
+        for chapter in chapters
+        for paragraph in chapter["paragraphs"]
+        if paragraph["text"].strip()
+    ]
+    text = "\n".join(paragraphs)
+    lower_text = text.lower()
+    sentence_count = max(1, _count_sentence_endings(text))
+    average_sentence_length = round(len(text) / sentence_count)
+    dialogue_ratio = _dialogue_ratio(text)
+    imagery_count = _count_markers(text, lower_text, _LYRICAL_MARKERS)
+    tense_count = _count_markers(text, lower_text, _TENSE_MARKERS)
+    humor_count = _count_markers(text, lower_text, _HUMOR_MARKERS)
+
+    if average_sentence_length <= 45:
+        cadence = "short, clipped sentences"
+    else:
+        cadence = "long, reflective sentences"
+    dialogue = "dialogue-led" if dialogue_ratio >= 0.18 else "narration-led"
+    mood = _style_mood(imagery_count, tense_count, humor_count)
+    density = "image-dense" if imagery_count >= 3 else "plain-detail"
+
+    return (
+        f"{mood}; {cadence}; {dialogue}; {density}; "
+        f"avg_sentence_length={average_sentence_length}; "
+        f"dialogue_ratio={dialogue_ratio:.2f}"
+    )
+
+
+def _count_sentence_endings(text: str) -> int:
+    endings = ".!?。！？"
+    return sum(text.count(ending) for ending in endings)
+
+
+def _dialogue_ratio(text: str) -> float:
+    if not text:
+        return 0.0
+    dialogue_chars = sum(text.count(mark) for mark in ('"', "'", "“", "”", "「", "」"))
+    return min(1.0, dialogue_chars / len(text))
+
+
+def _style_mood(imagery_count: int, tense_count: int, humor_count: int) -> str:
+    if humor_count >= max(2, tense_count):
+        return "light, humorous"
+    if tense_count >= max(2, imagery_count):
+        return "tense, suspenseful"
+    if imagery_count >= 2:
+        return "lyrical, atmospheric"
+    return "restrained, observational"
 
 
 def _is_non_visualizable_paragraph(text: str) -> bool:
