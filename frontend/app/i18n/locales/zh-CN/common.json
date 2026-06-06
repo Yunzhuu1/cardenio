@@ -337,6 +337,66 @@
       }
     }
   },
+  "outline": {
+    "status": {
+      "empty": "未生成",
+      "draft": "草稿",
+      "confirmed": "已确认",
+      "needs_recompute": "需重新生成"
+    },
+    "lockedTitle": "请先确认人物档案",
+    "lockedDescription": "分场大纲需要在人物档案工件达到已确认后生成。请先返回人物档案步骤完成确认。",
+    "charactersCta": "返回人物档案",
+    "gateBlocked": "后端仍要求先确认人物档案。请返回人物档案步骤确认后再生成。",
+    "emptyTitle": "尚未生成分场大纲",
+    "emptyDescription": "基于已确认的人物档案生成可确认、可追溯的分场大纲。",
+    "generate": "生成分场大纲",
+    "generateSuccess": "分场大纲已生成",
+    "cardTitle": "分场大纲工件",
+    "cardDescription": "共 {{count}} 场。每场保留标题、来源、人物、目标、冲突和关系变化。",
+    "regenerate": "重新生成",
+    "regenerateTitle": "重新生成分场大纲？",
+    "regenerateDescription": "重新生成会覆盖当前全部场景；如果当前已确认，也会回到草稿状态。",
+    "regenerateConfirm": "确认重新生成",
+    "confirm": "确认分场大纲",
+    "confirmSuccess": "分场大纲已确认",
+    "cancel": "取消",
+    "actionError": "操作失败",
+    "needsConfirmTitle": "需确认分场大纲",
+    "needsConfirmDescription": "草稿大纲尚不能生成剧本。确认后即可进入剧本生成步骤；后续编辑会让大纲重新回到草稿。",
+    "confirmedTitle": "分场大纲已确认",
+    "confirmedDescription": "现在可以进入剧本生成步骤，后端会以这份大纲作为剧本生成前置。",
+    "scriptCta": "进入剧本生成",
+    "sceneNumber": "第 {{number}} 场",
+    "sourceRef": "第 {{chapter}} 章 · 第 {{paragraphs}} 段",
+    "chapterHint": "{{title}} · 共 {{paragraphs}} 段",
+    "chapterMissing": "未找到对应章节",
+    "emptyField": "未填写",
+    "relationChangesToggle": "关系变化（{{count}}）",
+    "noRelationChanges": "暂无关系变化。",
+    "characterSeparator": "、",
+    "relationChangeSeparator": "：",
+    "int_ext": {
+      "INT": "内景",
+      "EXT": "外景"
+    },
+    "time": {
+      "DAY": "日",
+      "NIGHT": "夜",
+      "DAWN": "黎明",
+      "DUSK": "黄昏"
+    },
+    "fields": {
+      "synopsis": "场景梗概",
+      "goal": "场景目标",
+      "conflict": "冲突",
+      "mood": "情绪基调",
+      "characters": "出场人物",
+      "foreshadowing": "伏笔",
+      "relation_changes": "关系变化",
+      "ending_state": "结尾状态"
+    }
+  },
   "pages": {
     "import": {
       "milestone": "M1",
@@ -351,7 +411,7 @@
     "outline": {
       "milestone": "M4",
       "title": "分场大纲",
-      "description": "生成每场绑定 source_ref 的分场大纲，可增删、调序与逐字段编辑。"
+      "description": "生成每场绑定 source_ref 的分场大纲，确认后进入剧本生成。"
     },
     "script": {
       "milestone": "M5",
