@@ -94,6 +94,61 @@ async def generate_confirmed_outline(
     return confirm_resp.json()
 
 
+async def generate_confirmed_outline_with_non_visualizable_mark(
+    app_client: AsyncClient,
+    project_id: str,
+) -> None:
+    await add_screenplay_source(app_client, project_id)
+    understanding_payload = {
+        "logline": "A secret in the archive forces Lin Wan to act.",
+        "synopsis": "Lin Wan and Chen Mo circle a hidden letter.",
+        "themes": ["memory", "trust"],
+        "protagonist_goal": "Find the truth behind the letter.",
+        "protagonist_fear": "Losing the last trustworthy relationship.",
+        "central_conflict": "Truth versus concealment.",
+        "mood": "tense",
+        "style_fingerprint": "restrained; dialogue-led; tense",
+        "narrative": {
+            "perspective": "third_person_limited",
+            "tense": "past",
+            "unreliable": False,
+        },
+        "non_visualizable": [
+            {
+                "source_ref": {"chapter": 1, "paragraphs": [1]},
+                "note": "Lin Wan realizes the archive has always frightened her.",
+            }
+        ],
+        "strengths": ["Clear dramatic pressure."],
+        "difficulties": ["Internal fear needs externalization."],
+    }
+    put_resp = await app_client.put(
+        f"/api/v1/projects/{project_id}/understanding",
+        json=understanding_payload,
+    )
+    assert put_resp.status_code == 200
+    confirm_resp = await app_client.post(
+        f"/api/v1/projects/{project_id}/understanding:confirm"
+    )
+    assert confirm_resp.status_code == 200
+    characters_resp = await app_client.post(
+        f"/api/v1/projects/{project_id}/characters:generate"
+    )
+    assert characters_resp.status_code == 202
+    characters_confirm_resp = await app_client.post(
+        f"/api/v1/projects/{project_id}/characters:confirm"
+    )
+    assert characters_confirm_resp.status_code == 200
+    outline_resp = await app_client.post(
+        f"/api/v1/projects/{project_id}/outline:generate"
+    )
+    assert outline_resp.status_code == 202
+    outline_confirm_resp = await app_client.post(
+        f"/api/v1/projects/{project_id}/outline:confirm"
+    )
+    assert outline_confirm_resp.status_code == 200
+
+
 class TestScreenplayGeneration:
     """API-17/18: confirmed outline generates a structured screenplay draft."""
 
@@ -148,6 +203,30 @@ class TestScreenplayGeneration:
         get_resp = await app_client.get(f"/api/v1/projects/{project_id}/screenplay")
         assert get_resp.status_code == 200
         assert get_resp.json()["version"] == generated["version"]
+
+    async def test_non_visualizable_passage_gets_externalization_options(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline_with_non_visualizable_mark(
+            app_client, project_id
+        )
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+
+        assert resp.status_code == 202
+        beats = resp.json()["data"]["scenes"][0]["beats"]
+        note = next(beat for beat in beats if beat["type"] == "note")
+        assert note["flag"] == "ai_inferred"
+        assert note["source_ref"] == {"chapter": 1, "paragraphs": [1]}
+        assert "externalization" in note["text"]
+        assert {option["kind"] for option in note["options"]} == {
+            "voice_over",
+            "action",
+            "dialogue",
+            "annotation",
+        }
 
     async def test_get_single_screenplay_scene(
         self, app_client: AsyncClient, project_id: str
