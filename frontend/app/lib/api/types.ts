@@ -151,6 +151,7 @@ export type SourceRef = {
 };
 
 export type ArtifactState = "draft" | "confirmed" | "needs_recompute";
+export type Flag = "from_source" | "ai_inferred";
 
 export type ArtifactEnvelope<T> = {
   type: string;
@@ -211,6 +212,112 @@ export type Character = {
 
 export type CharactersData = {
   characters: Character[];
+};
+
+export type IntExt = "INT" | "EXT";
+export type TimeOfDay = "DAY" | "NIGHT" | "DAWN" | "DUSK";
+
+export type SceneHeading = {
+  int_ext: IntExt;
+  location: string;
+  time: TimeOfDay;
+};
+
+export type RelationChange = {
+  characters: string[];
+  change: string;
+};
+
+export type OutlineScene = {
+  id: string;
+  heading: SceneHeading;
+  source_ref: SourceRef;
+  synopsis: string;
+  goal: string | null;
+  conflict: string | null;
+  mood: string | null;
+  characters: string[];
+  foreshadowing: string[];
+  relation_changes: RelationChange[];
+  ending_state: string | null;
+};
+
+export type MergeSuggestionStatus = "pending" | "applied" | "dismissed";
+
+export type MergeSuggestion = {
+  id: string;
+  scene_ids: string[];
+  reason: string;
+  status: MergeSuggestionStatus;
+};
+
+export type OutlineData = {
+  scenes: OutlineScene[];
+  merge_suggestions: MergeSuggestion[];
+};
+
+export type MergeSuggestionsResponse = {
+  suggestions: MergeSuggestion[];
+};
+
+export type BeatType =
+  | "action"
+  | "dialogue"
+  | "voice_over"
+  | "off_screen"
+  | "note"
+  | "todo";
+
+export type BeatOption = {
+  kind: string;
+  text: string;
+};
+
+export type Beat = {
+  type: BeatType;
+  text: string | null;
+  character: string | null;
+  parenthetical: string | null;
+  dialogue: string | null;
+  subtext: string | null;
+  source_ref: SourceRef | null;
+  flag: Flag | null;
+  options: BeatOption[] | null;
+};
+
+export type ShotHints = {
+  enabled: boolean;
+};
+
+export type ScreenplayScene = {
+  id: string;
+  heading: SceneHeading;
+  source_ref: SourceRef;
+  synopsis: string | null;
+  goal: string | null;
+  conflict: string | null;
+  mood: string | null;
+  characters: string[];
+  foreshadowing: string[];
+  relation_changes: RelationChange[];
+  ending_state: string | null;
+  beats: Beat[];
+};
+
+export type ScreenplayData = {
+  scenes: ScreenplayScene[];
+  shot_hints: ShotHints;
+};
+
+export type BeatsFilterItem = {
+  scene_id: string;
+  beat_index: number;
+  beat: Beat;
+};
+
+export type BeatsFilterResponse = {
+  items: BeatsFilterItem[];
+  count: number;
 };
 
 export type IntentConstraints = {

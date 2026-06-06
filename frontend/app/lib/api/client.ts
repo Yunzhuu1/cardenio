@@ -10,19 +10,26 @@ import type {
   CreateChapterInput,
   CreateProjectInput,
   DirectionResponse,
+  Flag,
   ImportPreview,
   IntentConstraints,
   IntentValidateResponse,
+  MergeSuggestionsResponse,
   MvpDirection,
+  OutlineData,
+  OutlineScene,
   Paginated,
   PatchProjectInput,
   Project,
   ProjectId,
   ProjectSummary,
   ResegmentInput,
+  ScreenplayData,
+  ScreenplayScene,
   Source,
   UnderstandingData,
   UpdateChapterInput,
+  BeatsFilterResponse,
 } from "./types";
 
 export type ProjectsApi = {
@@ -92,12 +99,53 @@ export type IntentApi = {
   validate(projectId: ProjectId): Promise<IntentValidateResponse>;
 };
 
+export type OutlineApi = {
+  get(projectId: ProjectId): Promise<ArtifactEnvelope<OutlineData>>;
+  generate(projectId: ProjectId): Promise<ArtifactEnvelope<OutlineData>>;
+  addScene(
+    projectId: ProjectId,
+    scene: OutlineScene,
+  ): Promise<ArtifactEnvelope<OutlineData>>;
+  updateScene(
+    projectId: ProjectId,
+    sceneId: string,
+    scene: OutlineScene,
+  ): Promise<ArtifactEnvelope<OutlineData>>;
+  deleteScene(projectId: ProjectId, sceneId: string): Promise<void>;
+  reorder(
+    projectId: ProjectId,
+    order: string[],
+  ): Promise<ArtifactEnvelope<OutlineData>>;
+  confirm(projectId: ProjectId): Promise<ArtifactEnvelope<OutlineData>>;
+  getMergeSuggestions(projectId: ProjectId): Promise<MergeSuggestionsResponse>;
+  applyMergeSuggestion(
+    projectId: ProjectId,
+    suggestionId: string,
+  ): Promise<ArtifactEnvelope<OutlineData>>;
+  dismissMergeSuggestion(
+    projectId: ProjectId,
+    suggestionId: string,
+  ): Promise<ArtifactEnvelope<OutlineData>>;
+};
+
+export type ScreenplayApi = {
+  get(projectId: ProjectId): Promise<ArtifactEnvelope<ScreenplayData>>;
+  generate(
+    projectId: ProjectId,
+    options?: { shot_hints?: boolean },
+  ): Promise<ArtifactEnvelope<ScreenplayData>>;
+  getScene(projectId: ProjectId, sceneId: string): Promise<ScreenplayScene>;
+  getBeats(projectId: ProjectId, flag?: Flag): Promise<BeatsFilterResponse>;
+};
+
 export type ApiClient = {
   projects: ProjectsApi;
   source: SourceApi;
   understanding: UnderstandingApi;
   characters: CharactersApi;
   intent: IntentApi;
+  outline: OutlineApi;
+  screenplay: ScreenplayApi;
 };
 
 const mode = import.meta.env.VITE_API_MODE ?? "http";

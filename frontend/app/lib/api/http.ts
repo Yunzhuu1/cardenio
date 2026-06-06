@@ -230,4 +230,72 @@ export const httpClient: ApiClient = {
         method: "POST",
       }),
   },
+  outline: {
+    get: (projectId) => request(`/projects/${projectId}/outline`),
+    generate: (projectId) =>
+      request(`/projects/${projectId}/outline:generate`, {
+        method: "POST",
+      }),
+    addScene: (projectId, scene) =>
+      request(`/projects/${projectId}/outline/scenes`, {
+        method: "POST",
+        body: JSON.stringify(scene),
+      }),
+    updateScene: (projectId, sceneId, scene) =>
+      request(`/projects/${projectId}/outline/scenes/${sceneId}`, {
+        method: "PUT",
+        body: JSON.stringify(scene),
+      }),
+    deleteScene: (projectId, sceneId) =>
+      request<void>(`/projects/${projectId}/outline/scenes/${sceneId}`, {
+        method: "DELETE",
+      }).then(() => undefined),
+    reorder: (projectId, order) =>
+      request(`/projects/${projectId}/outline/scenes:reorder`, {
+        method: "POST",
+        body: JSON.stringify({ order }),
+      }),
+    confirm: (projectId) =>
+      request(`/projects/${projectId}/outline:confirm`, {
+        method: "POST",
+      }),
+    getMergeSuggestions: (projectId) =>
+      request(`/projects/${projectId}/outline/merge-suggestions`),
+    applyMergeSuggestion: (projectId, suggestionId) =>
+      request(
+        `/projects/${projectId}/outline/merge-suggestions/${suggestionId}:apply`,
+        {
+          method: "POST",
+        },
+      ),
+    dismissMergeSuggestion: (projectId, suggestionId) =>
+      request(
+        `/projects/${projectId}/outline/merge-suggestions/${suggestionId}:dismiss`,
+        {
+          method: "POST",
+        },
+      ),
+  },
+  screenplay: {
+    get: (projectId) => request(`/projects/${projectId}/screenplay`),
+    generate: (projectId, options) => {
+      const hasShotHints = options?.shot_hints !== undefined;
+      return request(`/projects/${projectId}/screenplay:generate`, {
+        method: "POST",
+        body: hasShotHints
+          ? JSON.stringify({ shot_hints: options.shot_hints })
+          : undefined,
+      });
+    },
+    getScene: (projectId, sceneId) =>
+      request(`/projects/${projectId}/screenplay/scenes/${sceneId}`),
+    getBeats: (projectId, flag) => {
+      const search = new URLSearchParams();
+      if (flag) search.set("flag", flag);
+      const qs = search.toString();
+      return request(
+        `/projects/${projectId}/screenplay/beats${qs ? `?${qs}` : ""}`,
+      );
+    },
+  },
 };
