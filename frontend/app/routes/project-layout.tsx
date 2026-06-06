@@ -25,13 +25,8 @@ export default function ProjectLayout({
   return (
     <div className="mx-auto w-full max-w-6xl">
       <div className="mb-6 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-balance text-foreground">
-            {project.title}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t(`state.${project.state}`)}
-          </p>
+        <div className="app-heading min-w-0 truncate text-sm font-medium text-muted-foreground">
+          {project.title}
         </div>
         <NavLink
           aria-label={t("nav.projectSettings")}
