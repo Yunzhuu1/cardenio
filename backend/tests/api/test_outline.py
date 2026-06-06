@@ -81,6 +81,13 @@ async def move_project_to_intent_set(app_client: AsyncClient, project_id: str) -
     assert intent_resp.status_code == 200
 
 
+async def generate_outline(app_client: AsyncClient, project_id: str) -> dict:
+    await move_project_to_confirmed_characters(app_client, project_id)
+    resp = await app_client.post(f"/api/v1/projects/{project_id}/outline:generate")
+    assert resp.status_code == 202
+    return resp.json()
+
+
 class TestOutlineGeneration:
     """API-14/15: scene outline can be generated and retrieved."""
 
@@ -201,4 +208,145 @@ class TestOutlineGeneration:
 
     async def test_missing_project_returns_404(self, app_client: AsyncClient) -> None:
         resp = await app_client.post("/api/v1/projects/missing/outline:generate")
+        assert resp.status_code == 404
+
+
+class TestOutlineEditing:
+    """API-15: outline scenes are editable and saved as stable versions."""
+
+    async def test_add_scene_appends_and_persists(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        generated = await generate_outline(app_client, project_id)
+        new_scene = {
+            "id": "sc_manual",
+            "heading": {"int_ext": "INT", "location": "Archive", "time": "NIGHT"},
+            "source_ref": {"chapter": 1, "paragraphs": [1]},
+            "synopsis": "Lin Wan studies the first clue again.",
+            "goal": "Clarify the clue before the next turn.",
+            "conflict": "She wants certainty but only has fragments.",
+            "mood": "tense",
+            "characters": ["lin_wan"],
+            "foreshadowing": ["The letter remains unresolved."],
+            "relation_changes": [],
+            "ending_state": "The clue points back to Chen Mo.",
+        }
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/outline/scenes",
+            json=new_scene,
+        )
+
+        assert resp.status_code == 201
+        saved = resp.json()
+        assert saved["parent_version"] == generated["version"]
+        assert saved["data"]["scenes"][-1]["id"] == "sc_manual"
+
+        get_resp = await app_client.get(f"/api/v1/projects/{project_id}/outline")
+        assert get_resp.status_code == 200
+        assert get_resp.json()["version"] == saved["version"]
+
+    async def test_update_scene_replaces_editable_fields(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        generated = await generate_outline(app_client, project_id)
+        scene = generated["data"]["scenes"][0]
+        scene["synopsis"] = "Edited synopsis for the opening scene."
+        scene["goal"] = "Edited scene goal."
+        scene["heading"]["location"] = "Edited Archive"
+
+        resp = await app_client.put(
+            f"/api/v1/projects/{project_id}/outline/scenes/{scene['id']}",
+            json=scene,
+        )
+
+        assert resp.status_code == 200
+        saved = resp.json()
+        assert saved["parent_version"] == generated["version"]
+        edited = saved["data"]["scenes"][0]
+        assert edited["synopsis"] == "Edited synopsis for the opening scene."
+        assert edited["goal"] == "Edited scene goal."
+        assert edited["heading"]["location"] == "Edited Archive"
+
+    async def test_delete_scene_removes_only_target_scene(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        generated = await generate_outline(app_client, project_id)
+        deleted_id = generated["data"]["scenes"][1]["id"]
+
+        resp = await app_client.delete(
+            f"/api/v1/projects/{project_id}/outline/scenes/{deleted_id}"
+        )
+
+        assert resp.status_code == 204
+        get_resp = await app_client.get(f"/api/v1/projects/{project_id}/outline")
+        scenes = get_resp.json()["data"]["scenes"]
+        assert [scene["id"] for scene in scenes] == ["sc_001", "sc_003"]
+
+    async def test_reorder_scenes_persists_exact_order(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        generated = await generate_outline(app_client, project_id)
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/outline/scenes:reorder",
+            json={"order": ["sc_003", "sc_001", "sc_002"]},
+        )
+
+        assert resp.status_code == 200
+        saved = resp.json()
+        assert saved["parent_version"] == generated["version"]
+        assert [scene["id"] for scene in saved["data"]["scenes"]] == [
+            "sc_003",
+            "sc_001",
+            "sc_002",
+        ]
+
+    async def test_reorder_requires_every_scene_once(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_outline(app_client, project_id)
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/outline/scenes:reorder",
+            json={"order": ["sc_001", "sc_001"]},
+        )
+
+        assert resp.status_code == 422
+
+    async def test_confirm_outline_marks_latest_edit_confirmed(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        generated = await generate_outline(app_client, project_id)
+        scene = generated["data"]["scenes"][0]
+        scene["synopsis"] = "Confirmed edited synopsis."
+        update_resp = await app_client.put(
+            f"/api/v1/projects/{project_id}/outline/scenes/{scene['id']}",
+            json=scene,
+        )
+        assert update_resp.status_code == 200
+
+        confirm_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/outline:confirm"
+        )
+
+        assert confirm_resp.status_code == 200
+        confirmed = confirm_resp.json()
+        assert confirmed["state"] == "confirmed"
+        assert confirmed["parent_version"] == update_resp.json()["version"]
+        assert confirmed["data"]["scenes"][0]["synopsis"] == "Confirmed edited synopsis."
+
+    async def test_editing_missing_outline_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/outline/scenes",
+            json={
+                "id": "sc_manual",
+                "heading": {"int_ext": "INT", "location": "Archive", "time": "DAY"},
+                "source_ref": {"chapter": 1, "paragraphs": [1]},
+                "synopsis": "No outline exists yet.",
+            },
+        )
+
         assert resp.status_code == 404
