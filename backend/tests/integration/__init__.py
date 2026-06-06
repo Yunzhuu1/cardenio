@@ -1,0 +1,1 @@
+"""Integration test stubs (to be implemented per milestone)."""
