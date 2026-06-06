@@ -2,7 +2,9 @@
 
 M1-T1: chapter input (paste/type) — done
 M1-T2: file import (TXT / DOCX) — done
-M1-T3: chapter segmentation (edit/delete/merge/split, confirm import) — current
+M1-T3: chapter segmentation — done
+M1-T4: threshold check — done
+M1-T5: text cleaning — current
 """
 
 from __future__ import annotations
@@ -56,7 +58,8 @@ async def create_chapter(
     existing = await store.list_chapters(project_id)
     order = len(existing) + 1 if not body.order else body.order
 
-    raw_paragraphs = _split_paragraphs(body.text)
+    cleaned_text = _clean_basic(body.text)
+    raw_paragraphs = _split_paragraphs(cleaned_text)
     chapter_id = f"ch_{order}"
     paragraph_models: list[SourceParagraph] = []
     for idx, para_text in enumerate(raw_paragraphs):
@@ -221,7 +224,9 @@ async def update_chapter(
 
     paragraph_models: list[SourceParagraph] = []
     for para in chapter.paragraphs:
-        paragraph_models.append(SourceParagraph(index=para.index, text=para.text))
+        paragraph_models.append(
+            SourceParagraph(index=para.index, text=_clean_basic(para.text))
+        )
 
     await store.save_paragraphs(
         project_id=project_id,
@@ -449,10 +454,83 @@ def _detect_chapters(text: str) -> list[dict]:
     return [c for c in chapters if c["char_count"] > 0]
 
 
+# =============================================================================
+# M1-T5 — text cleaning (FR-1.4)
+# =============================================================================
+
+
 def _clean_basic(text: str) -> str:
+    """Basic text cleaning.  M1-T5: preserves intentional whitespace.
+
+    Steps (order matters):
+    1. BOM removal
+    2. CRLF / CR → LF
+    3. Remove control chars except \n, \t
+    4. Collapse 3+ consecutive newlines to 2 (keep paragraph breaks)
+    5. Full-width → half-width for ASCII variants
+    6. Strip trailing whitespace per line (keep leading indentation for prose)
+    """
+    # 1. Remove BOM
+    text = text.lstrip("\ufeff")
+
+    # 2. Normalize line endings
     text = text.replace("\r\n", "\n").replace("\r", "\n")
+
+    # 3. Remove control characters except \n (0x0A) and \t (0x09)
+    text = "".join(
+        ch for ch in text
+        if ch == "\n" or ch == "\t" or ord(ch) >= 0x20 or ch == "　"
+    )
+
+    # 4. Collapse 3+ consecutive newlines to 2 (preserve paragraph gaps)
     text = re.sub(r"\n{3,}", "\n\n", text)
+
+    # 5. Full-width → half-width for ASCII variants. Non-ASCII Chinese
+    # punctuation such as "。" and "《》" stays unchanged.
+    text = _normalize_fullwidth_ascii(text)
+
+    # 6. Strip trailing whitespace per line (preserve leading indent for prose)
+    lines = text.split("\n")
+    text = "\n".join(line.rstrip() for line in lines)
+
     return text
+
+
+def _normalize_fullwidth_ascii(text: str) -> str:
+    """Normalize full-width ASCII variants to their half-width forms."""
+    chinese_punctuation = {
+        "，",
+        "。",
+        "！",
+        "？",
+        "；",
+        "：",
+        "、",
+        "（",
+        "）",
+        "《",
+        "》",
+        "〈",
+        "〉",
+        "【",
+        "】",
+        "“",
+        "”",
+        "‘",
+        "’",
+    }
+    normalized: list[str] = []
+    for ch in text:
+        code = ord(ch)
+        if ch == "　":
+            normalized.append(" ")
+        elif ch in chinese_punctuation:
+            normalized.append(ch)
+        elif 0xFF01 <= code <= 0xFF5E:
+            normalized.append(chr(code - 0xFEE0))
+        else:
+            normalized.append(ch)
+    return "".join(normalized)
 
 
 def _split_paragraphs(text: str) -> list[str]:
