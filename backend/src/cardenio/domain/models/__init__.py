@@ -46,7 +46,12 @@ from cardenio.domain.models.screenplay import (
     ScreenplayScene,
     ShotHints,
 )
-from cardenio.domain.models.source import Chapter, SourceParagraph, SourceStats
+from cardenio.domain.models.source import (
+    Chapter,
+    CreateChapterRequest,
+    SourceParagraph,
+    SourceStats,
+)
 from cardenio.domain.models.understanding import Narrative, NonVisualizableMark, UnderstandingData
 
 __all__ = [
@@ -65,6 +70,7 @@ __all__ = [
     "ProjectMeta",
     # source
     "Chapter",
+    "CreateChapterRequest",
     "SourceParagraph",
     "SourceStats",
     # understanding

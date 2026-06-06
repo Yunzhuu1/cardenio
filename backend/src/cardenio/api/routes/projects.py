@@ -2,30 +2,48 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from cardenio.api.deps import get_artifact_store
 from cardenio.domain.models.project import ProjectMeta
+from cardenio.storage.sqlite_store import SqliteArtifactStore
 
 router = APIRouter(prefix="/projects")
 
 
 @router.post("", status_code=201)
-async def create_project(meta: ProjectMeta) -> dict:
+async def create_project(
+    meta: ProjectMeta,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-1: Create a new adaptation project."""
-    # TODO: implement in M0-T3
-    raise NotImplementedError("Project creation not yet implemented")
+    project_id = await store.create_project(meta.model_dump(mode="json"))
+    project = await store.get_project(project_id)
+    return project
 
 
 @router.get("")
-async def list_projects(*, limit: int = 20, cursor: str | None = None) -> dict:
+async def list_projects(
+    limit: int = 20,
+    cursor: str | None = None,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-2: List projects with cursor pagination."""
-    raise NotImplementedError("Project listing not yet implemented")
+    projects = await store.list_projects(limit=limit, cursor=cursor)
+    return {"items": projects, "next_cursor": None}
 
 
 @router.get("/{project_id}")
-async def get_project(project_id: str) -> dict:
+async def get_project(
+    project_id: str,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-2: Get project details including state and gate status."""
-    raise NotImplementedError("Project detail not yet implemented")
+    proj = await store.get_project(project_id)
+    if proj is None:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Project not found")
+    return proj
 
 
 @router.patch("/{project_id}")

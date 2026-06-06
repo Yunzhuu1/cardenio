@@ -12,14 +12,25 @@ class SourceParagraph(BaseModel):
     text: str
 
 
+class CreateChapterRequest(BaseModel):
+    """Request body for creating a chapter (API-3).
+
+    The user provides raw text; the system builds the paragraph index.
+    ``id`` and ``char_count`` are generated server-side.
+    """
+
+    title: str
+    text: str
+    order: int = 0
+
+
 class Chapter(BaseModel):
-    """A chapter of the source novel (api.md §4, API-3/4)."""
+    """A chapter returned by the API (api.md §4)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str  # e.g. "ch_1"
+    id: str  # e.g. "ch_1", generated server-side
     title: str
-    text: str
     order: int
     char_count: int = 0
     paragraphs: list[SourceParagraph] = []

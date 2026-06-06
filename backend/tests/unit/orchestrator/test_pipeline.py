@@ -2,10 +2,8 @@
 
 import pytest
 
-from cardenio.domain.agents.base import AgentContext, AgentResult
 from cardenio.gateway.protocol import GenerateRequest, SystemConstraints
 from cardenio.gateway.providers.stub import StubLlmGateway
-from cardenio.orchestrator.pipeline import Pipeline
 
 
 @pytest.fixture

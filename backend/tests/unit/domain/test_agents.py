@@ -5,10 +5,18 @@ Each agent module must define a task_name and an async run() method.
 
 import pytest
 
-from cardenio.domain.agents.base import AgentContext, AgentProtocol
-from cardenio.domain.agents import preprocess, understand, profile, intent_compile
-from cardenio.domain.agents import outline, scene, consistency, report, rewrite
-
+from cardenio.domain.agents import (
+    consistency,
+    intent_compile,
+    outline,
+    preprocess,
+    profile,
+    report,
+    rewrite,
+    scene,
+    understand,
+)
+from cardenio.domain.agents.base import AgentContext
 
 AGENT_MODULES = [
     ("preprocess", preprocess.PreprocessAgent),

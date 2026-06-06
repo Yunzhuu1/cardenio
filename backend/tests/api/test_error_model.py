@@ -1,8 +1,8 @@
 """Error model tests (api.md §1.6, §15.1)."""
 
-import pytest
 
 from cardenio.api.errors import (
+    ERROR_STATUS_MAP,
     CardenioError,
     ChapterThresholdUnmetError,
     InvalidRequestError,
@@ -12,7 +12,6 @@ from cardenio.api.errors import (
     SchemaInvalidError,
     StateGateBlockedError,
     VersionConflictError,
-    ERROR_STATUS_MAP,
 )
 
 

@@ -11,7 +11,12 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from cardenio.storage.sqlalchemy_models import ArtifactModel, JobModel, ProjectModel
+from cardenio.storage.sqlalchemy_models import (
+    ArtifactModel,
+    JobModel,
+    ProjectModel,
+    SourceParagraphModel,
+)
 
 
 class ProjectRepository:
@@ -68,6 +73,38 @@ class ArtifactRepository:
         self.session.add(artifact)
         await self.session.flush()
         return artifact
+
+    async def save_paragraph(
+        self,
+        *,
+        project_id: str,
+        chapter_id: str,
+        paragraph_index: int,
+        text: str,
+    ) -> SourceParagraphModel:
+        para = SourceParagraphModel(
+            project_id=project_id,
+            chapter_id=chapter_id,
+            paragraph_index=paragraph_index,
+            text=text,
+        )
+        self.session.add(para)
+        await self.session.flush()
+        return para
+
+    async def get_paragraphs(
+        self, project_id: str, *, chapter_id: str | None = None
+    ) -> list[SourceParagraphModel]:
+        from sqlalchemy import select
+
+        stmt = select(SourceParagraphModel).where(
+            SourceParagraphModel.project_id == project_id
+        )
+        if chapter_id:
+            stmt = stmt.where(SourceParagraphModel.chapter_id == chapter_id)
+        stmt = stmt.order_by(SourceParagraphModel.paragraph_index)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
 
 class JobRepository:

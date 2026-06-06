@@ -3,7 +3,6 @@
 Verifies that source_ref, flag, and TODO enforcement logic works correctly.
 """
 
-import pytest
 
 from cardenio.domain.models.base import Flag
 from cardenio.domain.models.intent import IntentConstraints
