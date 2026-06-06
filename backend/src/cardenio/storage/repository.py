@@ -48,6 +48,14 @@ class ProjectRepository:
             project.style_fingerprint = style_fingerprint
             await self.session.flush()
 
+    async def update_adaptation_direction(
+        self, project_id: str, adaptation_direction: str
+    ) -> None:
+        project = await self.get(project_id)
+        if project:
+            project.adaptation_direction = adaptation_direction
+            await self.session.flush()
+
     async def list_projects(
         self, *, limit: int = 20, cursor: str | None = None
     ) -> list[ProjectModel]:

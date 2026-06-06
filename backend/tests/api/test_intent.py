@@ -136,3 +136,42 @@ class TestAuthorIntent:
             json=intent_payload(),
         )
         assert resp.status_code == 404
+
+
+class TestAdaptationDirection:
+    """API-12: MVP adaptation direction can be selected and stored."""
+
+    @pytest.mark.parametrize("direction", ["faithful", "cinematic", "short_drama"])
+    async def test_set_mvp_direction_updates_project_meta(
+        self, app_client: AsyncClient, project_id: str, direction: str
+    ) -> None:
+        resp = await app_client.put(
+            f"/api/v1/projects/{project_id}/intent/direction",
+            json={"direction": direction},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["direction"] == direction
+        assert data["project"]["adaptation_direction"] == direction
+
+        project_resp = await app_client.get(f"/api/v1/projects/{project_id}")
+        assert project_resp.status_code == 200
+        assert project_resp.json()["adaptation_direction"] == direction
+
+    async def test_non_mvp_direction_is_rejected(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        resp = await app_client.put(
+            f"/api/v1/projects/{project_id}/intent/direction",
+            json={"direction": "tv"},
+        )
+
+        assert resp.status_code == 422
+
+    async def test_missing_project_returns_404(self, app_client: AsyncClient) -> None:
+        resp = await app_client.put(
+            "/api/v1/projects/missing/intent/direction",
+            json={"direction": "faithful"},
+        )
+        assert resp.status_code == 404
