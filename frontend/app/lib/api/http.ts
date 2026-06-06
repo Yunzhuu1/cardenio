@@ -60,16 +60,24 @@ function getDetailMessage(detail: unknown): string | null {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const isFormData =
+    typeof FormData !== "undefined" && init?.body instanceof FormData;
+  const headers = new Headers(init?.headers);
+  if (!isFormData && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (!headers.has("Accept-Language")) {
+    headers.set(
+      "Accept-Language",
+      typeof document !== "undefined"
+        ? document.documentElement.lang || "zh-CN"
+        : "zh-CN",
+    );
+  }
+
   const response = await fetch(`${BASE_URL}${path}`, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      "Accept-Language":
-        typeof document !== "undefined"
-          ? document.documentElement.lang || "zh-CN"
-          : "zh-CN",
-      ...init?.headers,
-    },
+    headers,
   });
 
   if (response.status === 204) return undefined as T;
@@ -113,5 +121,40 @@ export const httpClient: ApiClient = {
       request<void>(`/projects/${id}`, { method: "DELETE" }).then(
         () => undefined,
       ),
+  },
+  source: {
+    get: (projectId) => request(`/projects/${projectId}/source`),
+    addChapter: (projectId, input) =>
+      request(`/projects/${projectId}/source/chapters`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    updateChapter: (projectId, chapterId, chapter) =>
+      request(`/projects/${projectId}/source/chapters/${chapterId}`, {
+        method: "PUT",
+        body: JSON.stringify(chapter),
+      }),
+    deleteChapter: (projectId, chapterId) =>
+      request<void>(`/projects/${projectId}/source/chapters/${chapterId}`, {
+        method: "DELETE",
+      }).then(() => undefined),
+    resegment: (projectId, input) =>
+      request(`/projects/${projectId}/source/chapters:resegment`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    importFile: (projectId, file) => {
+      const body = new FormData();
+      body.append("file", file);
+      return request(`/projects/${projectId}/source/import`, {
+        method: "POST",
+        body,
+      });
+    },
+    confirmImport: (projectId, input) =>
+      request(`/projects/${projectId}/source/import:confirm`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
   },
 };

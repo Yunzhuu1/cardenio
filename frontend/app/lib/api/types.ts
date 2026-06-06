@@ -68,6 +68,79 @@ export type PatchProjectInput = Partial<
   >
 >;
 
+export type ChapterId = string; // "ch_*"
+
+export type SourceParagraph = {
+  index: number;
+  text: string;
+};
+
+export type Chapter = {
+  id: ChapterId;
+  title: string;
+  order: number;
+  char_count: number;
+  paragraphs: SourceParagraph[];
+};
+
+export type SourceStats = {
+  chapter_count: number;
+  char_count: number;
+  min_chapters?: number;
+};
+
+export type SourceThreshold = {
+  min_chapters: number;
+  passed: boolean;
+  blocked?: string;
+};
+
+export type Source = {
+  chapters: Chapter[];
+  stats: SourceStats;
+  threshold: SourceThreshold;
+};
+
+export type CreateChapterInput = {
+  title: string;
+  text: string;
+  order?: number;
+};
+
+export type UpdateChapterInput = Chapter;
+
+export type ImportChapterPreview = {
+  title: string;
+  text: string;
+  char_count?: number;
+  paragraphs?: [number, number];
+};
+
+export type ImportPreview = {
+  chapters: ImportChapterPreview[];
+  warnings: string[];
+};
+
+export type ConfirmImportInput = {
+  chapters: Array<{
+    title: string;
+    text: string;
+    order?: number;
+  }>;
+};
+
+export type ResegmentInput =
+  | {
+      op: "split";
+      chapter_id: ChapterId;
+      at_paragraph: number;
+    }
+  | {
+      op: "merge";
+      chapter_ids: ChapterId[];
+      new_title?: string;
+    };
+
 export type Paginated<T> = { items: T[]; next_cursor: string | null };
 
 export type ApiErrorBody = {
