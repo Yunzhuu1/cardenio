@@ -1,8 +1,15 @@
-"""Source (novel import) API (api.md §4, API-3~6)."""
+"""Source (novel import) API (api.md §4, API-3~6).
+
+M1-T1: chapter input (paste/type) — done
+M1-T2: file import (TXT / DOCX) — current
+M1-T3: chapter segmentation — upcoming
+"""
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, UploadFile
+import io
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
 from cardenio.api.deps import get_artifact_store
 from cardenio.domain.models.source import (
@@ -15,6 +22,11 @@ from cardenio.storage.sqlite_store import SqliteArtifactStore
 
 router = APIRouter(prefix="/projects/{project_id}/source")
 
+ALLOWED_MIMES = {
+    "text/plain": "txt",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+}
+
 
 @router.post("/chapters", status_code=201)
 async def create_chapter(
@@ -22,24 +34,15 @@ async def create_chapter(
     body: CreateChapterRequest,
     store: SqliteArtifactStore = Depends(get_artifact_store),
 ) -> dict:
-    """API-3: Add a chapter — persists text and builds paragraph index.
-
-    Returns the chapter object with assigned id, order, char_count, and
-    paragraph intervals for source_ref traceability (P4).
-    """
+    """API-3: Add a chapter — persists text and builds paragraph index."""
     proj = await store.get_project(project_id)
     if proj is None:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Determine next chapter order
     existing = await store.list_chapters(project_id)
     order = len(existing) + 1 if not body.order else body.order
 
-    # Split text into paragraphs
     raw_paragraphs = _split_paragraphs(body.text)
-
-    # Persist paragraphs to build the traceability index (P4 root)
     chapter_id = f"ch_{order}"
     paragraph_models: list[SourceParagraph] = []
     for idx, para_text in enumerate(raw_paragraphs):
@@ -65,61 +68,237 @@ async def get_source(
     project_id: str,
     store: SqliteArtifactStore = Depends(get_artifact_store),
 ) -> dict:
-    """API-5: Get all chapters with paragraph index and threshold check.
-
-    Returns chapters array and aggregate stats (FR-1.3 threshold).
-    """
+    """API-5: Get all chapters with paragraph index and threshold check."""
     proj = await store.get_project(project_id)
     if proj is None:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Project not found")
 
     chapters = await store.list_chapters(project_id)
     total_chars = sum(c["char_count"] for c in chapters)
-
     stats = SourceStats(chapter_count=len(chapters), char_count=total_chars)
 
     return {
         "chapters": chapters,
         "stats": stats.model_dump(mode="json"),
-        "threshold": {
-            "min_chapters": 3,
-            "passed": stats.threshold_passed,
-        },
+        "threshold": {"min_chapters": 3, "passed": stats.threshold_passed},
     }
 
 
 @router.post("/import")
-async def import_file(project_id: str, file: UploadFile) -> dict:
-    """API-4: Import TXT/DOCX file with auto-chapter detection. (M1-T2)"""
-    raise NotImplementedError("File import not yet implemented")
+async def import_file(
+    project_id: str,
+    file: UploadFile,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
+    """API-4: Import TXT/DOCX file with auto-chapter detection.
+
+    Returns auto-segmented chapter preview for author review.
+    Actual chapter persistence happens on confirmation (M1-T3).
+    """
+    proj = await store.get_project(project_id)
+    if proj is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    if file.content_type is None:
+        raise HTTPException(status_code=400, detail="Unknown file type")
+
+    raw_bytes = await file.read()
+
+    try:
+        text, warnings = _extract_text(raw_bytes, file.content_type, file.filename or "")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="File contains no readable text")
+
+    # Auto-detect chapter boundaries and produce preview
+    chapters = _detect_chapters(text)
+
+    return {
+        "chapters": chapters,
+        "warnings": warnings,
+    }
 
 
 @router.put("/chapters/{chapter_id}")
-async def update_chapter(project_id: str, chapter_id: str, chapter: Chapter) -> dict:
-    """API-6: Edit a chapter."""
-    raise NotImplementedError("Chapter update not yet implemented")
+async def update_chapter(
+    project_id: str,
+    chapter_id: str,
+    chapter: Chapter,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
+    """API-6: Edit a chapter. (M1-T3)"""
+    raise HTTPException(status_code=501, detail="Not yet implemented")
 
 
 @router.delete("/chapters/{chapter_id}", status_code=204)
-async def delete_chapter(project_id: str, chapter_id: str) -> None:
-    """API-6: Delete a chapter."""
-    raise NotImplementedError("Chapter deletion not yet implemented")
+async def delete_chapter(
+    project_id: str,
+    chapter_id: str,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> None:
+    """API-6: Delete a chapter. (M1-T3)"""
+    raise HTTPException(status_code=501, detail="Not yet implemented")
 
 
 @router.post("/chapters:resegment")
-async def resegment_chapters(project_id: str, body: dict) -> dict:
+async def resegment_chapters(
+    project_id: str,
+    body: dict,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-6: Split or merge chapters (author decides). (M1-T3)"""
-    raise NotImplementedError("Chapter resegmentation not yet implemented")
+    raise HTTPException(status_code=501, detail="Not yet implemented")
 
 
-# -- helpers ----------------------------------------------------------------
+# =============================================================================
+# Text extraction — pluggable per format
+# =============================================================================
+
+
+def _extract_text(
+    raw: bytes, mime: str, filename: str
+) -> tuple[str, list[str]]:
+    """Dispatch to the correct extractor based on MIME or file extension."""
+    warnings: list[str] = []
+
+    # Resolve format from MIME, fallback to extension
+    ext = ALLOWED_MIMES.get(mime) or _ext_from_filename(filename)
+
+    if ext == "txt":
+        text = _extract_txt(raw)
+    elif ext == "docx":
+        text = _extract_docx(raw)
+    else:
+        supported = ", ".join(ALLOWED_MIMES.values())
+        raise ValueError(
+            f"Unsupported format: {ext or mime}. Supported: {supported}"
+        )
+
+    # M1-T5 cleaning will be applied in T5; for now, handle obvious issues
+    text = _clean_basic(text)
+
+    return text, warnings
+
+
+def _ext_from_filename(filename: str) -> str:
+    """Guess file extension from filename."""
+    if filename.lower().endswith(".txt"):
+        return "txt"
+    if filename.lower().endswith(".docx"):
+        return "docx"
+    return ""
+
+
+def _extract_txt(raw: bytes) -> str:
+    """Extract plain text from a TXT file."""
+    for enc in ("utf-8", "gbk", "gb2312", "gb18030"):
+        try:
+            return raw.decode(enc)
+        except (UnicodeDecodeError, LookupError):
+            continue
+    return raw.decode("utf-8", errors="replace")
+
+
+def _extract_docx(raw: bytes) -> str:
+    """Extract text from a DOCX file using python-docx."""
+    try:
+        from docx import Document
+    except ImportError:
+        raise ValueError("python-docx is required for DOCX import") from None
+
+    doc = Document(io.BytesIO(raw))
+    paragraphs: list[str] = []
+    for para in doc.paragraphs:
+        if para.text.strip():
+            paragraphs.append(para.text.strip())
+    return "\n\n".join(paragraphs)
+
+
+# =============================================================================
+# Chapter auto-detection (FR-1.2)
+# =============================================================================
+
+_CHAPTER_PATTERNS = [
+    # 第一章, 第二章, ...
+    r"第[一二三四五六七八九十百千零\d]+[章节]",
+    # Chapter 1, Chapter 2, ...
+    r"chapter\s*\d+",
+    # 卷一, 卷二, ...
+    r"第[一二三四五六七八九十百千零\d]+卷",
+]
+
+
+def _detect_chapters(text: str) -> list[dict]:
+    """Auto-detect chapter boundaries from raw text.
+
+    Scans for chapter markers (第X章 / Chapter X / 第X卷).
+    Returns a list of chapter objects ready for preview.
+    Falls back to a single chapter if no markers found.
+    """
+    import re
+
+    combined = "|".join(_CHAPTER_PATTERNS)
+    marker_re = re.compile(combined, re.IGNORECASE)
+
+    lines = text.split("\n")
+    chapter_starts: list[int] = []  # line indices where chapters begin
+
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if marker_re.search(stripped) and len(stripped) < 80:
+            chapter_starts.append(i)
+
+    if not chapter_starts:
+        # No markers found — treat as single chapter
+        total_chars = sum(len(ln.strip()) for ln in lines if ln.strip())
+        return [{
+            "title": "第一章",
+            "char_count": total_chars,
+            "paragraphs": [1, max(1, len(_split_paragraphs(text)))],
+        }]
+
+    chapters: list[dict] = []
+    for idx, start_line in enumerate(chapter_starts):
+        end_line = (
+            chapter_starts[idx + 1] if idx + 1 < len(chapter_starts) else len(lines)
+        )
+        chapter_text = "\n".join(lines[start_line:end_line])
+        paras = _split_paragraphs(chapter_text)
+
+        # First line is the chapter title
+        title = lines[start_line].strip()
+        # If the title line also contains body text, keep only the title part
+        if marker_re.search(title):
+            title = title.split(" ")[0]  # 简化为仅取标记
+
+        chapters.append({
+            "title": title,
+            "char_count": sum(len(p) for p in paras),
+            "paragraphs": [1, max(1, len(paras))],
+        })
+
+    return [c for c in chapters if c["char_count"] > 0]
+
+
+# =============================================================================
+# M1-T5 stub — text cleaning will be enhanced in T5
+# =============================================================================
+
+
+def _clean_basic(text: str) -> str:
+    """Basic text cleaning.  Full Unicode normalization and junk removal
+    arrive in M1-T5."""
+    # Replace \r\n with \n (CRLF → LF)
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    # Collapse 3+ consecutive newlines to 2 (preserve intentional paragraph gaps)
+    import re
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text
+
 
 def _split_paragraphs(text: str) -> list[str]:
-    """Split text into paragraphs by double-newline.
-
-    Single newlines within a block are preserved.
-    Empty paragraphs are skipped.
-    """
+    """Split text into paragraphs by double-newline."""
     blocks = text.strip().split("\n\n")
     return [b.strip() for b in blocks if b.strip()]
