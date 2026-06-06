@@ -210,8 +210,8 @@ export function SidebarMenuButton({
   const defaultProps = {
     className: cn(
       "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
-      "aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-foreground",
-      active && "bg-sidebar-accent text-sidebar-foreground",
+      "aria-[current=page]:bg-sidebar-primary aria-[current=page]:text-sidebar-primary-foreground",
+      active && "bg-sidebar-primary text-sidebar-primary-foreground",
       className,
     ),
     "data-active": active ? "" : undefined,
