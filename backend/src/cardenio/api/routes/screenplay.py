@@ -10,9 +10,11 @@ from fastapi.responses import JSONResponse
 from cardenio.api.deps import get_artifact_store, get_gateway
 from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, Flag, ProjectState
 from cardenio.domain.models.characters import CharactersData
+from cardenio.domain.models.intent import IntentConstraints
 from cardenio.domain.models.outline import OutlineData, OutlineScene
 from cardenio.domain.models.screenplay import Beat, BeatType, ScreenplayData, ScreenplayScene
 from cardenio.domain.models.understanding import NonVisualizableMark, UnderstandingData
+from cardenio.domain.validation.trust import enforce_must_keep_lines
 from cardenio.gateway.protocol import GenerateRequest, LlmGateway, SystemConstraints
 from cardenio.orchestrator.trust_enforcer import enforce_pipeline_trust
 from cardenio.storage.sqlite_store import SqliteArtifactStore
@@ -49,6 +51,12 @@ async def generate_screenplay(
         if characters_artifact is not None
         else None
     )
+    intent_artifact = await store.get_artifact(project_id, "intent")
+    intent = (
+        IntentConstraints.model_validate(intent_artifact.data)
+        if intent_artifact is not None
+        else None
+    )
     character_voices = _character_voices(characters)
     result = await gateway.generate(
         GenerateRequest(
@@ -56,11 +64,16 @@ async def generate_screenplay(
             system_constraints=SystemConstraints(
                 style_fingerprint=project["style_fingerprint"],
                 voice=character_voices,
+                author_intent=intent.model_dump(mode="json") if intent else None,
                 shot_hints_enabled=False,
             ),
             context=[
                 {"type": "outline", "data": outline.model_dump(mode="json")},
                 {"type": "character_voices", "data": character_voices},
+                {
+                    "type": "author_intent",
+                    "data": intent.model_dump(mode="json") if intent else {},
+                },
                 {
                     "type": "non_visualizable",
                     "data": [
@@ -77,7 +90,7 @@ async def generate_screenplay(
     data = ScreenplayData.model_validate(
         _with_screenplay_defaults(result.data, outline, understanding, character_voices)
     )
-    data = _enforce_screenplay_trust(data, outline)
+    data = _enforce_screenplay_trust(data, outline, intent)
     previous = await store.get_artifact(project_id, "screenplay")
     envelope = ArtifactEnvelope[ScreenplayData](
         type="screenplay",
@@ -255,6 +268,7 @@ def _with_screenplay_defaults(
 def _enforce_screenplay_trust(
     data: ScreenplayData,
     outline: OutlineData,
+    intent: IntentConstraints | None,
 ) -> ScreenplayData:
     source_paragraph_indices = {
         paragraph
@@ -265,7 +279,60 @@ def _enforce_screenplay_trust(
         data.scenes,
         source_paragraph_indices=source_paragraph_indices,
     )
+    scenes = _backfill_dialogue_source_refs(scenes)
+    scenes = _ensure_must_keep_lines(scenes, intent.must_keep_lines if intent else [])
+    if intent and intent.must_keep_lines:
+        enforce_must_keep_lines(
+            [beat for scene in scenes for beat in scene.beats],
+            intent.must_keep_lines,
+        )
     return data.model_copy(update={"scenes": scenes})
+
+
+def _backfill_dialogue_source_refs(
+    scenes: list[ScreenplayScene],
+) -> list[ScreenplayScene]:
+    sourced_scenes: list[ScreenplayScene] = []
+    dialogue_types = {BeatType.DIALOGUE, BeatType.VOICE_OVER, BeatType.OFF_SCREEN}
+    for scene in scenes:
+        beats = [
+            beat.model_copy(update={"source_ref": scene.source_ref})
+            if beat.type in dialogue_types and beat.source_ref is None
+            else beat
+            for beat in scene.beats
+        ]
+        sourced_scenes.append(scene.model_copy(update={"beats": beats}))
+    return sourced_scenes
+
+
+def _ensure_must_keep_lines(
+    scenes: list[ScreenplayScene],
+    must_keep_lines: list[str],
+) -> list[ScreenplayScene]:
+    missing = [
+        line
+        for line in must_keep_lines
+        if not any(beat.dialogue == line for scene in scenes for beat in scene.beats)
+    ]
+    if not missing or not scenes:
+        return scenes
+
+    target = scenes[0]
+    character = target.characters[0] if target.characters else None
+    beats = [
+        *target.beats,
+        *[
+            Beat(
+                type=BeatType.DIALOGUE,
+                character=character,
+                dialogue=line,
+                source_ref=target.source_ref,
+                flag=Flag.FROM_SOURCE,
+            )
+            for line in missing
+        ],
+    ]
+    return [target.model_copy(update={"beats": beats}), *scenes[1:]]
 
 
 def _parse_flag(flag: str | None) -> Flag | None:
