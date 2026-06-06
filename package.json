@@ -1,6 +1,13 @@
 {
 	"scripts": {
-		"prepare": "lefthook install"
+		"build": "pnpm --filter frontend build",
+		"dev": "pnpm --filter frontend dev",
+		"format": "pnpm --filter frontend format",
+		"format:check": "pnpm --filter frontend format:check",
+		"lint": "pnpm --filter frontend lint",
+		"prepare": "lefthook install",
+		"preview": "pnpm --filter frontend preview",
+		"typecheck": "pnpm --filter frontend typecheck"
 	},
 	"devDependencies": {
 		"lefthook": "^2.1.9"

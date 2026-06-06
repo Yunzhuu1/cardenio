@@ -1,0 +1,24 @@
+{
+  "app": {
+    "name": "Cardenio 入戏"
+  },
+  "home": {
+    "eyebrow": "M0 工程地基",
+    "title": "小说在这里入戏",
+    "summary": "一个面向中文作者的改编工作台骨架：先理解，再改编；每个 AI 判断都留下来源、标记与待确认位置。",
+    "stage": "克制的戏剧",
+    "sourceText": "第三章 第 18 段：她停在门外，听见里面有人压低声音提到旧案。",
+    "scriptText": "内景 / 夜 / 书房门外。她握住门把，停住。屋内的声音被雨声切碎。",
+    "note": "AI 新增的动作调度会被标记，作者可以逐处确认。"
+  },
+  "trust": {
+    "source": "source_ref: ch3.p18",
+    "inferred": "AI 新增",
+    "todo": "TODO 待确认"
+  },
+  "language": {
+    "label": "界面语言",
+    "zh-CN": "中文",
+    "en": "English"
+  }
+}

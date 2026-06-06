@@ -1,0 +1,24 @@
+{
+  "app": {
+    "name": "Cardenio"
+  },
+  "home": {
+    "eyebrow": "M0 foundation",
+    "title": "Novels enter the stage here",
+    "summary": "A restrained adaptation workspace for authors: understand first, then adapt, with every AI judgment carrying source, status, and review markers.",
+    "stage": "Restrained drama",
+    "sourceText": "Chapter 3, paragraph 18: She stops outside the door and hears someone lower their voice to mention the old case.",
+    "scriptText": "INT. STUDY DOORWAY - NIGHT. She grips the handle, then stops. Rain cuts the voices inside into fragments.",
+    "note": "AI-added staging is marked so the author can confirm it scene by scene."
+  },
+  "trust": {
+    "source": "source_ref: ch3.p18",
+    "inferred": "AI inferred",
+    "todo": "TODO review"
+  },
+  "language": {
+    "label": "UI language",
+    "zh-CN": "中文",
+    "en": "English"
+  }
+}

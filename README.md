@@ -400,43 +400,73 @@ AI 不确定的地方宁可留 `TODO` 让作者填，不用平庸内容填满。
 
 ## 项目结构
 
-项目结构仍在设计中，后续会根据实际开发推进更新。
-
-计划中的核心模块包括：
+当前仓库已接入前端应用骨架，前端作为 pnpm workspace 包放在 `frontend/`。
 
 ```text
-app/
-  editor/          剧本编辑相关页面
-  import/          小说导入流程
-  analysis/        作品理解与人物分析
-  outline/         分场大纲
-  script/          剧本生成与编辑
-  report/          改编报告
-  settings/        项目设置与语言设置
+frontend/
+  app/
+    components/    UI 组件与演示组件
+    i18n/          UI 语言资源与语言类型
+    routes/        React Router 路由
+    theme/         亮/暗主题状态
+    app.css        Tailwind v4 入口与设计令牌
+  components.json  coss.ui / shadcn registry 配置
 
 docs/
   product/         产品文档
   design/          设计文档
-  prompts/         AI 提示词与输出规范
-  schema/          数据结构与导出格式说明
+  plans/           已确认的实现计划
+
+scripts/
+  hooks/           Git hooks 辅助脚本
 ```
 
 ## 开发说明
 
-项目尚未进入稳定开发阶段，README 会随着功能实现持续更新。
+项目尚未进入稳定开发阶段，README 会随着功能实现持续更新。当前可运行的是 `frontend/` 中的 Vite + React Router v7 SPA 骨架。
 
-计划优先完成产品主流程，再补充工程细节、运行方式、环境变量、部署说明和贡献指南。
+### 运行方式
 
-### Git hooks
-
-本仓库使用 [lefthook](https://github.com/evilmartians/lefthook) 管理本地 Git hooks。lefthook 是第三方开发工具，当前仅用于提交前和推送前的工程规范检查，不属于产品原创功能。
-
-首次克隆仓库后，安装依赖并启用 hooks：
+首次克隆仓库后：
 
 ```bash
 pnpm install
 pnpm exec lefthook install
 ```
+
+常用命令在仓库根目录执行，根脚本会委派到 `frontend` workspace 包：
+
+```bash
+pnpm dev
+pnpm build
+pnpm lint
+pnpm format:check
+pnpm typecheck
+pnpm preview
+```
+
+当前前端构建产物为静态 SPA，输出到 `frontend/build/client`。React Router v7 的 SPA 模式配置为 `ssr: false`；`@react-router/node` 仍作为 React Router 构建期运行时依赖保留。
+
+计划优先完成产品主流程，再补充后端、环境变量、部署说明和贡献指南。
+
+### 依赖与来源
+
+本项目当前引入的第三方依赖和工具包括：
+
+- Vite、React、React DOM、React Router v7：前端应用框架、路由和静态 SPA 构建。
+- Tailwind CSS v4 与 `@tailwindcss/vite`：样式系统和 Vite 集成。
+- coss.ui / shadcn CLI registry：生成 `components.json`、`cn()` 工具函数和基础 Button 组件；本项目覆盖其默认主题为 `docs/design/visual-style.md` 中的 Cardenio 设计令牌。
+- `@base-ui/react`、`class-variance-authority`、`clsx`、`tailwind-merge`、`lucide-react`：coss Button 及本地 UI 组件所需的组合、样式和图标依赖。
+- `i18next`、`react-i18next`、`i18next-browser-languagedetector`：UI Language 的国际化骨架。Source Language 与 Output Language 当前仅作为数据类型预留。
+- ESLint、typescript-eslint、eslint-plugin-react-hooks、eslint-plugin-react-refresh、eslint-config-prettier、Prettier：前端 lint、类型风格约束和格式化。
+- `@fontsource/ibm-plex-sans`、`@fontsource/courier-prime`：轻量西文字体包。CJK 字体当前只声明 `Source Han Sans SC` / `Noto Sans SC` / `Noto Serif SC` family stack 并依赖系统或后续子集化交付；完整 CJK 字体子集化仍是后续工作。
+- lefthook：本地 Git hooks 管理。
+
+当前 `frontend/` 中的产品文案、设计令牌、主题实现、i18n 资源和演示首页为本项目原创实现。第三方 CLI 生成的 coss/shadcn 基座仅作为通用 UI 基础设施，不代表产品原创业务功能。
+
+### Git hooks
+
+本仓库使用 [lefthook](https://github.com/evilmartians/lefthook) 管理本地 Git hooks。lefthook 是第三方开发工具，当前仅用于提交前和推送前的工程规范检查，不属于产品原创功能。
 
 当前 hooks 会执行以下检查：
 
