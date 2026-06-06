@@ -28,3 +28,21 @@ yarn-error.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+.venv/
+*.db
+
+# IDE
+.idea/
+.vscode/
+
+# Claude worktrees
+.claude/worktrees/
