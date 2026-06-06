@@ -14,6 +14,7 @@ import "@fontsource/ibm-plex-sans/600.css";
 import "./app.css";
 import { I18nProvider } from "~/i18n/provider";
 import { ThemeProvider, themeScript } from "~/theme/provider";
+import { Spinner } from "~/components/ui/spinner";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -40,6 +41,14 @@ export default function App() {
         <Outlet />
       </ThemeProvider>
     </I18nProvider>
+  );
+}
+
+export function HydrateFallback(): React.ReactElement {
+  return (
+    <div className="flex min-h-dvh items-center justify-center bg-background">
+      <Spinner className="size-6 text-muted-foreground" />
+    </div>
   );
 }
 

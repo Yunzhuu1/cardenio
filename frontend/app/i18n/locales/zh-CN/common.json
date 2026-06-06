@@ -2,14 +2,82 @@
   "app": {
     "name": "Cardenio 入戏"
   },
-  "home": {
-    "eyebrow": "M0 工程地基",
-    "title": "小说在这里入戏",
-    "summary": "一个面向中文作者的改编工作台骨架：先理解，再改编；每个 AI 判断都留下来源、标记与待确认位置。",
-    "stage": "克制的戏剧",
-    "sourceText": "第三章 第 18 段：她停在门外，听见里面有人压低声音提到旧案。",
-    "scriptText": "内景 / 夜 / 书房门外。她握住门把，停住。屋内的声音被雨声切碎。",
-    "note": "AI 新增的动作调度会被标记，作者可以逐处确认。"
+  "overview": {
+    "title": "改编项目",
+    "description": "选择一个项目继续，或新建一个。每个项目从导入原文开始，逐幕推进到改编报告。",
+    "newProject": "新建项目",
+    "newProjectTitle": "未命名改编",
+    "empty": "还没有项目。点击「新建项目」开始你的第一次改编。"
+  },
+  "nav": {
+    "label": "项目导航",
+    "allProjects": "全部项目",
+    "projectsHeading": "项目",
+    "noProjects": "暂无项目",
+    "newProject": "新建项目",
+    "stages": "改编步骤",
+    "projectSettings": "项目设置"
+  },
+  "steps": {
+    "import": "导入",
+    "analysis": "理解与档案",
+    "outline": "分场大纲",
+    "script": "剧本",
+    "editor": "打磨",
+    "report": "报告"
+  },
+  "state": {
+    "empty": "空项目",
+    "imported": "已导入原文",
+    "understood": "已生成作品理解",
+    "profiled": "已生成人物档案",
+    "intent_set": "已设定改编意图",
+    "outlined": "已生成分场大纲",
+    "generated": "已生成剧本初稿",
+    "editing": "打磨中",
+    "report": "已生成改编报告",
+    "exported": "已导出"
+  },
+  "placeholder": {
+    "badge": "占位页",
+    "note": "此功能尚在规划中，当前为路由骨架占位。"
+  },
+  "pages": {
+    "import": {
+      "milestone": "M1",
+      "title": "导入与预处理",
+      "description": "粘贴或上传 TXT/DOCX 小说，按章节切分，校验不少于 3 章后进入下一步。"
+    },
+    "analysis": {
+      "milestone": "M2 · M3",
+      "title": "改编前理解与人物档案",
+      "description": "生成可编辑的作品理解、人物档案、作者意图与改编方向；先理解，再改编。"
+    },
+    "outline": {
+      "milestone": "M4",
+      "title": "分场大纲",
+      "description": "生成每场绑定 source_ref 的分场大纲，可增删、调序与逐字段编辑。"
+    },
+    "script": {
+      "milestone": "M5",
+      "title": "剧本生成",
+      "description": "把大纲翻译为 YAML 剧本：心理外化、对白剧本化、加戏强标注与台词级溯源。"
+    },
+    "editor": {
+      "milestone": "M6",
+      "title": "打磨工作台",
+      "description": "左原文右剧本双栏对照、选中局部重生成、所见即所得与留白标记。"
+    },
+    "report": {
+      "milestone": "M7",
+      "title": "改编取舍报告",
+      "description": "汇总保留/删除/合并/新增/外化，与剧本标记一致，每条可定位到原文。"
+    },
+    "settings": {
+      "milestone": "M8",
+      "title": "项目设置",
+      "description": "数据隐私与不用于训练承诺、镜头建议默认开关、存储区域等项目级设置。"
+    }
   },
   "trust": {
     "source": "source_ref: ch3.p18",
