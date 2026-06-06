@@ -6,14 +6,23 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict
 
 from cardenio.api.deps import get_artifact_store, get_gateway
 from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, ProjectState
-from cardenio.domain.models.outline import OutlineData
+from cardenio.domain.models.outline import OutlineData, OutlineScene
 from cardenio.gateway.protocol import GenerateRequest, LlmGateway, SystemConstraints
 from cardenio.storage.sqlite_store import SqliteArtifactStore
 
 router = APIRouter(prefix="/projects/{project_id}/outline")
+
+
+class ReorderScenesRequest(BaseModel):
+    """Request body for reordering outline scenes."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    order: list[str]
 
 
 @router.post(":generate", status_code=202)
@@ -91,33 +100,88 @@ async def get_outline(
 
 
 @router.post("/scenes", status_code=201)
-async def add_scene(project_id: str, body: dict) -> dict:
+async def add_scene(
+    project_id: str,
+    body: OutlineScene,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-15: Add a new scene."""
-    raise NotImplementedError("Scene creation not yet implemented")
+    previous, data = await _get_outline_data(store, project_id)
+    if any(scene.id == body.id for scene in data.scenes):
+        raise HTTPException(status_code=409, detail="Scene already exists")
+
+    data.scenes.append(body)
+    await _validate_outline_source_refs(store, project_id, data)
+    saved = await _save_outline(store, project_id, data, previous, ArtifactState.DRAFT)
+    return saved.model_dump(mode="json")
 
 
 @router.put("/scenes/{scene_id}")
-async def update_scene(project_id: str, scene_id: str, body: dict) -> dict:
+async def update_scene(
+    project_id: str,
+    scene_id: str,
+    body: OutlineScene,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-15: Edit a scene."""
-    raise NotImplementedError("Scene update not yet implemented")
+    previous, data = await _get_outline_data(store, project_id)
+    for index, scene in enumerate(data.scenes):
+        if scene.id == scene_id:
+            data.scenes[index] = body
+            await _validate_outline_source_refs(store, project_id, data)
+            saved = await _save_outline(
+                store, project_id, data, previous, ArtifactState.DRAFT
+            )
+            return saved.model_dump(mode="json")
+    raise HTTPException(status_code=404, detail="Scene not found")
 
 
 @router.delete("/scenes/{scene_id}", status_code=204)
-async def delete_scene(project_id: str, scene_id: str) -> None:
+async def delete_scene(
+    project_id: str,
+    scene_id: str,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> None:
     """API-15: Delete a scene."""
-    raise NotImplementedError("Scene deletion not yet implemented")
+    previous, data = await _get_outline_data(store, project_id)
+    kept = [scene for scene in data.scenes if scene.id != scene_id]
+    if len(kept) == len(data.scenes):
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    data.scenes = kept
+    await _validate_outline_source_refs(store, project_id, data)
+    await _save_outline(store, project_id, data, previous, ArtifactState.DRAFT)
 
 
 @router.post("/scenes:reorder")
-async def reorder_scenes(project_id: str, body: dict) -> dict:
+async def reorder_scenes(
+    project_id: str,
+    body: ReorderScenesRequest,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-15: Reorder scenes."""
-    raise NotImplementedError("Scene reordering not yet implemented")
+    previous, data = await _get_outline_data(store, project_id)
+    by_id = {scene.id: scene for scene in data.scenes}
+    if set(body.order) != set(by_id) or len(body.order) != len(by_id):
+        raise HTTPException(status_code=422, detail="Order must include every scene once")
+
+    data.scenes = [by_id[scene_id] for scene_id in body.order]
+    saved = await _save_outline(store, project_id, data, previous, ArtifactState.DRAFT)
+    return saved.model_dump(mode="json")
 
 
 @router.post(":confirm")
-async def confirm_outline(project_id: str) -> dict:
+async def confirm_outline(
+    project_id: str,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-15: Confirm outline (gate blocks screenplay generation)."""
-    raise NotImplementedError("Outline confirmation not yet implemented")
+    previous, data = await _get_outline_data(store, project_id)
+    await _validate_outline_source_refs(store, project_id, data)
+    saved = await _save_outline(
+        store, project_id, data, previous, ArtifactState.CONFIRMED
+    )
+    return saved.model_dump(mode="json")
 
 
 @router.get("/merge-suggestions")
@@ -136,6 +200,36 @@ async def apply_merge_suggestion(project_id: str, suggestion_id: str) -> dict:
 async def dismiss_merge_suggestion(project_id: str, suggestion_id: str) -> dict:
     """API-16: Author dismisses a merge suggestion."""
     raise NotImplementedError("Merge dismissal not yet implemented")
+
+
+async def _get_outline_data(
+    store: SqliteArtifactStore,
+    project_id: str,
+) -> tuple[ArtifactEnvelope[Any], OutlineData]:
+    project = await store.get_project(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    artifact = await store.get_artifact(project_id, "outline")
+    if artifact is None:
+        raise HTTPException(status_code=404, detail="Outline not found")
+    return artifact, OutlineData.model_validate(artifact.data)
+
+
+async def _save_outline(
+    store: SqliteArtifactStore,
+    project_id: str,
+    data: OutlineData,
+    previous: ArtifactEnvelope[Any],
+    state: ArtifactState,
+) -> ArtifactEnvelope[Any]:
+    envelope = ArtifactEnvelope[OutlineData](
+        type="outline",
+        state=state,
+        parent_version=previous.version,
+        data=data,
+    )
+    return await store.save_artifact(project_id, envelope)
 
 
 def _characters_gate_error(current_state: ArtifactState | None) -> JSONResponse:
