@@ -78,10 +78,19 @@ class TestCharacterProfiles:
         characters = generated["data"]["characters"]
         assert len(characters) >= 2
         assert {character["name"] for character in characters} >= {"Lin Wan", "Chen Mo"}
+        roles = {character["name"]: character["role"] for character in characters}
+        assert roles["Lin Wan"] == "protagonist"
+        assert roles["Chen Mo"] == "supporting"
+        assert roles["Old Master Qiao"] == "mentioned"
         assert all(character["voice"] for character in characters)
         assert all(character["desire"] for character in characters)
         assert all(character["fear"] for character in characters)
         assert all(character["hard_rules"] for character in characters)
+        lin_wan = next(character for character in characters if character["name"] == "Lin Wan")
+        assert any(
+            relation["to"] == "chen_mo" and relation["type"] == "co_occurs"
+            for relation in lin_wan["relations"]
+        )
 
         get_resp = await app_client.get(f"/api/v1/projects/{project_id}/characters")
         assert get_resp.status_code == 200
@@ -118,8 +127,8 @@ class TestCharacterProfiles:
         add_resp = await app_client.post(
             f"/api/v1/projects/{project_id}/characters",
             json={
-                "id": "old_master_qiao",
-                "name": "Old Master Qiao",
+                "id": "archivist_ren",
+                "name": "Archivist Ren",
                 "role": "supporting",
                 "voice": "Slow, formal warnings.",
                 "desire": "Protect the old secret.",
@@ -131,17 +140,17 @@ class TestCharacterProfiles:
         )
         assert add_resp.status_code == 201
         assert any(
-            character["id"] == "old_master_qiao"
+            character["id"] == "archivist_ren"
             for character in add_resp.json()["data"]["characters"]
         )
 
         delete_resp = await app_client.delete(
-            f"/api/v1/projects/{project_id}/characters/old_master_qiao"
+            f"/api/v1/projects/{project_id}/characters/archivist_ren"
         )
         assert delete_resp.status_code == 204
         get_resp = await app_client.get(f"/api/v1/projects/{project_id}/characters")
         assert all(
-            character["id"] != "old_master_qiao"
+            character["id"] != "archivist_ren"
             for character in get_resp.json()["data"]["characters"]
         )
 
