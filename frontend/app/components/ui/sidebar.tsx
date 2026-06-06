@@ -84,7 +84,7 @@ export function SidebarHeader({
   return (
     <div
       data-slot="sidebar-header"
-      className={cn("px-2 pb-2", className)}
+      className={cn("flex flex-col gap-2 p-2", className)}
       {...props}
     />
   );
