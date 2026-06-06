@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@ibm/plex-sans-sc/css/ibm-plex-sans-sc-all.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -50,9 +51,14 @@
   --sidebar-border: oklch(0.9037 0 0);
   --sidebar-ring: oklch(0.8546 0.1636 88.4837);
   --font-sans:
-    "IBM Plex Sans", "Noto Sans SC", ui-sans-serif, sans-serif, system-ui;
+    "IBM Plex Sans", "IBM Plex Sans SC", "Noto Sans SC", ui-sans-serif,
+    sans-serif, system-ui;
   --font-serif: "Courier Prime", "Noto Serif SC", ui-serif, serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-brand-latin: "Cormorant Garamond", ui-serif, serif;
+  --font-brand-cjk: "LXGW WenKai", "Noto Serif SC", ui-serif, serif;
+  --font-heading:
+    "Cormorant Garamond", "LXGW WenKai", "Noto Serif SC", ui-serif, serif;
   --radius: 0.5rem;
   --shadow-x: 0px;
   --shadow-y: 4px;
@@ -235,6 +241,21 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   letter-spacing: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  font-weight: 300;
+}
+
+.app-heading {
+  font-family: var(--font-heading);
+  font-weight: 300;
 }
 
 ::selection {

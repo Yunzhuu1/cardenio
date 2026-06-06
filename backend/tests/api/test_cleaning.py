@@ -122,5 +122,5 @@ class TestCleaningApiFlow:
         assert resp.status_code == 200
         data = resp.json()
         assert len(data["chapters"]) == 2
-        assert data["chapters"][0]["title"] == "第一章"
+        assert data["chapters"][0]["title"] == "第一章 A1"
         assert data["chapters"][0]["char_count"] > 0

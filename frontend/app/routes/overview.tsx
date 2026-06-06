@@ -45,7 +45,7 @@ export default function Overview({
     <div className="mx-auto w-full max-w-5xl">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-normal text-foreground">
+          <h1 className="text-3xl font-semibold text-balance text-foreground">
             {t("overview.title")}
           </h1>
           <p className="mt-2 max-w-2xl text-base leading-7 text-muted-foreground">
@@ -82,7 +82,9 @@ export default function Overview({
               key={project.id}
               to={`/projects/${project.id}`}
             >
-              <div className="font-medium text-foreground">{project.title}</div>
+              <div className="app-heading font-medium text-balance text-foreground">
+                {project.title}
+              </div>
               <div className="text-sm text-muted-foreground">
                 {t(`state.${project.state}`)}
               </div>
