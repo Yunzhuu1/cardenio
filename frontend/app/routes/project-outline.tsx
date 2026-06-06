@@ -1,7 +1,7 @@
 import {
   CheckCircleIcon,
-  ChevronDownIcon,
   ListTreeIcon,
+  PlusIcon,
   RefreshCwIcon,
   SparklesIcon,
 } from "lucide-react";
@@ -9,6 +9,12 @@ import type * as React from "react";
 import { useMemo, useState } from "react";
 import { Link, useRevalidator } from "react-router";
 import { useTranslation } from "react-i18next";
+import {
+  createBlankScene,
+  OutlineSceneCard,
+  SceneDialog,
+  type SceneFormState,
+} from "~/components/outline-scene-editor";
 import type { Route } from "./+types/project-outline";
 import {
   Alert,
@@ -36,11 +42,7 @@ import {
   CardPanel,
   CardTitle,
 } from "~/components/ui/card";
-import {
-  Collapsible,
-  CollapsiblePanel,
-  CollapsibleTrigger,
-} from "~/components/ui/collapsible";
+import { Dialog, DialogTrigger } from "~/components/ui/dialog";
 import {
   Empty,
   EmptyContent,
@@ -49,19 +51,15 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "~/components/ui/empty";
-import { Separator } from "~/components/ui/separator";
 import { toastManager } from "~/components/ui/toast";
 import { api } from "~/lib/api/client";
+import { api as loaderApi } from "~/lib/api/client";
 import {
   ApiError,
   type ArtifactEnvelope,
-  type IntExt,
   type OutlineData,
   type OutlineScene,
   type ProjectId,
-  type Source,
-  type SourceRef,
-  type TimeOfDay,
 } from "~/lib/api/types";
 import { analysisStepPath, stagePath } from "~/lib/stages";
 
@@ -69,50 +67,31 @@ async function getOrNull<T>(request: Promise<T>): Promise<T | null> {
   try {
     return await request;
   } catch (error) {
-    if (error instanceof ApiError && error.status === 404) return null;
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "status" in error &&
+      error["status"] === 404
+    ) {
+      return null;
+    }
     throw error;
   }
+}
+
+export async function clientLoader(args: Route.ClientLoaderArgs) {
+  const projectId = args.params.projectId as ProjectId;
+  const [outline, characters, source] = await Promise.all([
+    getOrNull(loaderApi.outline.get(projectId)),
+    getOrNull(loaderApi.characters.get(projectId)),
+    loaderApi.source.get(projectId),
+  ]);
+  return { characters, outline, projectId, source };
 }
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
-}
-
-function formatParagraphs(paragraphs: number[]): string {
-  if (paragraphs.length === 0) return "";
-  const sorted = [...paragraphs].sort((a, b) => a - b);
-  const ranges: string[] = [];
-  let start = sorted[0];
-  let previous = sorted[0];
-
-  for (const paragraph of sorted.slice(1)) {
-    if (paragraph === previous + 1) {
-      previous = paragraph;
-      continue;
-    }
-    ranges.push(start === previous ? String(start) : `${start}-${previous}`);
-    start = paragraph;
-    previous = paragraph;
-  }
-
-  ranges.push(start === previous ? String(start) : `${start}-${previous}`);
-  return ranges.join(", ");
-}
-
-function formatSourceRef(sourceRef: SourceRef, template: string): string {
-  return template
-    .replace("{{chapter}}", String(sourceRef.chapter))
-    .replace("{{paragraphs}}", formatParagraphs(sourceRef.paragraphs));
-}
-
-function sceneTitle(scene: OutlineScene): string {
-  const firstSentence =
-    scene.synopsis
-      .split(/[。！？.!?]/)
-      .map((part) => part.trim())
-      .find(Boolean) ?? scene.synopsis;
-  return `${scene.heading.location} · ${firstSentence}`;
 }
 
 function statusVariant(
@@ -124,14 +103,17 @@ function statusVariant(
   return "secondary";
 }
 
-export async function clientLoader({ params }: Route.ClientLoaderArgs) {
-  const projectId = params.projectId as ProjectId;
-  const [outline, characters, source] = await Promise.all([
-    getOrNull(api.outline.get(projectId)),
-    getOrNull(api.characters.get(projectId)),
-    api.source.get(projectId),
-  ]);
-  return { characters, outline, projectId, source };
+function nullableText(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function isInvalidSourceRefError(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    (error.message.includes("invalid_source_ref") ||
+      error.message.includes("missing_paragraphs"))
+  );
 }
 
 export default function ProjectOutline({
@@ -141,6 +123,8 @@ export default function ProjectOutline({
   const revalidator = useRevalidator();
   const { characters, outline, projectId, source } = loaderData;
   const [working, setWorking] = useState(false);
+  const [sceneForm, setSceneForm] = useState<SceneFormState | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<OutlineScene | null>(null);
   const characterNameById = useMemo(() => {
     const entries =
       characters?.data.characters.map(
@@ -148,6 +132,7 @@ export default function ProjectOutline({
       ) ?? [];
     return new Map(entries);
   }, [characters]);
+  const characterList = characters?.data.characters ?? [];
   const characterConfirmed = characters?.state === "confirmed";
   const status = outline?.state ?? "empty";
   const scenes = outline?.data.scenes ?? [];
@@ -185,6 +170,173 @@ export default function ProjectOutline({
       await api.outline.confirm(projectId);
       toastManager.add({
         title: t("outline.confirmSuccess"),
+        type: "success",
+      });
+      await refresh();
+    } catch (error) {
+      toastManager.add({
+        description: getErrorMessage(error),
+        title: t("outline.actionError"),
+        type: "error",
+      });
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  function openCreateScene(): void {
+    setSceneForm({
+      mode: "create",
+      scene: createBlankScene({
+        characters: characterList,
+        scenes,
+        source,
+      }),
+    });
+  }
+
+  function openEditScene(scene: OutlineScene): void {
+    setSceneForm({
+      mode: "edit",
+      scene: {
+        ...scene,
+        characters: [...scene.characters],
+        foreshadowing: [...scene.foreshadowing],
+        relation_changes: scene.relation_changes.map((change) => ({
+          characters: [...change.characters],
+          change: change.change,
+        })),
+        source_ref: {
+          chapter: scene.source_ref.chapter,
+          paragraphs: [...scene.source_ref.paragraphs],
+        },
+      },
+    });
+  }
+
+  function sceneWriteErrorDescription(error: unknown): string {
+    if (isInvalidSourceRefError(error)) {
+      return t("outline.edit.invalidSourceRef");
+    }
+    if (error instanceof ApiError && error.status === 409) {
+      return t("outline.edit.sceneIdConflict");
+    }
+    return getErrorMessage(error);
+  }
+
+  async function saveScene(): Promise<void> {
+    if (!sceneForm) return;
+    const scene: OutlineScene = {
+      ...sceneForm.scene,
+      conflict: nullableText(sceneForm.scene.conflict ?? ""),
+      ending_state: nullableText(sceneForm.scene.ending_state ?? ""),
+      goal: nullableText(sceneForm.scene.goal ?? ""),
+      heading: {
+        ...sceneForm.scene.heading,
+        location: sceneForm.scene.heading.location.trim(),
+      },
+      mood: nullableText(sceneForm.scene.mood ?? ""),
+      relation_changes: sceneForm.scene.relation_changes
+        .map((change) => ({
+          characters: change.characters,
+          change: change.change.trim(),
+        }))
+        .filter((change) => change.characters.length > 0 && change.change),
+      source_ref: {
+        chapter: sceneForm.scene.source_ref.chapter,
+        paragraphs: [...sceneForm.scene.source_ref.paragraphs].sort(
+          (a, b) => a - b,
+        ),
+      },
+      synopsis: sceneForm.scene.synopsis.trim(),
+    };
+
+    if (!scene.synopsis || !scene.heading.location) {
+      toastManager.add({
+        description: t("outline.edit.requiredFields"),
+        title: t("outline.actionError"),
+        type: "error",
+      });
+      return;
+    }
+
+    if (scene.source_ref.paragraphs.length === 0) {
+      toastManager.add({
+        description: t("outline.edit.invalidSourceRef"),
+        title: t("outline.actionError"),
+        type: "error",
+      });
+      return;
+    }
+
+    try {
+      setWorking(true);
+      if (sceneForm.mode === "create") {
+        await api.outline.addScene(projectId, scene);
+      } else {
+        await api.outline.updateScene(projectId, scene.id, scene);
+      }
+      toastManager.add({
+        description: t("outline.edit.draftNotice"),
+        title:
+          sceneForm.mode === "create"
+            ? t("outline.edit.createSuccess")
+            : t("outline.edit.updateSuccess"),
+        type: "success",
+      });
+      setSceneForm(null);
+      await refresh();
+    } catch (error) {
+      toastManager.add({
+        description: sceneWriteErrorDescription(error),
+        title: t("outline.actionError"),
+        type: "error",
+      });
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function deleteScene(): Promise<void> {
+    if (!deleteTarget) return;
+    try {
+      setWorking(true);
+      await api.outline.deleteScene(projectId, deleteTarget.id);
+      toastManager.add({
+        description: t("outline.edit.draftNotice"),
+        title: t("outline.edit.deleteSuccess"),
+        type: "success",
+      });
+      setDeleteTarget(null);
+      await refresh();
+    } catch (error) {
+      toastManager.add({
+        description: getErrorMessage(error),
+        title: t("outline.actionError"),
+        type: "error",
+      });
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function moveScene(
+    scenePosition: number,
+    direction: -1 | 1,
+  ): Promise<void> {
+    const targetIndex = scenePosition + direction;
+    if (targetIndex < 0 || targetIndex >= scenes.length) return;
+    const order = scenes.map((scene) => scene.id);
+    const currentSceneId = order[scenePosition];
+    order[scenePosition] = order[targetIndex];
+    order[targetIndex] = currentSceneId;
+
+    try {
+      setWorking(true);
+      await api.outline.reorder(projectId, order);
+      toastManager.add({
+        description: t("outline.edit.draftNotice"),
+        title: t("outline.edit.reorderSuccess"),
         type: "success",
       });
       await refresh();
@@ -259,6 +411,36 @@ export default function ProjectOutline({
                 {t("outline.cardDescription", { count: scenes.length })}
               </CardDescription>
               <CardAction className="flex flex-wrap gap-2">
+                <Dialog
+                  onOpenChange={(open) => {
+                    if (!open) setSceneForm(null);
+                  }}
+                  open={Boolean(sceneForm)}
+                >
+                  <DialogTrigger
+                    render={
+                      <Button
+                        disabled={working}
+                        onClick={openCreateScene}
+                        size="sm"
+                        variant="outline"
+                      />
+                    }
+                  >
+                    <PlusIcon aria-hidden />
+                    {t("outline.edit.addScene")}
+                  </DialogTrigger>
+                  {sceneForm ? (
+                    <SceneDialog
+                      characters={characterList}
+                      form={sceneForm}
+                      onFormChange={setSceneForm}
+                      onSave={saveScene}
+                      source={source}
+                      working={working}
+                    />
+                  ) : null}
+                </Dialog>
                 <AlertDialog>
                   <AlertDialogTrigger
                     render={
@@ -320,13 +502,20 @@ export default function ProjectOutline({
                 </Alert>
               ) : null}
               <div className="grid gap-4">
-                {scenes.map((scene, index) => (
+                {scenes.map((scene, scenePosition) => (
                   <OutlineSceneCard
                     characterNameById={characterNameById}
-                    index={index}
+                    canMoveDown={scenePosition < scenes.length - 1}
+                    canMoveUp={scenePosition > 0}
+                    index={scenePosition}
                     key={scene.id}
+                    onDelete={setDeleteTarget}
+                    onEdit={openEditScene}
+                    onMoveDown={() => moveScene(scenePosition, 1)}
+                    onMoveUp={() => moveScene(scenePosition, -1)}
                     scene={scene}
                     source={source}
+                    working={working}
                   />
                 ))}
               </div>
@@ -351,151 +540,39 @@ export default function ProjectOutline({
           ) : null}
         </>
       ) : null}
+
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        open={Boolean(deleteTarget)}
+      >
+        <AlertDialogPopup>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("outline.edit.deleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("outline.edit.deleteDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose render={<Button type="button" variant="ghost" />}>
+              {t("outline.cancel")}
+            </AlertDialogClose>
+            <AlertDialogClose
+              render={
+                <Button
+                  loading={working}
+                  onClick={deleteScene}
+                  type="button"
+                  variant="destructive"
+                />
+              }
+            >
+              {t("outline.edit.deleteConfirm")}
+            </AlertDialogClose>
+          </AlertDialogFooter>
+        </AlertDialogPopup>
+      </AlertDialog>
     </section>
-  );
-}
-
-function OutlineSceneCard({
-  characterNameById,
-  index,
-  scene,
-  source,
-}: {
-  characterNameById: Map<string, string>;
-  index: number;
-  scene: OutlineScene;
-  source: Source;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  const chapter = source.chapters.find(
-    (item) => item.order === scene.source_ref.chapter,
-  );
-  const sourceLabel = formatSourceRef(scene.source_ref, t("outline.sourceRef"));
-  const detailRows = [
-    ["synopsis", scene.synopsis],
-    ["goal", scene.goal],
-    ["conflict", scene.conflict],
-    ["mood", scene.mood],
-    ["ending_state", scene.ending_state],
-  ].filter(([, value]) => value);
-
-  return (
-    <Card className="rounded-lg shadow-none">
-      <CardHeader className="gap-3">
-        <CardTitle className="text-base">
-          {t("outline.sceneNumber", { number: index + 1 })} ·{" "}
-          {sceneTitle(scene)}
-        </CardTitle>
-        <CardDescription>
-          {chapter
-            ? t("outline.chapterHint", {
-                paragraphs: chapter.paragraphs.length,
-                title: chapter.title,
-              })
-            : t("outline.chapterMissing")}
-        </CardDescription>
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="outline">
-            {t(`outline.int_ext.${scene.heading.int_ext as IntExt}`)}
-          </Badge>
-          <Badge variant="outline">
-            {t(`outline.time.${scene.heading.time as TimeOfDay}`)}
-          </Badge>
-          <Badge variant="info">{sourceLabel}</Badge>
-        </div>
-      </CardHeader>
-      <CardPanel className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-2">
-          {detailRows.map(([key, value]) => (
-            <div className="rounded-lg border bg-muted/32 p-3" key={key}>
-              <div className="text-muted-foreground text-xs">
-                {t(`outline.fields.${key}`)}
-              </div>
-              <div className="mt-1 text-sm">{value}</div>
-            </div>
-          ))}
-        </div>
-
-        <Separator />
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <TokenGroup
-            empty={t("outline.emptyField")}
-            label={t("outline.fields.characters")}
-            values={scene.characters.map(
-              (id) => characterNameById.get(id) ?? id,
-            )}
-          />
-          <TokenGroup
-            empty={t("outline.emptyField")}
-            label={t("outline.fields.foreshadowing")}
-            values={scene.foreshadowing}
-          />
-        </div>
-
-        <Collapsible>
-          <CollapsibleTrigger
-            className="inline-flex items-center gap-1 text-muted-foreground text-sm hover:text-foreground"
-            type="button"
-          >
-            <ChevronDownIcon className="size-4" />
-            {t("outline.relationChangesToggle", {
-              count: scene.relation_changes.length,
-            })}
-          </CollapsibleTrigger>
-          <CollapsiblePanel>
-            <div className="space-y-2 pt-3">
-              {scene.relation_changes.length > 0 ? (
-                scene.relation_changes.map((change, changeIndex) => (
-                  <div
-                    className="rounded-lg border bg-muted/32 p-3 text-sm"
-                    key={`${scene.id}-relation-${changeIndex}`}
-                  >
-                    <span className="font-medium">
-                      {change.characters
-                        .map((id) => characterNameById.get(id) ?? id)
-                        .join(t("outline.characterSeparator"))}
-                    </span>
-                    {t("outline.relationChangeSeparator")}
-                    {change.change}
-                  </div>
-                ))
-              ) : (
-                <div className="text-muted-foreground text-sm">
-                  {t("outline.noRelationChanges")}
-                </div>
-              )}
-            </div>
-          </CollapsiblePanel>
-        </Collapsible>
-      </CardPanel>
-    </Card>
-  );
-}
-
-function TokenGroup({
-  empty,
-  label,
-  values,
-}: {
-  empty: string;
-  label: string;
-  values: string[];
-}): React.ReactElement {
-  return (
-    <div>
-      <div className="mb-2 text-muted-foreground text-xs">{label}</div>
-      <div className="flex flex-wrap gap-2">
-        {values.length > 0 ? (
-          values.map((value) => (
-            <Badge key={value} variant="secondary">
-              {value}
-            </Badge>
-          ))
-        ) : (
-          <span className="text-muted-foreground text-sm">{empty}</span>
-        )}
-      </div>
-    </div>
   );
 }
