@@ -386,6 +386,24 @@
       "DAWN": "黎明",
       "DUSK": "黄昏"
     },
+    "merge": {
+      "title": "合并建议",
+      "description": "查看后端识别出的过场合并建议，并标记你的处理决定。",
+      "guardrailTitle": "采纳不会自动合并",
+      "guardrailDescription": "这些只是建议。采纳只会标记你的决定，系统不会自动合并或删除场景；如需合并，请用编辑和删除场景手动完成。",
+      "apply": "采纳",
+      "dismiss": "忽略",
+      "applySuccess": "合并建议已采纳",
+      "dismissSuccess": "合并建议已忽略",
+      "statusNotice": "场景结构不会自动改变，请按需要手动编辑或删除场景。",
+      "empty": "当前没有可合并的过场建议。",
+      "missingScene": "缺失场景 {{id}}",
+      "status": {
+        "pending": "待处理",
+        "applied": "已采纳",
+        "dismissed": "已忽略"
+      }
+    },
     "edit": {
       "addScene": "新增场景",
       "editScene": "编辑场景",

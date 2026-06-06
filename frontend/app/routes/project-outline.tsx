@@ -1,5 +1,6 @@
 import {
   CheckCircleIcon,
+  GitMergeIcon,
   ListTreeIcon,
   PlusIcon,
   RefreshCwIcon,
@@ -57,6 +58,7 @@ import { api as loaderApi } from "~/lib/api/client";
 import {
   ApiError,
   type ArtifactEnvelope,
+  type MergeSuggestion,
   type OutlineData,
   type OutlineScene,
   type ProjectId,
@@ -86,7 +88,11 @@ export async function clientLoader(args: Route.ClientLoaderArgs) {
     getOrNull(loaderApi.characters.get(projectId)),
     loaderApi.source.get(projectId),
   ]);
-  return { characters, outline, projectId, source };
+  const mergeSuggestions = outline
+    ? await getOrNull(loaderApi.outline.getMergeSuggestions(projectId))
+    : null;
+
+  return { characters, mergeSuggestions, outline, projectId, source };
 }
 
 function getErrorMessage(error: unknown): string {
@@ -116,12 +122,30 @@ function isInvalidSourceRefError(error: unknown): boolean {
   );
 }
 
+function outlineSceneTitle(scene: OutlineScene): string {
+  const firstSentence =
+    scene.synopsis
+      .split(/[。！？.!?]/)
+      .map((part) => part.trim())
+      .find(Boolean) ?? scene.synopsis;
+  return `${scene.heading.location} · ${firstSentence}`;
+}
+
+function mergeStatusVariant(
+  status: MergeSuggestion["status"],
+): "secondary" | "success" | "warning" {
+  if (status === "applied") return "success";
+  if (status === "dismissed") return "secondary";
+  return "warning";
+}
+
 export default function ProjectOutline({
   loaderData,
 }: Route.ComponentProps): React.ReactElement {
   const { t } = useTranslation();
   const revalidator = useRevalidator();
-  const { characters, outline, projectId, source } = loaderData;
+  const { characters, mergeSuggestions, outline, projectId, source } =
+    loaderData;
   const [working, setWorking] = useState(false);
   const [sceneForm, setSceneForm] = useState<SceneFormState | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<OutlineScene | null>(null);
@@ -135,7 +159,11 @@ export default function ProjectOutline({
   const characterList = characters?.data.characters ?? [];
   const characterConfirmed = characters?.state === "confirmed";
   const status = outline?.state ?? "empty";
-  const scenes = outline?.data.scenes ?? [];
+  const scenes = useMemo(() => outline?.data.scenes ?? [], [outline]);
+  const suggestions = mergeSuggestions?.suggestions ?? [];
+  const sceneById = useMemo(() => {
+    return new Map(scenes.map((scene) => [scene.id, scene] as const));
+  }, [scenes]);
 
   async function refresh(): Promise<void> {
     await revalidator.revalidate();
@@ -351,6 +379,37 @@ export default function ProjectOutline({
     }
   }
 
+  async function resolveMergeSuggestion(
+    suggestion: MergeSuggestion,
+    status: "applied" | "dismissed",
+  ): Promise<void> {
+    try {
+      setWorking(true);
+      if (status === "applied") {
+        await api.outline.applyMergeSuggestion(projectId, suggestion.id);
+      } else {
+        await api.outline.dismissMergeSuggestion(projectId, suggestion.id);
+      }
+      toastManager.add({
+        description: t("outline.merge.statusNotice"),
+        title:
+          status === "applied"
+            ? t("outline.merge.applySuccess")
+            : t("outline.merge.dismissSuccess"),
+        type: "success",
+      });
+      await refresh();
+    } catch (error) {
+      toastManager.add({
+        description: getErrorMessage(error),
+        title: t("outline.actionError"),
+        type: "error",
+      });
+    } finally {
+      setWorking(false);
+    }
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -519,6 +578,90 @@ export default function ProjectOutline({
                   />
                 ))}
               </div>
+            </CardPanel>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <GitMergeIcon className="size-5" aria-hidden />
+                {t("outline.merge.title")}
+              </CardTitle>
+              <CardDescription>
+                {t("outline.merge.description")}
+              </CardDescription>
+            </CardHeader>
+            <CardPanel className="space-y-4">
+              <Alert variant="info">
+                <AlertTitle>{t("outline.merge.guardrailTitle")}</AlertTitle>
+                <AlertDescription>
+                  {t("outline.merge.guardrailDescription")}
+                </AlertDescription>
+              </Alert>
+
+              {suggestions.length > 0 ? (
+                <div className="grid gap-3">
+                  {suggestions.map((suggestion) => (
+                    <div
+                      className="rounded-lg border bg-muted/24 p-4"
+                      key={suggestion.id}
+                    >
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {suggestion.scene_ids.map((sceneId) => {
+                              const scene = sceneById.get(sceneId);
+                              return (
+                                <Badge key={sceneId} variant="outline">
+                                  {scene
+                                    ? outlineSceneTitle(scene)
+                                    : t("outline.merge.missingScene", {
+                                        id: sceneId,
+                                      })}
+                                </Badge>
+                              );
+                            })}
+                          </div>
+                          <p className="text-sm">{suggestion.reason}</p>
+                        </div>
+                        <Badge variant={mergeStatusVariant(suggestion.status)}>
+                          {t(`outline.merge.status.${suggestion.status}`)}
+                        </Badge>
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Button
+                          disabled={working || suggestion.status === "applied"}
+                          onClick={() =>
+                            resolveMergeSuggestion(suggestion, "applied")
+                          }
+                          size="sm"
+                          type="button"
+                          variant="outline"
+                        >
+                          {t("outline.merge.apply")}
+                        </Button>
+                        <Button
+                          disabled={
+                            working || suggestion.status === "dismissed"
+                          }
+                          onClick={() =>
+                            resolveMergeSuggestion(suggestion, "dismissed")
+                          }
+                          size="sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          {t("outline.merge.dismiss")}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground text-sm">
+                  {t("outline.merge.empty")}
+                </div>
+              )}
             </CardPanel>
           </Card>
 
