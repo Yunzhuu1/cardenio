@@ -337,6 +337,66 @@
       }
     }
   },
+  "outline": {
+    "status": {
+      "empty": "Not generated",
+      "draft": "Draft",
+      "confirmed": "Confirmed",
+      "needs_recompute": "Needs recompute"
+    },
+    "lockedTitle": "Confirm character profiles first",
+    "lockedDescription": "Scene outline generation requires the character profile artifact to be confirmed. Return to character profiles and confirm them first.",
+    "charactersCta": "Back to character profiles",
+    "gateBlocked": "The backend still requires confirmed character profiles. Return to character profiles and confirm before generating.",
+    "emptyTitle": "No scene outline generated",
+    "emptyDescription": "Generate a confirmable, source-traceable scene outline from the confirmed character profiles.",
+    "generate": "Generate scene outline",
+    "generateSuccess": "Scene outline generated",
+    "cardTitle": "Scene outline artifact",
+    "cardDescription": "{{count}} scenes. Each scene keeps heading, source, characters, goal, conflict, and relationship changes.",
+    "regenerate": "Regenerate",
+    "regenerateTitle": "Regenerate scene outline?",
+    "regenerateDescription": "Regeneration replaces all current scenes. If the outline is already confirmed, it returns to draft state.",
+    "regenerateConfirm": "Regenerate",
+    "confirm": "Confirm outline",
+    "confirmSuccess": "Scene outline confirmed",
+    "cancel": "Cancel",
+    "actionError": "Action failed",
+    "needsConfirmTitle": "Outline needs confirmation",
+    "needsConfirmDescription": "A draft outline cannot generate a screenplay yet. Confirm it to continue; later edits will return the outline to draft.",
+    "confirmedTitle": "Scene outline confirmed",
+    "confirmedDescription": "You can continue to screenplay generation. The backend will use this outline as the prerequisite artifact.",
+    "scriptCta": "Continue to screenplay",
+    "sceneNumber": "Scene {{number}}",
+    "sourceRef": "Chapter {{chapter}} · Paragraphs {{paragraphs}}",
+    "chapterHint": "{{title}} · {{paragraphs}} paragraphs",
+    "chapterMissing": "Matching chapter not found",
+    "emptyField": "Not filled",
+    "relationChangesToggle": "Relationship changes ({{count}})",
+    "noRelationChanges": "No relationship changes yet.",
+    "characterSeparator": ", ",
+    "relationChangeSeparator": ": ",
+    "int_ext": {
+      "INT": "Interior",
+      "EXT": "Exterior"
+    },
+    "time": {
+      "DAY": "Day",
+      "NIGHT": "Night",
+      "DAWN": "Dawn",
+      "DUSK": "Dusk"
+    },
+    "fields": {
+      "synopsis": "Synopsis",
+      "goal": "Scene goal",
+      "conflict": "Conflict",
+      "mood": "Mood",
+      "characters": "Characters",
+      "foreshadowing": "Foreshadowing",
+      "relation_changes": "Relationship changes",
+      "ending_state": "Ending state"
+    }
+  },
   "pages": {
     "import": {
       "milestone": "M1",
@@ -351,7 +411,7 @@
     "outline": {
       "milestone": "M4",
       "title": "Scene Outline",
-      "description": "Generate a per-scene outline with source_ref bindings; add, remove, reorder, and edit fields."
+      "description": "Generate a per-scene outline with source_ref bindings, then confirm it to unlock screenplay generation."
     },
     "script": {
       "milestone": "M5",
