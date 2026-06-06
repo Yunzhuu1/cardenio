@@ -27,7 +27,7 @@ export default function AppShell({
 
       <SidebarInset>
         <AppTopbar />
-        <main className="min-w-0 flex-1 px-5 py-8 sm:px-8">
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-5 py-8 sm:px-8">
           <Outlet />
         </main>
       </SidebarInset>
@@ -43,7 +43,7 @@ function AppTopbar(): React.ReactElement {
   const titleKey = getTopbarTitleKey(pathname);
 
   return (
-    <header className="flex min-h-14 items-center justify-between gap-3 border-b border-border p-3">
+    <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-border p-3">
       <div className="flex min-w-0 items-center gap-3">
         <SidebarTrigger
           aria-label={open ? t("nav.collapseSidebar") : t("nav.expandSidebar")}
