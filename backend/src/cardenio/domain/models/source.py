@@ -24,6 +24,20 @@ class CreateChapterRequest(BaseModel):
     order: int = 0
 
 
+class ImportChapterPreview(BaseModel):
+    """Chapter preview returned by file import and accepted on confirmation."""
+
+    title: str
+    text: str
+    order: int = 0
+
+
+class ConfirmImportRequest(BaseModel):
+    """Request body for confirming edited TXT/DOCX import preview."""
+
+    chapters: list[ImportChapterPreview]
+
+
 class Chapter(BaseModel):
     """A chapter returned by the API (api.md §4)."""
 

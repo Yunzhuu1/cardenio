@@ -16,6 +16,7 @@ from fastapi.responses import JSONResponse
 from cardenio.api.deps import get_artifact_store
 from cardenio.domain.models.source import (
     Chapter,
+    ConfirmImportRequest,
     CreateChapterRequest,
     SourceParagraph,
     SourceStats,
@@ -184,19 +185,32 @@ async def import_file(
 @router.post("/import:confirm")
 async def confirm_import(
     project_id: str,
+    body: ConfirmImportRequest,
     store: SqliteArtifactStore = Depends(get_artifact_store),
 ) -> dict:
-    """Persist the most recent import preview as actual chapters.
+    """Persist an edited import preview as source chapters."""
+    proj = await store.get_project(project_id)
+    if proj is None:
+        raise HTTPException(status_code=404, detail="Project not found")
 
-    Called after the author has reviewed and edited the auto-detected
-    chapter breakdown from POST /import.
-    """
-    # In practice this would take the edited preview from the client,
-    # but T3 uses the stored import preview (future: client sends edited chapters).
-    raise HTTPException(
-        status_code=501,
-        detail="Confirm import with edited preview not yet implemented",
-    )
+    await store.delete_all_paragraphs(project_id)
+
+    for idx, chapter in enumerate(body.chapters):
+        order = chapter.order or idx + 1
+        chapter_id = f"ch_{order}"
+        paragraphs = [
+            SourceParagraph(index=p_idx + 1, text=paragraph)
+            for p_idx, paragraph in enumerate(_split_paragraphs(chapter.text))
+        ]
+        if not paragraphs:
+            continue
+        await store.save_paragraphs(
+            project_id=project_id,
+            chapter_id=chapter_id,
+            paragraphs=[p.model_dump(mode="json") for p in paragraphs],
+        )
+
+    return await get_source(project_id, store)
 
 
 # =============================================================================
@@ -425,10 +439,12 @@ def _detect_chapters(text: str) -> list[dict]:
 
     if not chapter_starts:
         total_chars = sum(len(ln.strip()) for ln in lines if ln.strip())
+        paragraphs = _split_paragraphs(text)
         return [{
             "title": "第一章",
             "char_count": total_chars,
-            "paragraphs": [1, max(1, len(_split_paragraphs(text)))],
+            "paragraphs": [1, max(1, len(paragraphs))],
+            "text": text,
         }]
 
     chapters: list[dict] = []
@@ -444,6 +460,7 @@ def _detect_chapters(text: str) -> list[dict]:
             "title": title,
             "char_count": sum(len(p) for p in paras),
             "paragraphs": [1, max(1, len(paras))],
+            "text": chapter_text,
         })
 
     return [c for c in chapters if c["char_count"] > 0]
