@@ -386,6 +386,24 @@
       "DAWN": "Dawn",
       "DUSK": "Dusk"
     },
+    "merge": {
+      "title": "Merge suggestions",
+      "description": "Review backend suggestions for transitional scenes and mark your decision.",
+      "guardrailTitle": "Applying does not merge scenes",
+      "guardrailDescription": "These are suggestions only. Applying marks your decision; the system will not automatically merge or delete scenes. Use scene editing and deletion if you want to merge them manually.",
+      "apply": "Apply",
+      "dismiss": "Dismiss",
+      "applySuccess": "Merge suggestion applied",
+      "dismissSuccess": "Merge suggestion dismissed",
+      "statusNotice": "The scene structure is unchanged. Edit or delete scenes manually if needed.",
+      "empty": "No transitional merge suggestions right now.",
+      "missingScene": "Missing scene {{id}}",
+      "status": {
+        "pending": "Pending",
+        "applied": "Applied",
+        "dismissed": "Dismissed"
+      }
+    },
     "edit": {
       "addScene": "Add scene",
       "editScene": "Edit scene",
