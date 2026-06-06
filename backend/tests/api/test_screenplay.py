@@ -243,6 +243,28 @@ class TestScreenplayGeneration:
         get_resp = await app_client.get(f"/api/v1/projects/{project_id}/screenplay")
         assert get_resp.status_code == 200
         assert get_resp.json()["version"] == generated["version"]
+        assert generated["data"]["shot_hints"]["enabled"] is False
+
+    async def test_shot_hints_can_be_enabled_per_generation(
+        self,
+        app_client: AsyncClient,
+        project_id: str,
+        stub_gateway: StubLlmGateway,
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate",
+            json={"shot_hints": True},
+        )
+
+        assert resp.status_code == 202
+        assert resp.json()["data"]["shot_hints"]["enabled"] is True
+        assert stub_gateway.call_log[-1].system_constraints.shot_hints_enabled is True
+        request_context = {
+            item["type"]: item["data"] for item in stub_gateway.call_log[-1].context
+        }
+        assert request_context["request"]["shot_hints"] is True
 
     async def test_non_visualizable_passage_gets_externalization_options(
         self, app_client: AsyncClient, project_id: str

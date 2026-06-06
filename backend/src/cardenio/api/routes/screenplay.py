@@ -12,7 +12,13 @@ from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, Flag, P
 from cardenio.domain.models.characters import CharactersData
 from cardenio.domain.models.intent import IntentConstraints
 from cardenio.domain.models.outline import OutlineData, OutlineScene
-from cardenio.domain.models.screenplay import Beat, BeatType, ScreenplayData, ScreenplayScene
+from cardenio.domain.models.screenplay import (
+    Beat,
+    BeatType,
+    ScreenplayData,
+    ScreenplayScene,
+    ShotHints,
+)
 from cardenio.domain.models.understanding import NonVisualizableMark, UnderstandingData
 from cardenio.domain.validation.trust import enforce_must_keep_lines
 from cardenio.gateway.protocol import GenerateRequest, LlmGateway, SystemConstraints
@@ -57,6 +63,7 @@ async def generate_screenplay(
         if intent_artifact is not None
         else None
     )
+    shot_hints_enabled = _shot_hints_enabled(body)
     character_voices = _character_voices(characters)
     result = await gateway.generate(
         GenerateRequest(
@@ -65,7 +72,7 @@ async def generate_screenplay(
                 style_fingerprint=project["style_fingerprint"],
                 voice=character_voices,
                 author_intent=intent.model_dump(mode="json") if intent else None,
-                shot_hints_enabled=False,
+                shot_hints_enabled=shot_hints_enabled,
             ),
             context=[
                 {"type": "outline", "data": outline.model_dump(mode="json")},
@@ -82,14 +89,24 @@ async def generate_screenplay(
                     ],
                 },
                 {"type": "adaptation_direction", "data": project["adaptation_direction"]},
-                {"type": "request", "data": body or {}},
+                {
+                    "type": "request",
+                    "data": {**(body or {}), "shot_hints": shot_hints_enabled},
+                },
             ],
             output_schema=ScreenplayData.model_json_schema(),
         )
     )
     data = ScreenplayData.model_validate(
-        _with_screenplay_defaults(result.data, outline, understanding, character_voices)
+        _with_screenplay_defaults(
+            result.data,
+            outline,
+            understanding,
+            character_voices,
+            shot_hints_enabled,
+        )
     )
+    data = data.model_copy(update={"shot_hints": ShotHints(enabled=shot_hints_enabled)})
     data = _enforce_screenplay_trust(data, outline, intent, understanding)
     previous = await store.get_artifact(project_id, "screenplay")
     envelope = ArtifactEnvelope[ScreenplayData](
@@ -249,9 +266,10 @@ def _with_screenplay_defaults(
     outline: OutlineData,
     understanding: UnderstandingData | None,
     character_voices: dict[str, str],
+    shot_hints_enabled: bool,
 ) -> dict[str, Any]:
     if generated.get("scenes"):
-        return generated
+        return {**generated, "shot_hints": {"enabled": shot_hints_enabled}}
     return {
         "scenes": [
             _scene_from_outline(
@@ -261,8 +279,14 @@ def _with_screenplay_defaults(
             )
             for scene in outline.scenes
         ],
-        "shot_hints": generated.get("shot_hints", {"enabled": False}),
+        "shot_hints": {"enabled": shot_hints_enabled},
     }
+
+
+def _shot_hints_enabled(body: dict | None) -> bool:
+    if body is None or "shot_hints" not in body:
+        return False
+    return bool(body["shot_hints"])
 
 
 def _enforce_screenplay_trust(
