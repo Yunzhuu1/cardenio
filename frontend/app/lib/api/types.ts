@@ -13,6 +13,8 @@ export type AdaptationDirection =
   | "film"
   | "stage";
 
+export type MvpDirection = "faithful" | "cinematic" | "short_drama";
+
 export type ProjectState =
   | "empty"
   | "imported"
@@ -142,6 +144,101 @@ export type ResegmentInput =
     };
 
 export type Paginated<T> = { items: T[]; next_cursor: string | null };
+
+export type SourceRef = {
+  chapter: number;
+  paragraphs: number[];
+};
+
+export type ArtifactState = "draft" | "confirmed" | "needs_recompute";
+
+export type ArtifactEnvelope<T> = {
+  type: string;
+  state: ArtifactState;
+  version: string;
+  parent_version: string | null;
+  etag: string | null;
+  updated_at: string;
+  needs_recompute: boolean;
+  data: T;
+};
+
+export type Narrative = {
+  perspective: string;
+  tense: string;
+  unreliable: boolean;
+};
+
+export type NonVisualizableMark = {
+  source_ref: SourceRef;
+  note: string;
+};
+
+export type UnderstandingData = {
+  logline: string;
+  synopsis: string;
+  themes: string[];
+  protagonist_goal: string;
+  protagonist_fear: string;
+  central_conflict: string;
+  mood: string;
+  style_fingerprint: string;
+  narrative: Narrative;
+  non_visualizable: NonVisualizableMark[];
+  strengths: string[];
+  difficulties: string[];
+};
+
+export type CharacterRole = "protagonist" | "supporting" | "mentioned";
+
+export type CharacterRelation = {
+  to: string;
+  type: string;
+  change: string | null;
+};
+
+export type Character = {
+  id: string;
+  name: string;
+  role: CharacterRole;
+  voice: string;
+  desire: string;
+  fear: string;
+  arc: string | null;
+  relations: CharacterRelation[];
+  hard_rules: string[];
+};
+
+export type CharactersData = {
+  characters: Character[];
+};
+
+export type IntentConstraints = {
+  keep: string[];
+  no_delete: string[];
+  no_merge: string[];
+  must_keep_lines: string[];
+  mood_floor: string | null;
+  allow_new_plot: boolean;
+  allow_reorder: boolean;
+  allow_new_ending: boolean;
+  target_type: AdaptationDirection | null;
+};
+
+export type IntentConflict = {
+  code: string;
+  message: string;
+  fields: string[];
+};
+
+export type DirectionResponse = {
+  direction: MvpDirection;
+  project: Project;
+};
+
+export type IntentValidateResponse = {
+  conflicts: IntentConflict[];
+};
 
 export type ApiErrorBody = {
   code: string;
