@@ -209,7 +209,7 @@ export function SidebarMenuButton({
 }: SidebarMenuButtonProps): React.ReactElement {
   const defaultProps = {
     className: cn(
-      "flex w-full items-center gap-2 rounded-md p-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+      "flex w-full items-center gap-2 rounded-md p-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground has-[>svg]:grid has-[>svg]:grid-cols-[1.25rem_minmax(0,1fr)] has-[>svg]:items-center [&>svg]:justify-self-center [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
       "aria-[current=page]:bg-sidebar-primary aria-[current=page]:text-sidebar-primary-foreground",
       active && "bg-sidebar-primary text-sidebar-primary-foreground",
       className,
