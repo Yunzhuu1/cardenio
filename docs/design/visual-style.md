@@ -11,12 +11,12 @@
 | 应用形态 | Web 应用（SaaS），双主题（亮/暗），中文优先 |
 | 组件库 | coss.ui（配色与 [shadcn/ui](https://ui.shadcn.com) 兼容） |
 | 关联文档 | [`design.md`](./design.md)（技术设计）、[`requirements.md`](../product/requirements.md)（PRD） |
-| 最近更新 | 2026-06-05 |
+| 最近更新 | 2026-06-06 |
 
 本指南确定的方向（与产品负责人共同决策）：
 
 - **气质基调**：戏剧舞台
-- **色彩方向**：冷静专业（冷中性 + 靛蓝聚光）
+- **色彩方向**：冷静专业（暖中性 / taupe + 琥珀聚光）
 - **字体策略**：混排——UI Sans 用「思源黑体 + IBM Plex Sans」，Content Serif 用「Noto Serif SC + Courier Prime」
 - **明暗模式**：双主题，默认跟随系统
 - **组件库**：coss.ui，配色与 shadcn/ui 兼容（设计令牌对齐其 CSS 变量约定，见 §3.4 与 §13）
@@ -44,7 +44,7 @@
 
 - **D1 克制优先**：留白如空舞台；装饰服从内容，绝不喧宾夺主。
 - **D2 以光聚焦**：强调与注意力靠「光」（强调色、对比、专注模式）引导，而非堆砌色块。
-- **D3 冷静专业**：冷中性底色传达可信赖的工具感，降低 AI 协作的心理门槛。
+- **D3 冷静专业**：低饱和中性底色传达可信赖的工具感，降低 AI 协作的心理门槛。
 - **D4 文学质感**：正文与剧本用衬线体，守住「创作是手艺」的尊重感。
 - **D5 信任可见**：溯源、AI 来源、留白等信任能力，必须有稳定、可识别的视觉语言（见 §4.3）。
 
@@ -64,45 +64,45 @@
 
 ## 3. 色彩系统
 
-底色为冷中性「冷静专业」，强调色为靛蓝——它在产品语义里扮演「聚光」。暗色主题是「暗处的舞台」，仍走冷调（深墨青），不转暖。
+底色为暖中性 taupe「冷静专业」，强调色为琥珀土色——它在产品语义里扮演「聚光」。暗色主题是「暗处的舞台」，以低饱和暖灰与深褐黑承载内容，让聚光色在界面里保持克制但可识别。
 
 ### 3.1 亮色主题（Light）
 
 | 令牌 | 色值 | 用途 |
 | --- | --- | --- |
-| `bg/base` | `#FFFFFF` | 页面底色（空舞台） |
-| `bg/surface` | `#F5F7FA` | 面板、卡片 |
-| `bg/surface-2` | `#EAEEF3` | 次级面板、输入底 |
-| `border` | `#DCE2EA` | 分隔线、描边 |
-| `text/primary` | `#1A2433` | 主文字（深青） |
-| `text/secondary` | `#5A6675` | 次要文字 |
-| `text/muted` | `#8A93A0` | 弱化、占位 |
-| `accent/spotlight` | `#2D6CDF` | 主强调 / 聚光（按钮、链接、当前场） |
-| `accent/hover` | `#2257BC` | 强调悬停/按下 |
+| `bg/base` | `oklch(1 0 0)` | 页面底色（空舞台） |
+| `bg/surface` | `oklch(1 0 0)` | 面板、卡片 |
+| `bg/surface-2` | `oklch(0.967 0.001 286.375)` | 次级面板、输入底 |
+| `border` | `oklch(0.922 0.005 34.3)` | 分隔线、描边 |
+| `text/primary` | `oklch(0.147 0.004 49.3)` | 主文字（深暖黑） |
+| `text/secondary` | `oklch(0.547 0.021 43.1)` | 次要文字 |
+| `text/muted` | `oklch(0.547 0.021 43.1)` | 弱化、占位 |
+| `accent/spotlight` | `oklch(0.555 0.163 48.998)` | 主强调 / 聚光（按钮、链接、当前场） |
+| `accent/hover` | `oklch(0.666 0.179 58.318)` | 强调悬停/侧栏主色 |
 | `semantic/source` | `#1E8E8A` | 原文相关（青蔻，见 §4.3） |
 | `semantic/inferred` | `#C98A2B` | AI 新增高亮（暖琥珀，见 §4.3） |
 | `semantic/todo` | `#7A6FCF` | 留白 TODO（紫） |
-| `semantic/danger` | `#C0392B` | 删除、冲突、破坏性操作 |
+| `semantic/danger` | `oklch(0.577 0.245 27.325)` | 删除、冲突、破坏性操作 |
 
 ### 3.2 暗色主题（Dark · 暗处的舞台）
 
 | 令牌 | 色值 | 用途 |
 | --- | --- | --- |
-| `bg/base` | `#0F141B` | 页面底色（深墨青） |
-| `bg/surface` | `#161C25` | 面板、卡片 |
-| `bg/surface-2` | `#1E2530` | 次级面板 |
-| `border` | `#2A323E` | 分隔线、描边 |
-| `text/primary` | `#E6EBF2` | 主文字 |
-| `text/secondary` | `#9BA6B4` | 次要文字 |
-| `text/muted` | `#6E7889` | 弱化、占位 |
-| `accent/spotlight` | `#5B8DEF` | 主强调 / 聚光 |
-| `accent/hover` | `#79A1F2` | 强调悬停 |
+| `bg/base` | `oklch(0.147 0.004 49.3)` | 页面底色（深暖黑） |
+| `bg/surface` | `oklch(0.214 0.009 43.1)` | 面板、卡片 |
+| `bg/surface-2` | `oklch(0.274 0.006 286.033)` | 次级面板 |
+| `border` | `oklch(1 0 0 / 10%)` | 分隔线、描边 |
+| `text/primary` | `oklch(0.986 0.002 67.8)` | 主文字 |
+| `text/secondary` | `oklch(0.714 0.014 41.2)` | 次要文字 |
+| `text/muted` | `oklch(0.714 0.014 41.2)` | 弱化、占位 |
+| `accent/spotlight` | `oklch(0.473 0.137 46.201)` | 主强调 / 聚光 |
+| `accent/hover` | `oklch(0.769 0.188 70.08)` | 强调悬停/侧栏主色 |
 | `semantic/source` | `#2BB0A6` | 原文相关 |
 | `semantic/inferred` | `#E0A458` | AI 新增高亮（即舞台聚光的暖琥珀） |
 | `semantic/todo` | `#9A8FE6` | 留白 TODO |
-| `semantic/danger` | `#E5645A` | 破坏性操作 |
+| `semantic/danger` | `oklch(0.704 0.191 22.216)` | 破坏性操作 |
 
-> 暗色主题里 `semantic/inferred` 的暖琥珀，正是「戏剧舞台」聚光灯的颜色——它落在冷调舞台上，自然成为视线焦点，语义上恰好对应「AI 在此处补了戏，请重点看」。这是冷静底色与戏剧气质的交汇点。
+> 暗色主题里 `semantic/inferred` 的暖琥珀，正是「戏剧舞台」聚光灯的颜色——它落在低饱和暖灰舞台上，自然成为视线焦点，语义上恰好对应「AI 在此处补了戏，请重点看」。这是冷静底色与戏剧气质的交汇点。
 
 ### 3.3 语义色 ↔ 信任能力映射（关键）
 
@@ -110,7 +110,7 @@
 
 | 信任能力 | 视觉语言 | 令牌 |
 | --- | --- | --- |
-| `source_ref` 溯源 | 靛蓝可点击「来源 chip」，点击高亮原文 | `accent/spotlight` |
+| `source_ref` 溯源 | 琥珀聚光可点击「来源 chip」，点击高亮原文 | `accent/spotlight` |
 | `from_source` 原文已有 | 默认呈现 + 青蔻细下划线/标记（基线，弱化） | `semantic/source` |
 | `ai_inferred` AI 新增 | 暖琥珀标签 + 高亮底 + 「AI」图标（聚光强调） | `semantic/inferred` |
 | `TODO` 留白 | 紫色虚线框 chip，可筛选定位 | `semantic/todo` |
@@ -127,17 +127,34 @@
 | `text/primary` | `--foreground` | 主文字 |
 | `bg/surface` | `--card` / `--popover` | 卡片、浮层底 |
 | `text/primary` | `--card-foreground` / `--popover-foreground` | 卡片/浮层文字 |
-| `accent/spotlight` | `--primary` | **主操作色 = 靛蓝聚光**（注意：对应 shadcn 的 `--primary`，而非 `--accent`） |
+| `accent/spotlight` | `--primary` | **主操作色 = 琥珀聚光**（注意：对应 shadcn 的 `--primary`，而非 `--accent`） |
 | `bg/base` | `--primary-foreground` | 主按钮上的文字 |
 | `bg/surface-2` | `--secondary` / `--muted` / `--accent` | 次级底、弱化底、hover 底（shadcn 的 `--accent` 是低对比 hover 背景，非强调色） |
 | `text/secondary` | `--muted-foreground` | 次要/弱化文字 |
 | `border` | `--border` / `--input` | 描边、输入边框 |
-| `accent/spotlight` | `--ring` | 焦点环 |
+| `focus/ring` | `--ring` | 焦点环（亮色 `oklch(0.714 0.014 41.2)`，暗色 `oklch(0.547 0.021 43.1)`） |
 | `semantic/danger` | `--destructive` | 破坏性操作 |
 
 **扩展语义令牌**：信任能力专用色（`source` / `inferred` / `todo`）不在 shadcn 默认变量集内，需作为自定义 CSS 变量注册到主题（建议命名 `--source` / `--inferred` / `--todo`，各带 `-foreground`），亮/暗各一套，取值见 §3.1 / §3.2。它们是本产品区别于通用模板的关键视觉资产，不可省略。
 
 > 约定澄清：shadcn 的 `--accent` 是「悬停用的低对比背景色」，与本指南「强调/聚光」概念不同。本产品的强调色统一走 `--primary`，避免混淆。
+
+### 3.5 扩展图表与侧栏令牌
+
+为兼容 coss.ui / shadcn 的 dashboard、sidebar 与 chart 组件，本产品在 Tailwind 主题中同步注册以下扩展令牌。它们服务于后续工作台导航和统计视图，不改变 §3.3 的信任语义色。
+
+| 令牌组 | 亮色 | 暗色 | 用途 |
+| --- | --- | --- | --- |
+| `chart-1` | `oklch(0.868 0.007 39.5)` | `oklch(0.868 0.007 39.5)` | 图表序列 1 |
+| `chart-2` | `oklch(0.547 0.021 43.1)` | `oklch(0.547 0.021 43.1)` | 图表序列 2 |
+| `chart-3` | `oklch(0.438 0.017 39.3)` | `oklch(0.438 0.017 39.3)` | 图表序列 3 |
+| `chart-4` | `oklch(0.367 0.016 35.7)` | `oklch(0.367 0.016 35.7)` | 图表序列 4 |
+| `chart-5` | `oklch(0.268 0.011 36.5)` | `oklch(0.268 0.011 36.5)` | 图表序列 5 |
+| `sidebar` | `oklch(0.986 0.002 67.8)` | `oklch(0.214 0.009 43.1)` | 侧栏底色 |
+| `sidebar-foreground` | `oklch(0.147 0.004 49.3)` | `oklch(0.986 0.002 67.8)` | 侧栏文字 |
+| `sidebar-primary` | `oklch(0.666 0.179 58.318)` | `oklch(0.769 0.188 70.08)` | 侧栏当前项 / 主强调 |
+| `sidebar-accent` | `oklch(0.96 0.002 17.2)` | `oklch(0.268 0.011 36.5)` | 侧栏 hover 背景 |
+| `sidebar-border` | `oklch(0.922 0.005 34.3)` | `oklch(1 0 0 / 10%)` | 侧栏描边 |
 
 ---
 
@@ -223,7 +240,7 @@
 | 组件 | 视觉要点 |
 | --- | --- |
 | 场景卡（Scene card） | 「台上的一场戏」；含场景标题、`source_ref` chip、来源标记；当前场被聚光强调 |
-| 来源 chip（source_ref） | 靛蓝、可点击；hover 预览原文出处 |
+| 来源 chip（source_ref） | 琥珀聚光、可点击；hover 预览原文出处 |
 | AI 新增标记（ai_inferred） | 暖琥珀标签 + 「AI」图标 + 浅高亮底；可一键筛选全篇 |
 | TODO chip | 紫色虚线框；可在「待补清单」中聚合 |
 | 主按钮 | `accent/spotlight` 实心；破坏性操作走 `danger` 且二次确认 |
@@ -236,7 +253,7 @@
 
 - **双主题**，默认**跟随系统**，可手动切换并记忆偏好。
 - 两套主题**功能与可识别性对等**：所有语义色（source/inferred/todo/danger）在明暗下都有对应令牌，对比度达标。
-- 暗色不是简单反色，而是「暗处的舞台」——深墨青冷调，聚光强调更亮。
+- 暗色不是简单反色，而是「暗处的舞台」——深暖黑与 taupe 低饱和底色，聚光强调更亮。
 
 ---
 
@@ -273,6 +290,6 @@
 - **O2 字体打包与授权登记**：字族已定（思源黑体 + IBM Plex Sans / Noto Serif SC + Courier Prime / 等距更纱黑体 SC + IBM Plex Mono）；待在 README 记录来源与授权，并落实 CJK 子集化与按字重分包。
 - **O3 剧本排版细则**：中文剧本（场次/人物/对白/动作）的具体版式规范，待与 PRD 剧本格式联调后细化；Courier Prime 用于剧本西文的具体场景与字号需一并确定。
 - **O4 高保真视觉稿**：本指南为方向与令牌；关键界面（双栏工作台、确认关卡、报告）需出高保真稿验证。
-- **O5 暖琥珀的度**：`semantic/inferred` 暖色在冷静体系中的用量边界，需在真实界面中校准，避免破坏冷调统一。
+- **O5 暖琥珀的度**：`semantic/inferred` 暖色在冷静体系中的用量边界，需在真实界面中校准，避免破坏整体克制感。
 
 > 视觉方向一旦在高保真稿中验证定稿，建议同步更新本指南，并将关键决策（如字体、主色）以 ADR 记录。
