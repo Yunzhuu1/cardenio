@@ -6,8 +6,8 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from cardenio.api.deps import get_store
 from cardenio.api.routes import router
 from cardenio.gateway.providers.stub import StubLlmGateway
 from cardenio.storage.sqlite import create_engine, init_db
@@ -15,12 +15,14 @@ from cardenio.storage.sqlite import create_engine, init_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Application lifespan: set up DB engine, stores, gateway."""
+    """Set up DB engine, session factory, gateway on startup."""
     engine = create_engine("sqlite+aiosqlite:///./cardenio.db")
     await init_db(engine)
+
     app.state.engine = engine
+    app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
     app.state.gateway = StubLlmGateway()
-    app.state.store = get_store(engine)
+
     yield
     await engine.dispose()
 

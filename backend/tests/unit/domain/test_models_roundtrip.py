@@ -4,24 +4,16 @@ FR-8.4 requires that YAML/JSON parse → edit → serialize is lossless.
 ``source_ref`` and ``flag`` must survive the roundtrip without data loss.
 """
 
-import pytest
 
-from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, Flag, SourceRef
+from cardenio.domain.models.base import Flag
+from cardenio.domain.models.characters import CharactersData
+from cardenio.domain.models.intent import IntentConstraints
 from cardenio.domain.models.screenplay import (
-    Beat,
-    BeatOption,
     BeatType,
     ScreenplayData,
-    ScreenplayScene,
-    ShotHints,
 )
-from cardenio.domain.models.outline import IntExt, SceneHeading, TimeOfDay
-from cardenio.domain.models.understanding import UnderstandingData, Narrative, NonVisualizableMark
-from cardenio.domain.models.characters import Character, CharacterRole, CharactersData
-from cardenio.domain.models.intent import AdaptationDirection, IntentConstraints
-from cardenio.domain.models.report import ReportData
+from cardenio.domain.models.understanding import UnderstandingData
 from cardenio.domain.validation.schema import validate_roundtrip
-
 
 # --- Screenplay roundtrip (PRD §7 full example) ---
 

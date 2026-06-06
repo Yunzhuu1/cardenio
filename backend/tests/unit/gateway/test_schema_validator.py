@@ -1,6 +1,5 @@
 """Schema validator tests (agent-workflow §8)."""
 
-import pytest
 from pydantic import BaseModel
 
 from cardenio.gateway.schema_validator import NeedsAttention, validate_with_retry
