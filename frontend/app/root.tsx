@@ -7,6 +7,7 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
+import "@fontsource/cormorant-garamond/300-italic.css";
 import "@fontsource/courier-prime/400.css";
 import "@fontsource/ibm-plex-sans/400.css";
 import "@fontsource/ibm-plex-sans/500.css";
@@ -23,6 +24,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
+        <link rel="preconnect" href="https://fontsapi.zeoseven.com" />
+        <link
+          href="https://fontsapi.zeoseven.com/292/main/result.css"
+          rel="stylesheet"
+        />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>
