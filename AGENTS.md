@@ -89,29 +89,41 @@ Commit subjects must be written in ASCII English. Do not use full-width punctuat
 When creating or helping write a PR, ensure:
 
 - The PR title states in one sentence what was added or changed.
+- The PR title must follow the same Conventional Commits format used for commit messages.
 - The PR description is not blank.
 - The PR description matches the actual code changes.
 - The PR covers only one feature or one clearly bounded change.
 - The main branch will remain runnable after the PR is merged.
 
-The PR description must use this structure:
+The PR description must use the repository template at [`pull_request_template.md`](.github/pull_request_template.md), whose required structure is:
 
 ```markdown
 ## 功能描述
 
-说明该功能的作用与使用方式。
+<!-- 说明本 PR 新增或修改了什么，以及该功能如何使用。 -->
 
 ## 实现思路
 
-说明技术选型、核心实现逻辑、重要数据流或关键模块。
+<!-- 简要说明技术选型、核心实现逻辑、重要数据流或关键模块。 -->
 
 ## 测试方式
 
-说明如何验证该功能正常运行。列出执行过的命令、手动测试步骤或未能测试的原因。
+<!-- 列出已执行的命令、手动测试步骤或未能测试的原因。 -->
+
+- [ ] 已执行相关测试、构建或手动验证
+- [ ] 如未测试，已在本节说明原因
 
 ## 来源与依赖
 
-说明是否引用第三方库、框架、模板、示例代码、生成素材，或复用过去代码。没有则写“无”。
+<!-- 说明是否引用第三方库、框架、模板、示例代码、生成素材，或复用过去代码。没有则写“无”。 -->
+
+## 合规检查
+
+- [ ] 本 PR 只实现或修改一个功能点
+- [ ] PR 描述与实际代码变更一致
+- [ ] 新增第三方依赖、外部来源或复用代码时，已在 README 和本 PR 中说明
+- [ ] 未将第三方成果、模板代码、示例代码或生成素材写成原创成果
+- [ ] 已在 PR 分支执行构建/测试命令，并按 README 启动项目验证核心流程可运行
 ```
 
 If a PR introduces dependencies, reuses code, or cites external sources, confirm that both `README.md` and the PR description disclose them.
