@@ -10,6 +10,7 @@ from __future__ import annotations
 import io
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi.responses import JSONResponse
 
 from cardenio.api.deps import get_artifact_store
 from cardenio.domain.models.source import (
@@ -68,7 +69,11 @@ async def get_source(
     project_id: str,
     store: SqliteArtifactStore = Depends(get_artifact_store),
 ) -> dict:
-    """API-5: Get all chapters with paragraph index and threshold check."""
+    """API-5: Get all chapters with paragraph index and threshold check.
+
+    FR-1.3: threshold.blocked=true when < 3 chapters — downstream
+    generation endpoints will return 409 chapter_threshold_unmet.
+    """
     proj = await store.get_project(project_id)
     if proj is None:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -80,8 +85,49 @@ async def get_source(
     return {
         "chapters": chapters,
         "stats": stats.model_dump(mode="json"),
-        "threshold": {"min_chapters": 3, "passed": stats.threshold_passed},
+        "threshold": {
+            "min_chapters": 3,
+            "passed": stats.threshold_passed,
+            "blocked": not stats.threshold_passed,
+        },
     }
+
+
+@router.get("/threshold")
+async def get_threshold(
+    project_id: str,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
+    """Check whether the project meets the 3-chapter minimum (FR-1.3).
+
+    Called before attempting any downstream generation action.
+    Returns 200 with threshold status, or 409 if blocked.
+    """
+    chapters = await store.list_chapters(project_id)
+    total_chars = sum(c["char_count"] for c in chapters)
+    stats = SourceStats(chapter_count=len(chapters), char_count=total_chars)
+
+    result = {
+        "min_chapters": 3,
+        "current_chapters": stats.chapter_count,
+        "current_chars": stats.char_count,
+        "passed": stats.threshold_passed,
+    }
+
+    if not stats.threshold_passed:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "error": {
+                    "code": "chapter_threshold_unmet",
+                    "message": f"Need at least 3 chapters; found {stats.chapter_count}",
+                    "retryable": False,
+                    "details": result,
+                }
+            },
+        )
+
+    return result
 
 
 @router.post("/import")
