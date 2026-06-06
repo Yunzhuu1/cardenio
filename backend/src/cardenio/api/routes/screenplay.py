@@ -90,7 +90,7 @@ async def generate_screenplay(
     data = ScreenplayData.model_validate(
         _with_screenplay_defaults(result.data, outline, understanding, character_voices)
     )
-    data = _enforce_screenplay_trust(data, outline, intent)
+    data = _enforce_screenplay_trust(data, outline, intent, understanding)
     previous = await store.get_artifact(project_id, "screenplay")
     envelope = ArtifactEnvelope[ScreenplayData](
         type="screenplay",
@@ -269,6 +269,7 @@ def _enforce_screenplay_trust(
     data: ScreenplayData,
     outline: OutlineData,
     intent: IntentConstraints | None,
+    understanding: UnderstandingData | None,
 ) -> ScreenplayData:
     source_paragraph_indices = {
         paragraph
@@ -279,6 +280,7 @@ def _enforce_screenplay_trust(
         data.scenes,
         source_paragraph_indices=source_paragraph_indices,
     )
+    scenes = _annotate_subtext_and_mood(scenes, outline, intent, understanding)
     scenes = _backfill_dialogue_source_refs(scenes)
     scenes = _ensure_must_keep_lines(scenes, intent.must_keep_lines if intent else [])
     if intent and intent.must_keep_lines:
@@ -287,6 +289,74 @@ def _enforce_screenplay_trust(
             intent.must_keep_lines,
         )
     return data.model_copy(update={"scenes": scenes})
+
+
+def _annotate_subtext_and_mood(
+    scenes: list[ScreenplayScene],
+    outline: OutlineData,
+    intent: IntentConstraints | None,
+    understanding: UnderstandingData | None,
+) -> list[ScreenplayScene]:
+    outline_by_id = {scene.id: scene for scene in outline.scenes}
+    annotated: list[ScreenplayScene] = []
+    for scene in scenes:
+        outline_scene = outline_by_id.get(scene.id)
+        mood = scene.mood or _scene_mood(outline_scene, intent, understanding)
+        beats = [
+            beat
+            if beat.type == BeatType.TODO or beat.subtext
+            else beat.model_copy(
+                update={"subtext": _beat_subtext(beat, scene, outline_scene, mood)}
+            )
+            for beat in scene.beats
+        ]
+        annotated.append(scene.model_copy(update={"mood": mood, "beats": beats}))
+    return annotated
+
+
+def _scene_mood(
+    outline_scene: OutlineScene | None,
+    intent: IntentConstraints | None,
+    understanding: UnderstandingData | None,
+) -> str:
+    if outline_scene and outline_scene.mood:
+        return outline_scene.mood
+    if intent and intent.mood_floor:
+        return intent.mood_floor
+    if understanding and understanding.mood:
+        return understanding.mood
+    return "controlled tension"
+
+
+def _beat_subtext(
+    beat: Beat,
+    scene: ScreenplayScene,
+    outline_scene: OutlineScene | None,
+    mood: str,
+) -> str:
+    if beat.type in {BeatType.DIALOGUE, BeatType.VOICE_OVER, BeatType.OFF_SCREEN}:
+        objective = scene.goal or (outline_scene.goal if outline_scene else None)
+        return _join_subtext_parts(
+            [
+                f"Spoken against {mood}.",
+                f"Underlying intent: {objective}." if objective else None,
+            ]
+        )
+    if beat.type == BeatType.ACTION:
+        conflict = scene.conflict or (outline_scene.conflict if outline_scene else None)
+        return _join_subtext_parts(
+            [
+                f"Action carries {mood}.",
+                f"Pressure point: {conflict}." if conflict else None,
+            ]
+        )
+    if beat.type == BeatType.NOTE:
+        return f"Adaptation note under {mood}."
+    return f"Beat emotional state: {mood}."
+
+
+def _join_subtext_parts(parts: list[str | None]) -> str:
+    return " ".join(part for part in parts if part)
 
 
 def _backfill_dialogue_source_refs(

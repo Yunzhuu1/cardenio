@@ -400,6 +400,53 @@ class TestScreenplayGeneration:
         assert dialogue["source_ref"] == scene["source_ref"]
         assert dialogue["flag"] == "ai_inferred"
 
+    async def test_missing_subtext_and_mood_are_annotated(
+        self,
+        app_client: AsyncClient,
+        project_id: str,
+        stub_gateway: StubLlmGateway,
+    ) -> None:
+        outline = await generate_confirmed_outline(app_client, project_id)
+        scene = outline["data"]["scenes"][0]
+        stub_gateway.fixtures = {
+            **stub_gateway.fixtures,
+            "scene": {
+                "scenes": [
+                    {
+                        **scene,
+                        "mood": None,
+                        "beats": [
+                            {
+                                "type": "action",
+                                "text": "Lin Wan stops at the archive door.",
+                                "source_ref": scene["source_ref"],
+                                "flag": "from_source",
+                            },
+                            {
+                                "type": "dialogue",
+                                "character": scene["characters"][0],
+                                "dialogue": "Not yet.",
+                                "source_ref": scene["source_ref"],
+                                "flag": "from_source",
+                            },
+                        ],
+                    }
+                ],
+                "shot_hints": {"enabled": False},
+            },
+        }
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+
+        assert resp.status_code == 202
+        generated_scene = resp.json()["data"]["scenes"][0]
+        assert generated_scene["mood"] == scene["mood"]
+        assert all(beat["subtext"] for beat in generated_scene["beats"])
+        assert "Action carries" in generated_scene["beats"][0]["subtext"]
+        assert "Underlying intent" in generated_scene["beats"][1]["subtext"]
+
     async def test_get_single_screenplay_scene(
         self, app_client: AsyncClient, project_id: str
     ) -> None:
