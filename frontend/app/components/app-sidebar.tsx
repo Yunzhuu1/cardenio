@@ -1,6 +1,8 @@
 import { LayoutGridIcon, PlusIcon } from "lucide-react";
 import { NavLink } from "react-router";
 import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "~/components/language-switcher";
+import { ThemeToggle } from "~/components/theme-toggle";
 import type { ProjectSummary } from "~/lib/api/types";
 import {
   Sidebar,
@@ -13,6 +15,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarSeparator,
 } from "~/components/ui/sidebar";
 
 export function AppSidebar({
@@ -86,6 +89,13 @@ export function AppSidebar({
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+
+        <SidebarSeparator />
+
+        <div className="flex flex-wrap items-center gap-2 px-2 pt-1">
+          <LanguageSwitcher />
+          <ThemeToggle />
+        </div>
       </SidebarFooter>
     </Sidebar>
   );

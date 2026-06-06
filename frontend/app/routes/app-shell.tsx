@@ -3,8 +3,6 @@ import { NavLink, Outlet } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/app-shell";
 import { AppSidebar } from "~/components/app-sidebar";
-import { LanguageSwitcher } from "~/components/language-switcher";
-import { ThemeToggle } from "~/components/theme-toggle";
 import {
   SidebarInset,
   SidebarProvider,
@@ -57,10 +55,6 @@ function AppTopbar(): React.ReactElement {
         >
           {t("app.name")}
         </NavLink>
-      </div>
-      <div className="flex items-center gap-2">
-        <LanguageSwitcher />
-        <ThemeToggle />
       </div>
     </header>
   );
