@@ -262,10 +262,79 @@
       "description": "作者意图必须在人物档案确认后填写，并与改编方向一起用于下游冲突校验。",
       "lockedTitle": "请先确认人物档案",
       "lockedDescription": "意图步骤由前端按 P1 流程锁定：人物档案工件达到已确认后才可继续。",
+      "gateNote": "这是前端施加的流程门控；后端当前不会用 project.gates 判断此步骤。",
       "cardTitle": "作者意图工件",
-      "cardDescription": "后续 PR 会在此接入意图约束、方向选择、冲突校验和进入大纲 CTA。",
+      "cardDescription": "保存即确认作者意图；方向选择独立保存到项目元数据。",
       "emptyTitle": "尚未保存作者意图",
-      "emptyDescription": "人物档案确认后，后续 PR 会在此提供意图表单和方向选择。"
+      "emptyDescription": "填写保留、禁删、禁合并和允许改动范围，用于约束后续大纲与剧本生成。",
+      "formTitle": "意图约束",
+      "formDescription": "这些约束代表作者不可轻易让步的创作意图。保存后意图工件会直接进入已确认状态。",
+      "directionTitle": "改编方向",
+      "directionDescription": "方向存入项目元数据，冲突校验会同时读取已保存意图和当前方向。",
+      "validationTitle": "冲突校验",
+      "validationDescription": "冲突只提示不阻塞，是否调整由作者决定。",
+      "save": "保存意图",
+      "saveSuccess": "作者意图已保存",
+      "selectDirectionSuccess": "改编方向已保存",
+      "validate": "检查意图与方向冲突",
+      "validateFirst": "请先保存意图并选择方向",
+      "validateSuccess": "冲突校验已完成",
+      "noConflictsTitle": "未发现冲突",
+      "noConflictsDescription": "当前意图与改编方向没有确定性冲突。",
+      "conflictTitle": "发现冲突",
+      "conflictDescription": "这些冲突不阻塞进入下一步，是否调整由你决定。",
+      "completeTitle": "作者意图已保存",
+      "completeDescription": "现在可以进入分场大纲；当前大纲页可能仍是占位页，但跳转流程应保持可用。",
+      "outlineCta": "进入分场大纲",
+      "actionError": "操作失败",
+      "fields": {
+        "keep": "必须保留",
+        "no_delete": "不可删除",
+        "no_merge": "不可合并",
+        "must_keep_lines": "必须保留的原句",
+        "mood_floor": "情绪底线",
+        "allow_new_plot": "允许新增桥段",
+        "allow_reorder": "允许调整顺序",
+        "allow_new_ending": "允许调整结局"
+      },
+      "fieldDescriptions": {
+        "keep": "必须保留的情节、人物关系或意象。",
+        "no_delete": "不能删除的事件、角色或信息点。",
+        "no_merge": "不能与其它内容合并处理的对象。",
+        "must_keep_lines": "希望在剧本中保留或转化的关键原句。",
+        "mood_floor": "改编不能低于或偏离的情绪底线。",
+        "allow_new_plot": "允许为影视化表达新增桥段。",
+        "allow_reorder": "允许调整事件顺序以改善节奏。",
+        "allow_new_ending": "允许改写或强化结局。"
+      },
+      "placeholders": {
+        "keep": "输入必须保留的内容后添加",
+        "no_delete": "输入不可删除的内容后添加",
+        "no_merge": "输入不可合并的内容后添加",
+        "must_keep_lines": "输入必须保留的原句后添加",
+        "mood_floor": "例如：不能削弱悬疑和克制感"
+      },
+      "directions": {
+        "faithful": {
+          "label": "忠实改编",
+          "description": "尽量保留原作结构、关系和结局，适合强调作者原意的版本。"
+        },
+        "cinematic": {
+          "label": "影视化增强",
+          "description": "强化可视化动作、节奏和场面调度，允许适度改写。"
+        },
+        "short_drama": {
+          "label": "短剧模式",
+          "description": "更强调前置钩子、强冲突和快节奏推进。"
+        }
+      },
+      "conflicts": {
+        "faithful_vs_new_ending": "忠实改编与允许调整结局存在冲突。",
+        "faithful_vs_new_plot": "忠实改编与允许新增桥段存在冲突。",
+        "faithful_vs_reorder": "忠实改编与允许调整顺序存在冲突。",
+        "short_drama_vs_no_reorder": "短剧模式通常需要允许调序以强化前置钩子。",
+        "unknown": "未知冲突"
+      }
     }
   },
   "pages": {

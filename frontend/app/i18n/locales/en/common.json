@@ -262,10 +262,79 @@
       "description": "Author intent is filled after character profiles are confirmed and combined with adaptation direction for downstream conflict checks.",
       "lockedTitle": "Confirm character profiles first",
       "lockedDescription": "The frontend locks this step for the P1 flow: continue only after the character profile artifact is confirmed.",
+      "gateNote": "This is a frontend flow gate; the backend currently does not use project.gates for this step.",
       "cardTitle": "Author intent artifact",
-      "cardDescription": "A later PR will connect intent constraints, direction selection, conflict validation, and the outline CTA here.",
+      "cardDescription": "Saving confirms author intent immediately; direction is stored separately in project metadata.",
       "emptyTitle": "No author intent saved",
-      "emptyDescription": "After character profiles are confirmed, a later PR will add the intent form and direction selection here."
+      "emptyDescription": "Fill preservation, deletion, merge, and allowed-change constraints for downstream outline and script generation.",
+      "formTitle": "Intent constraints",
+      "formDescription": "These constraints capture the author's non-negotiable creative intent. Saving confirms the intent artifact immediately.",
+      "directionTitle": "Adaptation direction",
+      "directionDescription": "Direction is stored in project metadata. Conflict validation reads both saved intent and the current direction.",
+      "validationTitle": "Conflict validation",
+      "validationDescription": "Conflicts warn but do not block; the author decides whether to adjust.",
+      "save": "Save intent",
+      "saveSuccess": "Author intent saved",
+      "selectDirectionSuccess": "Adaptation direction saved",
+      "validate": "Check intent-direction conflicts",
+      "validateFirst": "Save intent and choose a direction first",
+      "validateSuccess": "Conflict validation complete",
+      "noConflictsTitle": "No conflicts found",
+      "noConflictsDescription": "The current intent and adaptation direction have no deterministic conflicts.",
+      "conflictTitle": "Conflict found",
+      "conflictDescription": "These conflicts do not block the next step; you decide whether to adjust.",
+      "completeTitle": "Author intent saved",
+      "completeDescription": "You can continue to the scene outline. The outline page may still be a placeholder, but navigation should remain available.",
+      "outlineCta": "Continue to scene outline",
+      "actionError": "Action failed",
+      "fields": {
+        "keep": "Must keep",
+        "no_delete": "Do not delete",
+        "no_merge": "Do not merge",
+        "must_keep_lines": "Must keep source lines",
+        "mood_floor": "Mood floor",
+        "allow_new_plot": "Allow new plot beats",
+        "allow_reorder": "Allow reordering",
+        "allow_new_ending": "Allow ending changes"
+      },
+      "fieldDescriptions": {
+        "keep": "Plot points, relationships, or motifs that must be preserved.",
+        "no_delete": "Events, characters, or information that cannot be removed.",
+        "no_merge": "Items that cannot be merged with other material.",
+        "must_keep_lines": "Source lines that should be preserved or adapted in the script.",
+        "mood_floor": "The minimum emotional tone the adaptation must preserve.",
+        "allow_new_plot": "Allow new plot beats for screen adaptation.",
+        "allow_reorder": "Allow event reordering to improve pacing.",
+        "allow_new_ending": "Allow rewriting or intensifying the ending."
+      },
+      "placeholders": {
+        "keep": "Enter a must-keep item and add it",
+        "no_delete": "Enter a do-not-delete item and add it",
+        "no_merge": "Enter a do-not-merge item and add it",
+        "must_keep_lines": "Enter a source line and add it",
+        "mood_floor": "For example: do not weaken the suspense or restraint"
+      },
+      "directions": {
+        "faithful": {
+          "label": "Faithful",
+          "description": "Preserve the source structure, relationships, and ending as much as possible."
+        },
+        "cinematic": {
+          "label": "Cinematic",
+          "description": "Strengthen visual action, rhythm, and staging while allowing moderate adaptation."
+        },
+        "short_drama": {
+          "label": "Short drama",
+          "description": "Prioritize early hooks, sharp conflict, and fast pacing."
+        }
+      },
+      "conflicts": {
+        "faithful_vs_new_ending": "Faithful adaptation conflicts with allowing ending changes.",
+        "faithful_vs_new_plot": "Faithful adaptation conflicts with allowing new plot beats.",
+        "faithful_vs_reorder": "Faithful adaptation conflicts with allowing reordering.",
+        "short_drama_vs_no_reorder": "Short drama mode usually needs reordering to strengthen early hooks.",
+        "unknown": "Unknown conflict"
+      }
     }
   },
   "pages": {
