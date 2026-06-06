@@ -1,6 +1,7 @@
 import {
   ClapperboardIcon,
   FileTextIcon,
+  ListFilterIcon,
   RefreshCwIcon,
   SparklesIcon,
 } from "lucide-react";
@@ -51,6 +52,11 @@ import {
 import { Label } from "~/components/ui/label";
 import { Separator } from "~/components/ui/separator";
 import { Switch } from "~/components/ui/switch";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+  ToggleGroupSeparator,
+} from "~/components/ui/toggle-group";
 import { toastManager } from "~/components/ui/toast";
 import { api } from "~/lib/api/client";
 import { api as loaderApi } from "~/lib/api/client";
@@ -58,6 +64,7 @@ import {
   ApiError,
   type ArtifactEnvelope,
   type Beat,
+  type BeatsFilterResponse,
   type Character,
   type Flag,
   type ProjectId,
@@ -67,6 +74,8 @@ import {
 } from "~/lib/api/types";
 import { cn } from "~/lib/utils";
 import { stagePath } from "~/lib/stages";
+
+type BeatFilter = "all" | Flag;
 
 async function getOrNull<T>(request: Promise<T>): Promise<T | null> {
   try {
@@ -91,8 +100,12 @@ export async function clientLoader(args: Route.ClientLoaderArgs) {
     getOrNull(loaderApi.outline.get(projectId)),
     getOrNull(loaderApi.characters.get(projectId)),
   ]);
+  const aiInferredBeats = requests[0]
+    ? await getOrNull(loaderApi.screenplay.getBeats(projectId, "ai_inferred"))
+    : null;
 
   return {
+    aiInferredBeats,
     characters: requests[2],
     outline: requests[1],
     projectId,
@@ -199,23 +212,52 @@ function optionKindKey(kind: string): string {
   return "unknown";
 }
 
+function sceneTitle(scene: ScreenplayScene): string {
+  return `${scene.heading.location} · ${scene.synopsis ?? scene.id}`;
+}
+
+function beatSummary(beat: Beat): string {
+  return (
+    beat.dialogue ??
+    beat.text ??
+    beat.options?.map((option) => option.text).join(" / ") ??
+    ""
+  );
+}
+
+function scrollToBeat(sceneId: string, beatIndex: number): void {
+  const target =
+    document.getElementById(`beat-${sceneId}-${beatIndex}`) ??
+    document.getElementById(`scene-${sceneId}`);
+  target?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
 export default function ProjectScript({
   loaderData,
 }: Route.ComponentProps): React.ReactElement {
   const { t } = useTranslation();
   const revalidator = useRevalidator();
-  const { characters, outline, projectId, screenplay } = loaderData;
+  const { aiInferredBeats, characters, outline, projectId, screenplay } =
+    loaderData;
   const [working, setWorking] = useState(false);
+  const [refreshingAiList, setRefreshingAiList] = useState(false);
+  const [filter, setFilter] = useState<BeatFilter>("all");
+  const [aiListOverride, setAiListOverride] =
+    useState<BeatsFilterResponse | null>(null);
   const [shotHints, setShotHints] = useState(
     screenplay?.data.shot_hints.enabled ?? false,
   );
   const outlineConfirmed = outline?.state === "confirmed";
   const status = screenplay?.state ?? "empty";
-  const scenes = screenplay?.data.scenes ?? [];
+  const scenes = useMemo(() => screenplay?.data.scenes ?? [], [screenplay]);
   const beatCount = scenes.reduce(
     (count, scene) => count + scene.beats.length,
     0,
   );
+  const aiList = aiListOverride ?? aiInferredBeats;
+  const sceneById = useMemo(() => {
+    return new Map(scenes.map((scene) => [scene.id, scene] as const));
+  }, [scenes]);
   const characterNameById = useMemo(() => {
     const entries =
       characters?.data.characters.map(
@@ -234,6 +276,8 @@ export default function ProjectScript({
       const generated = await api.screenplay.generate(projectId, {
         shot_hints: shotHints,
       });
+      setAiListOverride(null);
+      setFilter("all");
       setShotHints(generated.data.shot_hints.enabled);
       toastManager.add({
         title: t("script.generateSuccess"),
@@ -251,6 +295,26 @@ export default function ProjectScript({
       });
     } finally {
       setWorking(false);
+    }
+  }
+
+  async function refreshAiInferredList(): Promise<void> {
+    try {
+      setRefreshingAiList(true);
+      const response = await api.screenplay.getBeats(projectId, "ai_inferred");
+      setAiListOverride(response);
+      toastManager.add({
+        title: t("script.aiList.refreshSuccess"),
+        type: "success",
+      });
+    } catch (error) {
+      toastManager.add({
+        description: getErrorMessage(error),
+        title: t("script.actionError"),
+        type: "error",
+      });
+    } finally {
+      setRefreshingAiList(false);
     }
   }
 
@@ -393,10 +457,13 @@ export default function ProjectScript({
                 </Badge>
               </div>
               <Separator />
+              <BeatFilterControl filter={filter} onFilterChange={setFilter} />
+              <Separator />
               <div className="grid gap-4">
                 {scenes.map((scene, index) => (
                   <ScreenplaySceneCard
                     characterNameById={characterNameById}
+                    filter={filter}
                     key={scene.id}
                     scene={scene}
                     sceneNumber={index + 1}
@@ -405,9 +472,66 @@ export default function ProjectScript({
               </div>
             </CardPanel>
           </Card>
+
+          <AiInferredListCard
+            aiList={aiList}
+            onRefresh={refreshAiInferredList}
+            refreshing={refreshingAiList}
+            sceneById={sceneById}
+          />
         </>
       ) : null}
     </section>
+  );
+}
+
+function BeatFilterControl({
+  filter,
+  onFilterChange,
+}: {
+  filter: BeatFilter;
+  onFilterChange: (filter: BeatFilter) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="grid gap-1">
+        <div className="flex items-center gap-2 font-medium text-sm">
+          <ListFilterIcon className="size-4" aria-hidden />
+          {t("script.filter.label")}
+        </div>
+        <p className="text-muted-foreground text-sm">
+          {t("script.filter.description")}
+        </p>
+      </div>
+      <ToggleGroup
+        aria-label={t("script.filter.label")}
+        className="w-fit rounded-lg"
+        onValueChange={(value) => {
+          const nextValue = value[0];
+          if (
+            nextValue === "all" ||
+            nextValue === "from_source" ||
+            nextValue === "ai_inferred"
+          ) {
+            onFilterChange(nextValue);
+          }
+        }}
+        value={[filter]}
+        variant="outline"
+      >
+        <ToggleGroupItem value="all">{t("script.filter.all")}</ToggleGroupItem>
+        <ToggleGroupSeparator />
+        <ToggleGroupItem value="from_source">
+          {t("script.filter.from_source")}
+        </ToggleGroupItem>
+        <ToggleGroupSeparator />
+        <ToggleGroupItem value="ai_inferred">
+          {t("script.filter.ai_inferred")}
+        </ToggleGroupItem>
+      </ToggleGroup>
+    </div>
   );
 }
 
@@ -437,10 +561,12 @@ function ShotHintsSwitch({
 
 function ScreenplaySceneCard({
   characterNameById,
+  filter,
   scene,
   sceneNumber,
 }: {
   characterNameById: Map<string, string>;
+  filter: BeatFilter;
   scene: ScreenplayScene;
   sceneNumber: number;
 }): React.ReactElement {
@@ -451,9 +577,19 @@ function ScreenplaySceneCard({
     characterNameById,
     characterSeparator,
   );
+  const matchingBeatCount =
+    filter === "all"
+      ? scene.beats.length
+      : scene.beats.filter((beat) => beat.flag === filter).length;
 
   return (
-    <Card className="rounded-xl shadow-none">
+    <Card
+      className={cn(
+        "rounded-xl shadow-none transition-opacity",
+        filter !== "all" && matchingBeatCount === 0 ? "opacity-70" : null,
+      )}
+      id={`scene-${scene.id}`}
+    >
       <CardHeader className="border-b">
         <CardTitle className="flex flex-wrap items-center gap-2 text-base">
           <span>{t("script.sceneNumber", { number: sceneNumber })}</span>
@@ -480,11 +616,18 @@ function ScreenplaySceneCard({
             <BeatBlock
               beat={beat}
               characterNameById={characterNameById}
+              filter={filter}
               index={index}
               key={`${scene.id}-${index}`}
+              sceneId={scene.id}
             />
           ))}
         </div>
+        {filter !== "all" && matchingBeatCount === 0 ? (
+          <p className="rounded-lg border border-dashed p-3 text-muted-foreground text-sm">
+            {t("script.filter.noSceneMatches")}
+          </p>
+        ) : null}
       </CardPanel>
     </Card>
   );
@@ -522,19 +665,33 @@ function SceneSummary({
 function BeatBlock({
   beat,
   characterNameById,
+  filter,
   index,
+  sceneId,
 }: {
   beat: Beat;
   characterNameById: Map<string, string>;
+  filter: BeatFilter;
   index: number;
+  sceneId: string;
 }): React.ReactElement {
   const { t } = useTranslation();
   const flagLabel = beat.flag
     ? t(`script.flags.${beat.flag}`)
     : t("script.flags.unknown");
+  const isFiltering = filter !== "all";
+  const isMatch = !isFiltering || beat.flag === filter;
 
   return (
-    <div className={cn("rounded-lg border p-4", beatToneClass(beat))}>
+    <div
+      className={cn(
+        "rounded-lg border p-4 transition-[box-shadow,opacity]",
+        beatToneClass(beat),
+        isFiltering && isMatch ? "ring-2 ring-primary/32" : null,
+        isFiltering && !isMatch ? "opacity-40" : null,
+      )}
+      id={`beat-${sceneId}-${index}`}
+    >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Badge variant="outline">{index + 1}</Badge>
         <Badge variant={beat.type === "todo" ? "warning" : "secondary"}>
@@ -566,6 +723,100 @@ function BeatBlock({
         </p>
       ) : null}
     </div>
+  );
+}
+
+function AiInferredListCard({
+  aiList,
+  onRefresh,
+  refreshing,
+  sceneById,
+}: {
+  aiList: BeatsFilterResponse | null;
+  onRefresh: () => Promise<void>;
+  refreshing: boolean;
+  sceneById: Map<string, ScreenplayScene>;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const items = aiList?.items ?? [];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("script.aiList.title")}</CardTitle>
+        <CardDescription>{t("script.aiList.description")}</CardDescription>
+        <CardAction>
+          <Button
+            loading={refreshing}
+            onClick={onRefresh}
+            size="sm"
+            variant="outline"
+          >
+            <RefreshCwIcon />
+            {t("script.aiList.refresh")}
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardPanel className="space-y-3">
+        <Badge variant="warning">
+          {t("script.aiList.count", { count: aiList?.count ?? 0 })}
+        </Badge>
+        {items.length > 0 ? (
+          <div className="grid gap-3">
+            {items.map((item) => {
+              const scene = sceneById.get(item.scene_id);
+              const title = scene
+                ? sceneTitle(scene)
+                : t("script.aiList.unknownScene", { id: item.scene_id });
+              return (
+                <div
+                  className="rounded-lg border bg-warning/8 p-4"
+                  key={`${item.scene_id}-${item.beat_index}`}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="space-y-2">
+                      <div className="font-medium text-sm">
+                        {t("script.aiList.itemTitle", {
+                          number: item.beat_index + 1,
+                          sceneTitle: title,
+                        })}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="warning">
+                          {t("script.flags.ai_inferred")}
+                        </Badge>
+                        <Badge variant="secondary">
+                          {t(`script.beatTypes.${item.beat.type}`)}
+                        </Badge>
+                        <Badge variant="secondary">
+                          {sourceRefLabel(t, item.beat.source_ref)}
+                        </Badge>
+                      </div>
+                      <p className="text-sm leading-relaxed">
+                        {beatSummary(item.beat) || t("script.emptyField")}
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() =>
+                        scrollToBeat(item.scene_id, item.beat_index)
+                      }
+                      size="sm"
+                      variant="outline"
+                    >
+                      {t("script.aiList.review")}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="rounded-lg border border-dashed p-3 text-muted-foreground text-sm">
+            {t("script.aiList.empty")}
+          </p>
+        )}
+      </CardPanel>
+    </Card>
   );
 }
 
