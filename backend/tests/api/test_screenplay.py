@@ -311,11 +311,20 @@ class TestScreenplayGeneration:
 
         assert resp.status_code == 202
         assert resp.json()["data"]["shot_hints"]["enabled"] is True
+        assert stub_gateway.call_log[-1].task == "scene"
+        assert stub_gateway.call_log[-1].output_schema is not None
         assert stub_gateway.call_log[-1].system_constraints.shot_hints_enabled is True
-        request_context = {
-            item["type"]: item["data"] for item in stub_gateway.call_log[-1].context
-        }
-        assert request_context["request"]["shot_hints"] is True
+        context = stub_gateway.call_log[-1].context
+        assert context[0]["type"] == "adaptation_direction"
+        assert context[1]["type"] == "request"
+        assert context[1]["data"]["shot_hints"] is True
+        assert context[-3]["type"] == "upstream_artifacts"
+        assert context[-3]["data"]["outline"]["scenes"]
+        assert context[-3]["data"]["character_voices"]
+        assert "author_intent" in context[-3]["data"]
+        assert "non_visualizable" in context[-3]["data"]
+        assert context[-2]["type"] == "repair_issues"
+        assert context[-1]["type"] == "previous_output"
 
     async def test_non_visualizable_passage_gets_externalization_options(
         self, app_client: AsyncClient, project_id: str
