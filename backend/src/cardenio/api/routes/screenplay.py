@@ -259,9 +259,36 @@ async def get_beats(
 
 
 @router.get("/todos")
-async def get_todos(project_id: str) -> dict:
+async def get_todos(
+    project_id: str,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-20: Get all todo markers (FR-9.6)."""
-    raise NotImplementedError("Todo retrieval not yet implemented")
+    project = await store.get_project(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    artifact = await store.get_artifact(project_id, "screenplay")
+    if artifact is None:
+        raise HTTPException(status_code=404, detail="Screenplay not found")
+
+    data = ScreenplayData.model_validate(artifact.data)
+    items = []
+    for scene in data.scenes:
+        for beat_index, beat in enumerate(scene.beats):
+            if beat.type != BeatType.TODO:
+                continue
+            items.append(
+                {
+                    "scene_id": scene.id,
+                    "beat_index": beat_index,
+                    "source_ref": beat.source_ref.model_dump(mode="json")
+                    if beat.source_ref
+                    else None,
+                    "beat": beat.model_dump(mode="json"),
+                }
+            )
+    return {"items": items, "count": len(items)}
 
 
 @router.post("/scenes/{scene_id}:rewrite", status_code=202)
