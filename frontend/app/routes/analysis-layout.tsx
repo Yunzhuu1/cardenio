@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useState, type ReactNode } from "react";
 import type { Route } from "./+types/analysis-layout";
 import { Badge } from "~/components/ui/badge";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import { api } from "~/lib/api/client";
 import { ApiError, type ArtifactState } from "~/lib/api/types";
 import { analysisStepPath, type AnalysisStep } from "~/lib/stages";
@@ -82,8 +83,8 @@ export default function AnalysisLayout({
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="sticky top-0 z-10 -mx-5 -mt-8 border-b bg-background/95 px-5 py-3 backdrop-blur sm:-mx-8 sm:px-8">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="-mx-5 shrink-0 border-b bg-background/95 px-5 py-3 backdrop-blur sm:-mx-8 sm:px-8">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <nav
             aria-label={t("analysis.navLabel")}
@@ -157,7 +158,11 @@ export default function AnalysisLayout({
         </div>
       </div>
 
-      <Outlet context={{ setActions } satisfies AnalysisLayoutContext} />
+      <ScrollArea className="-mx-5 min-h-0 flex-1 sm:-mx-8" scrollFade>
+        <div className="px-5 py-8 sm:px-8">
+          <Outlet context={{ setActions } satisfies AnalysisLayoutContext} />
+        </div>
+      </ScrollArea>
     </div>
   );
 }
