@@ -473,6 +473,7 @@ Vite dev server 会把前端相对路径 `/api` 代理到后端服务，不改�
 - coss.ui / shadcn CLI registry：生成 `components.json`、`cn()` 工具函数和基础 Button 组件；导入页新增 `input`、`textarea`、`field`、`card`、`collapsible`、`badge`、`alert`、`empty`、`separator`、`alert-dialog`、`toast`、`tabs`、`menu`、`dialog`、`number-field`、`checkbox` 组件源码，理解页新增 `input-group` 组件源码，人物档案页新增 `select` 组件源码，作者意图页新增 `switch`、`radio-group` 组件源码，剧本页新增 `toggle`、`toggle-group` 组件源码，以及这些组件依赖的 `scroll-area`、`label` 组件源码。本项目覆盖其默认主题为 `docs/design/visual-style.md` 中的 Cardenio 设计令牌。
 - `@base-ui/react`、`class-variance-authority`、`clsx`、`tailwind-merge`、`lucide-react`：coss Button 及本地 UI 组件所需的组合、样式和图标依赖。
 - `i18next`、`react-i18next`、`i18next-browser-languagedetector`：UI Language 的国际化骨架。Source Language 与 Output Language 当前仅作为数据类型预留。
+- GSAP：用于前端局部交互动效，目前仅计划驱动应用侧边栏展开/收缩过渡，不承载业务状态或改编逻辑。
 - ESLint、typescript-eslint、eslint-plugin-react-hooks、eslint-plugin-react-refresh、eslint-config-prettier、Prettier：前端 lint、类型风格约束和格式化。
 - `@fontsource/ibm-plex-sans`、`@fontsource/courier-prime`、`@fontsource/cormorant-garamond`：轻量西文字体包。侧边栏品牌西文和应用标题西文使用 Cormorant Garamond 300 italic。
 - `@ibm/plex-sans-sc`：IBM Plex Sans SC 中文字体包，许可证为 OFL-1.1，用作中文 UI 字体栈；本项目在应用 CSS 中导入包内 `ibm-plex-sans-sc-all.css`，并使用随 npm 包分发的本地 woff/woff2 字体文件。该 npm 包包含 IBM Telemetry postinstall 逻辑；本项目安装时可使用 `--ignore-scripts` 跳过安装期遥测脚本，不影响运行时字体加载。
