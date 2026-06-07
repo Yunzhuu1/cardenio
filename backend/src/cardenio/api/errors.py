@@ -93,8 +93,17 @@ class SchemaInvalidError(CardenioError):
 
 
 class ReportFlagMismatchError(CardenioError):
-    def __init__(self, message: str = "Report statistics do not match screenplay flags") -> None:
-        super().__init__(code="report_flag_mismatch", message=message, retryable=False)
+    def __init__(
+        self,
+        message: str = "Report statistics do not match screenplay flags",
+        details: dict | None = None,
+    ) -> None:
+        super().__init__(
+            code="report_flag_mismatch",
+            message=message,
+            retryable=False,
+            details=details,
+        )
 
 
 class RateLimitedError(CardenioError):
