@@ -1,11 +1,15 @@
 import {
+  ArrowDownIcon,
+  ArrowUpIcon,
   ClapperboardIcon,
   CrosshairIcon,
   FileTextIcon,
   LinkIcon,
   PencilIcon,
+  PlusIcon,
   SaveIcon,
   SparklesIcon,
+  Trash2Icon,
 } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -14,6 +18,15 @@ import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/project-editor";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogPopup,
+  AlertDialogTitle,
+} from "~/components/ui/alert-dialog";
 import {
   Card,
   CardDescription,
@@ -47,6 +60,7 @@ import {
 } from "~/components/ui/field";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { Menu, MenuItem, MenuPopup, MenuTrigger } from "~/components/ui/menu";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import {
   Select,
@@ -72,6 +86,7 @@ import { api as loaderApi } from "~/lib/api/client";
 import {
   ApiError,
   type Beat,
+  type BeatType,
   type Chapter,
   type Character,
   type Flag,
@@ -100,8 +115,20 @@ type SelectOption<T extends string> = {
   value: T;
 };
 
+type PendingEditAction =
+  | { type: "edit"; scene: ScreenplayScene }
+  | { type: "rewrite"; sceneId: string };
+
 const INT_EXT_VALUES: IntExt[] = ["INT", "EXT"];
 const TIME_VALUES: TimeOfDay[] = ["DAY", "NIGHT", "DAWN", "DUSK"];
+const EDITABLE_BEAT_TYPES: BeatType[] = [
+  "action",
+  "dialogue",
+  "voice_over",
+  "off_screen",
+  "note",
+  "todo",
+];
 const FLAG_VALUES: Flag[] = ["from_source", "ai_inferred"];
 
 async function getOrNull<T>(request: Promise<T>): Promise<T | null> {
@@ -206,7 +233,9 @@ function cloneScene(scene: ScreenplayScene): ScreenplayScene {
     ...scene,
     beats: scene.beats.map((beat) => ({
       ...beat,
-      options: beat.options ? beat.options.map((option) => ({ ...option })) : null,
+      options: beat.options
+        ? beat.options.map((option) => ({ ...option }))
+        : null,
       source_ref: beat.source_ref
         ? {
             chapter: beat.source_ref.chapter,
@@ -233,20 +262,43 @@ function normalizeOptionalText(value: string): string | null {
   return trimmed ? trimmed : null;
 }
 
+function makeBeat(type: BeatType, sourceRef: SourceRef): Beat {
+  const base: Beat = {
+    character: null,
+    dialogue: null,
+    flag: type === "todo" ? null : "ai_inferred",
+    options: null,
+    parenthetical: null,
+    source_ref:
+      type === "todo"
+        ? null
+        : {
+            chapter: sourceRef.chapter,
+            paragraphs: [...sourceRef.paragraphs],
+          },
+    subtext: null,
+    text: "",
+    type,
+  };
+
+  if (type === "dialogue" || type === "voice_over" || type === "off_screen") {
+    return { ...base, dialogue: "" };
+  }
+
+  return base;
+}
+
 function missingTrustFields(scene: ScreenplayScene): number[] {
   return scene.beats
     .map((beat, index) =>
-      beat.type !== "todo" && (!beat.source_ref || !beat.flag)
-        ? index
-        : null,
+      beat.type !== "todo" && (!beat.source_ref || !beat.flag) ? index : null,
     )
     .filter((index): index is number => index !== null);
 }
 
 function isMissingTrustError(error: unknown): boolean {
   return (
-    error instanceof ApiError &&
-    error.message.includes("missing_trust_fields")
+    error instanceof ApiError && error.message.includes("missing_trust_fields")
   );
 }
 
@@ -276,6 +328,8 @@ export default function ProjectEditor(
   const [draftScene, setDraftScene] = useState<ScreenplayScene | null>(null);
   const [savingSceneId, setSavingSceneId] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+  const [pendingEditAction, setPendingEditAction] =
+    useState<PendingEditAction | null>(null);
   const sourceScrollRef = useRef<HTMLDivElement>(null);
   const screenplayScrollRef = useRef<HTMLDivElement>(null);
   const syncingScrollRef = useRef(false);
@@ -299,6 +353,7 @@ export default function ProjectEditor(
     : null;
   const rewriteInstructionTrimmed = rewriteInstruction.trim();
   const showRewriteError = rewriteTouched && rewriteInstructionTrimmed === "";
+  const isEditing = draftScene !== null;
 
   useEffect(() => {
     const sourceViewport = getScrollViewport(sourceScrollRef.current);
@@ -408,12 +463,20 @@ export default function ProjectEditor(
   }
 
   function openRewriteDialog(sceneId: string): void {
+    if (isEditing) {
+      setPendingEditAction({ sceneId, type: "rewrite" });
+      return;
+    }
     setRewriteSceneId(sceneId);
     setRewriteInstruction("");
     setRewriteTouched(false);
   }
 
   function startEditingScene(scene: ScreenplayScene): void {
+    if (isEditing && editingSceneId !== scene.id) {
+      setPendingEditAction({ scene, type: "edit" });
+      return;
+    }
     setEditingSceneId(scene.id);
     setDraftScene(cloneScene(scene));
     setEditError(null);
@@ -424,6 +487,18 @@ export default function ProjectEditor(
     setEditingSceneId(null);
     setDraftScene(null);
     setEditError(null);
+  }
+
+  function discardAndContinue(): void {
+    const action = pendingEditAction;
+    cancelEditing();
+    setPendingEditAction(null);
+    if (!action) return;
+    if (action.type === "edit") {
+      startEditingScene(action.scene);
+      return;
+    }
+    openRewriteDialog(action.sceneId);
   }
 
   function updateDraftScene(nextScene: ScreenplayScene): void {
@@ -663,6 +738,30 @@ export default function ProjectEditor(
           </DialogFooter>
         </DialogPopup>
       </Dialog>
+
+      <AlertDialog
+        open={pendingEditAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingEditAction(null);
+        }}
+      >
+        <AlertDialogPopup>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("editor.edit.discardTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("editor.edit.discardDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose render={<Button variant="ghost" />}>
+              {t("editor.edit.keepEditing")}
+            </AlertDialogClose>
+            <Button onClick={discardAndContinue} variant="destructive">
+              {t("editor.edit.discard")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogPopup>
+      </AlertDialog>
     </section>
   );
 }
@@ -1034,6 +1133,32 @@ function SceneEditForm({
     });
   }
 
+  function removeBeat(index: number): void {
+    onChange({
+      ...scene,
+      beats: scene.beats.filter((_, itemIndex) => itemIndex !== index),
+    });
+  }
+
+  function moveBeat(index: number, direction: -1 | 1): void {
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= scene.beats.length) return;
+    const beats = [...scene.beats];
+    const current = beats[index];
+    const next = beats[nextIndex];
+    if (!current || !next) return;
+    beats[index] = next;
+    beats[nextIndex] = current;
+    onChange({ ...scene, beats });
+  }
+
+  function addBeat(type: BeatType): void {
+    onChange({
+      ...scene,
+      beats: [...scene.beats, makeBeat(type, scene.source_ref)],
+    });
+  }
+
   return (
     <div className="space-y-4 rounded-xl border bg-background/64 p-4">
       {editError ? (
@@ -1073,7 +1198,9 @@ function SceneEditForm({
         />
         <TextField
           label={t("editor.edit.moodLabel")}
-          onChange={(value) => updateScene({ mood: normalizeOptionalText(value) })}
+          onChange={(value) =>
+            updateScene({ mood: normalizeOptionalText(value) })
+          }
           value={scene.mood ?? ""}
         />
       </div>
@@ -1082,16 +1209,21 @@ function SceneEditForm({
         {scene.beats.map((beat, index) => (
           <BeatEditCard
             beat={beat}
+            canMoveDown={index < scene.beats.length - 1}
+            canMoveUp={index > 0}
             characterNameById={characterNameById}
             index={index}
             key={`${scene.id}-draft-${index}`}
             onChange={(nextBeat) => updateBeat(index, nextBeat)}
+            onMoveDown={() => moveBeat(index, 1)}
+            onMoveUp={() => moveBeat(index, -1)}
+            onRemove={() => removeBeat(index)}
           />
         ))}
       </div>
 
       <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <div />
+        <AddBeatMenu onAdd={addBeat} />
         <div className="flex flex-wrap justify-end gap-2">
           <Button onClick={onCancel} variant="ghost">
             {t("editor.edit.cancel")}
@@ -1108,14 +1240,24 @@ function SceneEditForm({
 
 function BeatEditCard({
   beat,
+  canMoveDown,
+  canMoveUp,
   characterNameById,
   index,
   onChange,
+  onMoveDown,
+  onMoveUp,
+  onRemove,
 }: {
   beat: Beat;
+  canMoveDown: boolean;
+  canMoveUp: boolean;
   characterNameById: Map<string, string>;
   index: number;
   onChange: (beat: Beat) => void;
+  onMoveDown: () => void;
+  onMoveUp: () => void;
+  onRemove: () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
 
@@ -1125,8 +1267,36 @@ function BeatEditCard({
 
   return (
     <div className="space-y-3 rounded-lg border bg-card p-3">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <BeatBadges beat={beat} index={index} />
+        <div className="flex items-center gap-1">
+          <Button
+            aria-label={t("editor.edit.moveUp")}
+            disabled={!canMoveUp}
+            onClick={onMoveUp}
+            size="icon-xs"
+            variant="ghost"
+          >
+            <ArrowUpIcon />
+          </Button>
+          <Button
+            aria-label={t("editor.edit.moveDown")}
+            disabled={!canMoveDown}
+            onClick={onMoveDown}
+            size="icon-xs"
+            variant="ghost"
+          >
+            <ArrowDownIcon />
+          </Button>
+          <Button
+            aria-label={t("editor.edit.removeBeat")}
+            onClick={onRemove}
+            size="icon-xs"
+            variant="ghost"
+          >
+            <Trash2Icon />
+          </Button>
+        </div>
       </div>
 
       {beat.type === "dialogue" ||
@@ -1161,7 +1331,9 @@ function BeatEditCard({
 
       {beat.type === "note" && beat.options?.length ? (
         <div className="rounded-lg border bg-background/64 p-3 text-sm">
-          <div className="mb-2 font-medium">{t("editor.edit.optionsReadonly")}</div>
+          <div className="mb-2 font-medium">
+            {t("editor.edit.optionsReadonly")}
+          </div>
           <ul className="space-y-1 text-muted-foreground">
             {beat.options.map((option, optionIndex) => (
               <li key={`${option.kind}-${optionIndex}`}>
@@ -1187,7 +1359,10 @@ function BeatEditCard({
               aria-label={t("editor.edit.flagLabel")}
               onValueChange={(value) => {
                 const nextValue = value[0];
-                if (nextValue === "from_source" || nextValue === "ai_inferred") {
+                if (
+                  nextValue === "from_source" ||
+                  nextValue === "ai_inferred"
+                ) {
                   updateBeat({ flag: nextValue });
                 }
               }}
@@ -1227,7 +1402,10 @@ function TextField({
   return (
     <Field className="w-full">
       <FieldLabel>{label}</FieldLabel>
-      <Input onChange={(event) => onChange(event.currentTarget.value)} value={value} />
+      <Input
+        onChange={(event) => onChange(event.currentTarget.value)}
+        value={value}
+      />
     </Field>
   );
 }
@@ -1244,7 +1422,10 @@ function TextAreaField({
   return (
     <Field className="w-full">
       <FieldLabel>{label}</FieldLabel>
-      <Textarea onChange={(event) => onChange(event.currentTarget.value)} value={value} />
+      <Textarea
+        onChange={(event) => onChange(event.currentTarget.value)}
+        value={value}
+      />
     </Field>
   );
 }
@@ -1311,8 +1492,34 @@ function CharacterSelect({
     <SelectField
       items={items}
       label={t("editor.edit.characterLabel")}
-      onChange={(nextValue) => onChange(nextValue === "__none__" ? null : nextValue)}
+      onChange={(nextValue) =>
+        onChange(nextValue === "__none__" ? null : nextValue)
+      }
       value={selectedValue}
     />
+  );
+}
+
+function AddBeatMenu({
+  onAdd,
+}: {
+  onAdd: (type: BeatType) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <Menu>
+      <MenuTrigger render={<Button variant="outline" />}>
+        <PlusIcon />
+        {t("editor.edit.addBeat")}
+      </MenuTrigger>
+      <MenuPopup align="start">
+        {EDITABLE_BEAT_TYPES.map((type) => (
+          <MenuItem key={type} onClick={() => onAdd(type)}>
+            {t(`editor.edit.beatType.${type}`)}
+          </MenuItem>
+        ))}
+      </MenuPopup>
+    </Menu>
   );
 }
