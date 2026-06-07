@@ -189,6 +189,57 @@ async def generate_confirmed_outline_with_custom_voice(
     assert outline_confirm_resp.status_code == 200
 
 
+async def generate_confirmed_outline_with_dark_style(
+    app_client: AsyncClient,
+    project_id: str,
+) -> dict:
+    await add_screenplay_source(app_client, project_id)
+    understanding_payload = {
+        "logline": "A sealed archive forces Lin Wan into a dangerous truth.",
+        "synopsis": "Lin Wan and Chen Mo follow a hidden letter through old fear.",
+        "themes": ["memory", "betrayal"],
+        "protagonist_goal": "Expose the secret behind the letter.",
+        "protagonist_fear": "The truth will destroy the last trusted bond.",
+        "central_conflict": "Truth versus concealment.",
+        "mood": "dark, tense, suspenseful",
+        "style_fingerprint": "dark; tense, suspenseful; restrained; secret-driven",
+        "narrative": {
+            "perspective": "third_person_limited",
+            "tense": "past",
+            "unreliable": False,
+        },
+        "non_visualizable": [],
+        "strengths": ["Strong suspense pressure."],
+        "difficulties": ["Interior dread must stay restrained."],
+    }
+    put_resp = await app_client.put(
+        f"/api/v1/projects/{project_id}/understanding",
+        json=understanding_payload,
+    )
+    assert put_resp.status_code == 200
+    confirm_resp = await app_client.post(
+        f"/api/v1/projects/{project_id}/understanding:confirm"
+    )
+    assert confirm_resp.status_code == 200
+    characters_resp = await app_client.post(
+        f"/api/v1/projects/{project_id}/characters:generate"
+    )
+    assert characters_resp.status_code == 202
+    characters_confirm_resp = await app_client.post(
+        f"/api/v1/projects/{project_id}/characters:confirm"
+    )
+    assert characters_confirm_resp.status_code == 200
+    outline_resp = await app_client.post(
+        f"/api/v1/projects/{project_id}/outline:generate"
+    )
+    assert outline_resp.status_code == 202
+    outline_confirm_resp = await app_client.post(
+        f"/api/v1/projects/{project_id}/outline:confirm"
+    )
+    assert outline_confirm_resp.status_code == 200
+    return outline_confirm_resp.json()
+
+
 class TestScreenplayGeneration:
     """API-17/18: confirmed outline generates a structured screenplay draft."""
 
@@ -593,6 +644,48 @@ class TestScreenplayGeneration:
         assert "Action carries" in generated_scene["beats"][0]["subtext"]
         assert "Underlying intent" in generated_scene["beats"][1]["subtext"]
 
+    async def test_style_guard_prevents_light_mood_from_overriding_dark_source(
+        self,
+        app_client: AsyncClient,
+        project_id: str,
+        stub_gateway: StubLlmGateway,
+    ) -> None:
+        outline = await generate_confirmed_outline_with_dark_style(
+            app_client, project_id
+        )
+        scene = outline["data"]["scenes"][0]
+        stub_gateway.fixtures = {
+            **stub_gateway.fixtures,
+            "scene": {
+                "scenes": [
+                    {
+                        **scene,
+                        "mood": "light, humorous",
+                        "beats": [
+                            {
+                                "type": "action",
+                                "text": "Lin Wan treats the archive like a joke.",
+                                "source_ref": scene["source_ref"],
+                                "flag": "from_source",
+                            }
+                        ],
+                    }
+                ],
+                "shot_hints": {"enabled": False},
+            },
+        }
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+
+        assert resp.status_code == 202
+        generated_scene = resp.json()["data"]["scenes"][0]
+        assert generated_scene["mood"] == scene["mood"]
+        assert generated_scene["mood"] != "light, humorous"
+        assert "Action carries" in generated_scene["beats"][0]["subtext"]
+        assert scene["mood"] in generated_scene["beats"][0]["subtext"]
+
     async def test_get_single_screenplay_scene(
         self, app_client: AsyncClient, project_id: str
     ) -> None:
@@ -887,6 +980,47 @@ class TestScreenplayGeneration:
         )
 
         assert resp.status_code == 404
+
+    async def test_rewrite_scene_keeps_dark_style_anchor(
+        self,
+        app_client: AsyncClient,
+        project_id: str,
+        stub_gateway: StubLlmGateway,
+    ) -> None:
+        outline = await generate_confirmed_outline_with_dark_style(
+            app_client, project_id
+        )
+        scene = outline["data"]["scenes"][0]
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        assert generate_resp.status_code == 202
+        target_scene = generate_resp.json()["data"]["scenes"][0]
+        stub_gateway.fixtures = {
+            **stub_gateway.fixtures,
+            "rewrite": {
+                **target_scene,
+                "mood": "cheerful comedy",
+                "beats": [
+                    {
+                        "type": "action",
+                        "text": "Lin Wan laughs off the danger.",
+                        "source_ref": target_scene["source_ref"],
+                        "flag": "from_source",
+                    }
+                ],
+            },
+        }
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{target_scene['id']}:rewrite",
+            json={"instruction": "Make this scene lighter."},
+        )
+
+        assert resp.status_code == 202
+        rewritten = resp.json()["data"]["scenes"][0]
+        assert rewritten["mood"] == scene["mood"]
+        assert rewritten["mood"] != "cheerful comedy"
 
     async def test_get_scene_trace_resolves_source_paragraphs(
         self, app_client: AsyncClient, project_id: str
