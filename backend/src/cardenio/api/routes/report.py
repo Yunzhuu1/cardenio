@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 
 from cardenio.api.deps import get_artifact_store, get_gateway
+from cardenio.api.errors import ReportFlagMismatchError
 from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, Flag, SourceRef
 from cardenio.domain.models.report import (
     ExternalizationEntry,
@@ -148,8 +149,10 @@ def _merge_report_data(
     statistics: dict[str, int],
 ) -> ReportData:
     if not generated or generated.get("stub") is True:
+        _validate_report_consistency(fallback, statistics)
         return fallback
 
+    _validate_generated_statistics(generated, statistics)
     candidate = ReportData.model_validate(
         {
             **fallback.model_dump(mode="json"),
@@ -158,7 +161,61 @@ def _merge_report_data(
             "ai_inferred_lines": statistics["ai_inferred_lines"],
         }
     )
+    _validate_report_consistency(candidate, statistics)
     return candidate
+
+
+def _validate_generated_statistics(
+    generated: dict[str, Any],
+    statistics: dict[str, int],
+) -> None:
+    mismatches = {
+        field: {
+            "expected": expected,
+            "actual": generated[field],
+        }
+        for field, expected in statistics.items()
+        if field in generated and generated[field] != expected
+    }
+    if mismatches:
+        raise ReportFlagMismatchError(
+            "Generated report statistics do not match screenplay flags",
+            details={"statistics": mismatches},
+        )
+
+
+def _validate_report_consistency(
+    report: ReportData,
+    statistics: dict[str, int],
+) -> None:
+    mismatches: dict[str, Any] = {}
+    if report.from_source_lines != statistics["from_source_lines"]:
+        mismatches["from_source_lines"] = {
+            "expected": statistics["from_source_lines"],
+            "actual": report.from_source_lines,
+        }
+    if report.ai_inferred_lines != statistics["ai_inferred_lines"]:
+        mismatches["ai_inferred_lines"] = {
+            "expected": statistics["ai_inferred_lines"],
+            "actual": report.ai_inferred_lines,
+        }
+
+    added_ai_items = [
+        item
+        for item in report.added
+        if item.flag == Flag.AI_INFERRED and (item.scene_id or item.source_ref)
+    ]
+    if len(added_ai_items) != statistics["ai_inferred_lines"]:
+        mismatches["added"] = {
+            "expected_ai_inferred_items": statistics["ai_inferred_lines"],
+            "actual_ai_inferred_items": len(added_ai_items),
+        }
+
+    if mismatches:
+        raise ReportFlagMismatchError(
+            "Report statistics do not match screenplay flags",
+            details=mismatches,
+        )
 
 
 def _flag_statistics(screenplay: ScreenplayData) -> dict[str, int]:

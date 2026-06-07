@@ -163,6 +163,72 @@ class TestReportGeneration:
         assert data["added"][0]["flag"] == "ai_inferred"
         assert data["review_recommended"][0]["scene_id"] == scene["id"]
 
+    async def test_report_rejects_generated_flag_count_mismatch(
+        self,
+        app_client: AsyncClient,
+        stub_gateway: StubLlmGateway,
+    ) -> None:
+        project_id, scene = await generate_screenplay_with_ai_inferred_beat(
+            app_client,
+            stub_gateway,
+        )
+        stub_gateway.fixtures = {
+            **stub_gateway.fixtures,
+            "report": {
+                "kept": [],
+                "added": [],
+                "from_source_lines": 99,
+                "ai_inferred_lines": 0,
+            },
+        }
+
+        resp = await app_client.post(f"/api/v1/projects/{project_id}/report:generate")
+
+        assert resp.status_code == 409
+        error = resp.json()["error"]
+        assert error["code"] == "report_flag_mismatch"
+        assert error["details"]["statistics"]["from_source_lines"] == {
+            "expected": 1,
+            "actual": 99,
+        }
+        assert scene["id"]
+
+    async def test_report_rejects_missing_ai_inferred_report_items(
+        self,
+        app_client: AsyncClient,
+        stub_gateway: StubLlmGateway,
+    ) -> None:
+        project_id, scene = await generate_screenplay_with_ai_inferred_beat(
+            app_client,
+            stub_gateway,
+        )
+        stub_gateway.fixtures = {
+            **stub_gateway.fixtures,
+            "report": {
+                "kept": [
+                    {
+                        "item": "You hid this from me.",
+                        "scene_id": scene["id"],
+                        "source_ref": scene["source_ref"],
+                        "flag": "from_source",
+                    }
+                ],
+                "added": [],
+                "from_source_lines": 1,
+                "ai_inferred_lines": 1,
+            },
+        }
+
+        resp = await app_client.post(f"/api/v1/projects/{project_id}/report:generate")
+
+        assert resp.status_code == 409
+        error = resp.json()["error"]
+        assert error["code"] == "report_flag_mismatch"
+        assert error["details"]["added"] == {
+            "expected_ai_inferred_items": 1,
+            "actual_ai_inferred_items": 0,
+        }
+
     async def test_report_generation_requires_screenplay(
         self,
         app_client: AsyncClient,
@@ -192,3 +258,43 @@ class TestReportGeneration:
         resp = await app_client.post("/api/v1/projects/missing/report:generate")
 
         assert resp.status_code == 404
+
+
+async def generate_screenplay_with_ai_inferred_beat(
+    app_client: AsyncClient,
+    stub_gateway: StubLlmGateway,
+) -> tuple[str, dict]:
+    project_id = await create_project(app_client)
+    outline = await generate_confirmed_outline(app_client, project_id)
+    scene = outline["data"]["scenes"][0]
+    stub_gateway.fixtures = {
+        **stub_gateway.fixtures,
+        "scene": {
+            "scenes": [
+                {
+                    **scene,
+                    "beats": [
+                        {
+                            "type": "action",
+                            "text": "A new bridge beat not anchored in the source.",
+                            "source_ref": scene["source_ref"],
+                            "flag": "ai_inferred",
+                        },
+                        {
+                            "type": "dialogue",
+                            "character": scene["characters"][0],
+                            "dialogue": "You hid this from me.",
+                            "source_ref": scene["source_ref"],
+                            "flag": "from_source",
+                        },
+                    ],
+                }
+            ],
+            "shot_hints": {"enabled": False},
+        },
+    }
+    screenplay_resp = await app_client.post(
+        f"/api/v1/projects/{project_id}/screenplay:generate"
+    )
+    assert screenplay_resp.status_code == 202
+    return project_id, scene
