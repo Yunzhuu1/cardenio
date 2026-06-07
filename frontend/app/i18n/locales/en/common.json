@@ -621,6 +621,15 @@
       "missingScreenplay": "Generate the screenplay draft first.",
       "flagMismatch": "The report does not match screenplay flags and cannot be generated. Review the screenplay markers first."
     },
+    "export": {
+      "button": "Export YAML",
+      "error": "Export failed",
+      "notReady": "The export is not ready yet. Try again later.",
+      "success": "{{format}} download started",
+      "formats": {
+        "yaml": "YAML"
+      }
+    },
     "summary": {
       "title": "Statistics summary",
       "description": "Report statistics come from non-TODO beats in the current screenplay.",

@@ -8,8 +8,11 @@ import type {
   CharactersData,
   ConfirmImportInput,
   CreateChapterInput,
+  CreateExportInput,
+  CreateExportResponse,
   CreateProjectInput,
   DirectionResponse,
+  ExportJob,
   Flag,
   ImportPreview,
   IntentConstraints,
@@ -186,6 +189,15 @@ export type ReportApi = {
   generate(projectId: ProjectId): Promise<ArtifactEnvelope<ReportData>>;
 };
 
+export type ExportApi = {
+  create(
+    projectId: ProjectId,
+    input: CreateExportInput,
+  ): Promise<CreateExportResponse>;
+  get(projectId: ProjectId, exportId: string): Promise<ExportJob>;
+  downloadFile(projectId: ProjectId, exportId: string): Promise<Blob>;
+};
+
 export type SettingsApi = {
   get(projectId: ProjectId): Promise<ArtifactEnvelope<ProjectSettingsData>>;
   update(
@@ -204,6 +216,7 @@ export type ApiClient = {
   outline: OutlineApi;
   screenplay: ScreenplayApi;
   report: ReportApi;
+  export?: ExportApi;
   settings: SettingsApi;
 };
 

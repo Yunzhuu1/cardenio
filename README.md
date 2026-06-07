@@ -4,6 +4,8 @@ Cardenio / 入戏 是一个面向中文小说作者的 AI 剧本改编工作台�
 
 本项目当前已完成可演示的前后端 MVP：用户可以注册/登录、创建项目、导入小说、确认作品理解和人物档案、设置作者意图、生成分场大纲、生成剧本、查看/编辑局部内容、生成改编报告，并在项目级别保存设置和历史版本。
 
+项目演示视频链接：https://www.bilibili.com/video/BV1GQE86RE36/
+
 ## 核心能力
 
 - **登录与项目隔离**：第一方注册/登录，Bearer Token 访问后端，项目数据按当前用户隔离。
@@ -121,22 +123,22 @@ uv run uvicorn cardenio.api.app:create_app --factory --reload --host 127.0.0.1 -
 
 ### 后端
 
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `CARDENIO_DATABASE_URL` | `sqlite+aiosqlite:///./cardenio.db` | 后端数据库连接 URL |
-| `CARDENIO_LLM_PROVIDER` | `stub` | `stub` 或 `deepseek` |
-| `DEEPSEEK_API_KEY` | 无 | DeepSeek 模式必填 |
-| `DEEPSEEK_MODEL` | `deepseek-v4-flash` | DeepSeek 模型名 |
-| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | DeepSeek API Base URL |
-| `DEEPSEEK_TIMEOUT_SECONDS` | `60` | LLM 请求超时 |
-| `DEEPSEEK_MAX_TOKENS` | `8192` | 结构化输出最大 token |
+| 变量                       | 默认值                              | 说明                  |
+| -------------------------- | ----------------------------------- | --------------------- |
+| `CARDENIO_DATABASE_URL`    | `sqlite+aiosqlite:///./cardenio.db` | 后端数据库连接 URL    |
+| `CARDENIO_LLM_PROVIDER`    | `stub`                              | `stub` 或 `deepseek`  |
+| `DEEPSEEK_API_KEY`         | 无                                  | DeepSeek 模式必填     |
+| `DEEPSEEK_MODEL`           | `deepseek-v4-flash`                 | DeepSeek 模型名       |
+| `DEEPSEEK_BASE_URL`        | `https://api.deepseek.com`          | DeepSeek API Base URL |
+| `DEEPSEEK_TIMEOUT_SECONDS` | `60`                                | LLM 请求超时          |
+| `DEEPSEEK_MAX_TOKENS`      | `8192`                              | 结构化输出最大 token  |
 
 ### 前端
 
-| 变量 | 默认值 | 说明 |
-| --- | --- | --- |
-| `VITE_API_MODE` | `http` | `http` 使用真实后端，`mock` 使用前端内存 mock |
-| `VITE_BACKEND_URL` | `http://localhost:8000` | Vite dev proxy 目标 |
+| 变量               | 默认值                  | 说明                                          |
+| ------------------ | ----------------------- | --------------------------------------------- |
+| `VITE_API_MODE`    | `http`                  | `http` 使用真实后端，`mock` 使用前端内存 mock |
+| `VITE_BACKEND_URL` | `http://localhost:8000` | Vite dev proxy 目标                           |
 
 ## 登录与数据隔离
 

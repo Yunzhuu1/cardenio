@@ -4,6 +4,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   CheckCircle2Icon,
+  DownloadIcon,
   FileTextIcon,
   GitMergeIcon,
   ListChecksIcon,
@@ -68,6 +69,8 @@ import { api as loaderApi } from "~/lib/api/client";
 import {
   ApiError,
   type ArtifactEnvelope,
+  type ExportFormat,
+  type ExportJob,
   type ExternalizationEntry,
   type ProjectId,
   type ReportData,
@@ -180,6 +183,38 @@ type SourcePreviewState =
   | { response: ResolveResponse; status: "success" }
   | { status: "error" };
 
+const exportFileExtensions: Record<ExportFormat, string> = {
+  yaml: "yaml",
+};
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForExportJob(
+  projectId: ProjectId,
+  initialJob: ExportJob,
+): Promise<ExportJob> {
+  let job = initialJob;
+  for (let attempt = 0; attempt < 20 && job.status === "running"; attempt += 1) {
+    await sleep(1000);
+    if (!api.export) throw new Error("Export API is unavailable");
+    job = await api.export.get(projectId, job.id);
+  }
+  return job;
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function ProjectReport({
   loaderData,
 }: Route.ComponentProps): React.ReactElement {
@@ -187,6 +222,9 @@ export default function ProjectReport({
   const revalidator = useRevalidator();
   const { projectId, report, screenplay } = loaderData;
   const [working, setWorking] = useState(false);
+  const [exportingFormat, setExportingFormat] = useState<ExportFormat | null>(
+    null,
+  );
   const sceneById = useMemo(() => {
     return new Map(
       screenplay?.data.scenes.map((scene) => [scene.id, scene] as const) ?? [],
@@ -214,6 +252,44 @@ export default function ProjectReport({
       });
     } finally {
       setWorking(false);
+    }
+  }
+
+  async function exportReport(format: ExportFormat): Promise<void> {
+    if (!report || !screenplay || !api.export) return;
+
+    try {
+      setExportingFormat(format);
+      const created = await api.export.create(projectId, {
+        format,
+        shot_hints: screenplay.data.shot_hints.enabled,
+        version: report.version,
+      });
+      const job = await waitForExportJob(projectId, created.export);
+
+      if (job.status !== "completed") {
+        throw new Error(t("report.export.notReady"));
+      }
+
+      const blob = await api.export.downloadFile(projectId, job.id);
+      downloadBlob(
+        blob,
+        `cardenio-${projectId}.${exportFileExtensions[format]}`,
+      );
+      toastManager.add({
+        title: t("report.export.success", {
+          format: t(`report.export.formats.${format}`),
+        }),
+        type: "success",
+      });
+    } catch (error) {
+      toastManager.add({
+        description: getErrorMessage(error),
+        title: t("report.export.error"),
+        type: "error",
+      });
+    } finally {
+      setExportingFormat(null);
     }
   }
 
@@ -261,6 +337,8 @@ export default function ProjectReport({
       {screenplay && report ? (
         <>
           <ReportSummaryCard
+            exportingFormat={exportingFormat}
+            onExport={exportReport}
             onRegenerate={generateReport}
             report={report}
             working={working}
@@ -350,10 +428,14 @@ function ReportConsistencyAlert({
 }
 
 function ReportSummaryCard({
+  exportingFormat,
+  onExport,
   onRegenerate,
   report,
   working,
 }: {
+  exportingFormat: ExportFormat | null;
+  onExport: (format: ExportFormat) => Promise<void>;
   onRegenerate: () => Promise<void>;
   report: ArtifactEnvelope<ReportData>;
   working: boolean;
@@ -366,40 +448,54 @@ function ReportSummaryCard({
         <CardTitle>{t("report.summary.title")}</CardTitle>
         <CardDescription>{t("report.summary.description")}</CardDescription>
         <CardAction>
-          <AlertDialog>
-            <AlertDialogTrigger
-              render={<Button disabled={working} size="sm" variant="outline" />}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              disabled={working || exportingFormat !== null}
+              loading={exportingFormat === "yaml"}
+              onClick={() => void onExport("yaml")}
+              size="sm"
+              variant="outline"
             >
-              <RefreshCwIcon />
-              {t("report.generate.regenerate")}
-            </AlertDialogTrigger>
-            <AlertDialogPopup>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {t("report.generate.title")}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {t("report.generate.description")}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogClose render={<Button variant="ghost" />}>
-                  {t("report.generate.cancel")}
-                </AlertDialogClose>
-                <AlertDialogClose
-                  render={
-                    <Button
-                      loading={working}
-                      onClick={onRegenerate}
-                      variant="destructive"
-                    />
-                  }
-                >
-                  {t("report.generate.confirm")}
-                </AlertDialogClose>
-              </AlertDialogFooter>
-            </AlertDialogPopup>
-          </AlertDialog>
+              <DownloadIcon />
+              {t("report.export.button")}
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger
+                render={
+                  <Button disabled={working} size="sm" variant="outline" />
+                }
+              >
+                <RefreshCwIcon />
+                {t("report.generate.regenerate")}
+              </AlertDialogTrigger>
+              <AlertDialogPopup>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {t("report.generate.title")}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t("report.generate.description")}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogClose render={<Button variant="ghost" />}>
+                    {t("report.generate.cancel")}
+                  </AlertDialogClose>
+                  <AlertDialogClose
+                    render={
+                      <Button
+                        loading={working}
+                        onClick={onRegenerate}
+                        variant="destructive"
+                      />
+                    }
+                  >
+                    {t("report.generate.confirm")}
+                  </AlertDialogClose>
+                </AlertDialogFooter>
+              </AlertDialogPopup>
+            </AlertDialog>
+          </div>
         </CardAction>
       </CardHeader>
       <CardPanel className="space-y-4">

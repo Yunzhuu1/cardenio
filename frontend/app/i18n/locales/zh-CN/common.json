@@ -622,6 +622,15 @@
       "missingScreenplay": "请先生成剧本初稿。",
       "flagMismatch": "报告与剧本标记不一致，无法生成。请先复查剧本标记。"
     },
+    "export": {
+      "button": "导出 YAML",
+      "error": "导出失败",
+      "notReady": "导出任务尚未完成，请稍后重试。",
+      "success": "{{format}} 已开始下载",
+      "formats": {
+        "yaml": "YAML"
+      }
+    },
     "summary": {
       "title": "统计摘要",
       "description": "报告统计来自当前剧本中的非 TODO 节拍。",
