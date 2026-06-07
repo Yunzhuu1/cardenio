@@ -3,11 +3,13 @@ import {
   ApiError,
   type AdaptationDirection,
   type ApiErrorBody,
+  type ArtifactEnvelope,
   type DirectionResponse,
   type MvpDirection,
   type Project,
   type ProjectGates,
   type ProjectId,
+  type ProjectSettingsData,
   type ProjectState,
   type SourceLanguage,
   type UiLanguage,
@@ -33,6 +35,14 @@ type DirectionPayload = {
   project: FlatProjectPayload;
 };
 
+type SettingsEnvelopePayload = Omit<
+  Partial<ArtifactEnvelope<ProjectSettingsData>>,
+  "version"
+> & {
+  version?: string | null;
+  data: ProjectSettingsData;
+};
+
 const defaultGates: ProjectGates = {
   understanding: "empty",
   characters: "empty",
@@ -53,6 +63,21 @@ function normalizeProject(payload: FlatProjectPayload): Project {
       style_fingerprint: payload.style_fingerprint ?? null,
     },
     gates: defaultGates,
+  };
+}
+
+function normalizeSettingsEnvelope(
+  payload: SettingsEnvelopePayload,
+): ArtifactEnvelope<ProjectSettingsData> {
+  return {
+    type: payload.type ?? "settings",
+    state: payload.state ?? "confirmed",
+    version: payload.version ?? "",
+    parent_version: payload.parent_version ?? null,
+    etag: payload.etag ?? null,
+    updated_at: payload.updated_at ?? new Date().toISOString(),
+    needs_recompute: payload.needs_recompute ?? false,
+    data: payload.data,
   };
 }
 
@@ -333,6 +358,17 @@ export const httpClient: ApiClient = {
     generate: (projectId) =>
       request(`/projects/${projectId}/report:generate`, {
         method: "POST",
+      }),
+  },
+  settings: {
+    get: (projectId) =>
+      request<SettingsEnvelopePayload>(`/projects/${projectId}/settings`).then(
+        normalizeSettingsEnvelope,
+      ),
+    update: (projectId, data) =>
+      request(`/projects/${projectId}/settings`, {
+        method: "PUT",
+        body: JSON.stringify(data),
       }),
   },
 };

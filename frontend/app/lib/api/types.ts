@@ -355,6 +355,19 @@ export type ReportData = {
   review_recommended: ReviewRecommendation[];
 };
 
+export type ProjectSettingsData = {
+  ui_language: string;
+  source_language: string;
+  output_language: string;
+  data_storage_location: "configured_sqlite_database";
+  data_storage_notice: string;
+  allow_model_training: boolean;
+  training_notice: string;
+  local_processing_reserved: boolean;
+  local_processing_notice: string;
+  shot_hints_enabled: boolean;
+};
+
 export type BeatsFilterItem = {
   scene_id: string;
   beat_index: number;
