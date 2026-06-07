@@ -548,6 +548,9 @@ understanding, character profile, outline, screenplay, report generation, and
 local scene rewrite routes now delegate through
 `domain service -> stage agent -> ControlledAgent -> LLM gateway`, while
 preserving the existing HTTP API response shape.
+An internal `ToolRegistry` standardizes backend tool lookup for future
+deterministic orchestration. It is not a public API, not an MCP server, and is
+not selected by an autonomous LLM planner.
 
 ### Git hooks
 
