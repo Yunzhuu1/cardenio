@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import HTTPException
+from pydantic import BaseModel
 
 from cardenio.api.errors import ReportFlagMismatchError
 from cardenio.domain.agents.base import AgentContext
-from cardenio.domain.agents.report import ReportAgent
 from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, Flag, SourceRef
 from cardenio.domain.models.report import (
     ExternalizationEntry,
@@ -17,8 +17,12 @@ from cardenio.domain.models.report import (
     ReviewRecommendation,
 )
 from cardenio.domain.models.screenplay import Beat, BeatType, ScreenplayData, ScreenplayScene
+from cardenio.domain.runtime import AgentRuntime
+from cardenio.domain.tools import ReportGenerateTool, ReportGenerateToolInput, ToolRegistry
 from cardenio.gateway.protocol import LlmGateway
 from cardenio.storage.sqlite_store import SqliteArtifactStore
+
+REPORT_GENERATE_TOOL = "report.generate"
 
 
 class ReportService:
@@ -28,9 +32,20 @@ class ReportService:
     Cross-checks flag statistics against screenplay markers (FR-10 verification).
     """
 
-    def __init__(self, *, gateway: LlmGateway, store: SqliteArtifactStore) -> None:
+    def __init__(
+        self,
+        *,
+        gateway: LlmGateway,
+        store: SqliteArtifactStore,
+        runtime: AgentRuntime | None = None,
+        tools: ToolRegistry | None = None,
+    ) -> None:
         self.gateway = gateway
         self.store = store
+        self.runtime = runtime or AgentRuntime()
+        self.tools = tools or ToolRegistry(
+            [ReportGenerateTool(gateway=self.gateway, runtime=self.runtime)]
+        )
 
     async def generate_report(self, project_id: str) -> dict:
         """Generate adaptation tradeoff report. Raises if flag statistics mismatch."""
@@ -55,18 +70,20 @@ class ReportService:
         if understanding_artifact is not None:
             upstream_artifacts["understanding"] = understanding_artifact.data
 
-        agent = ReportAgent(self.gateway)
-        result = await agent.run(
-            AgentContext(
-                upstream_artifacts=upstream_artifacts,
-                system_constraints={
-                    "style_fingerprint": project["style_fingerprint"],
-                },
+        result = await self.tools.get(REPORT_GENERATE_TOOL).run(
+            ReportGenerateToolInput(
+                context=AgentContext(
+                    upstream_artifacts=upstream_artifacts,
+                    system_constraints={
+                        "style_fingerprint": project["style_fingerprint"],
+                    },
+                )
             )
         )
+        output = tool_output_data(result)
         data = merge_report_data(
             deterministic_report(screenplay),
-            result.data,
+            output,
             statistics,
         )
         envelope = ArtifactEnvelope[ReportData](
@@ -77,6 +94,13 @@ class ReportService:
         )
         saved = await self.store.save_artifact(project_id, envelope)
         return saved.model_dump(mode="json")
+
+
+def tool_output_data(result: BaseModel) -> dict[str, Any]:
+    data = result.model_dump(mode="json").get("data")
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=500, detail="Report tool returned invalid data")
+    return data
 
 
 def deterministic_report(screenplay: ScreenplayData) -> ReportData:

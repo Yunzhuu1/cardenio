@@ -7,6 +7,11 @@ from cardenio.domain.tools.registry import (
     ToolRegistry,
     ToolRegistryError,
 )
+from cardenio.domain.tools.report import (
+    ReportGenerateTool,
+    ReportGenerateToolInput,
+    ReportGenerateToolOutput,
+)
 from cardenio.domain.tools.rewrite import (
     RewriteSceneTool,
     RewriteSceneToolInput,
@@ -15,6 +20,9 @@ from cardenio.domain.tools.rewrite import (
 
 __all__ = [
     "Tool",
+    "ReportGenerateTool",
+    "ReportGenerateToolInput",
+    "ReportGenerateToolOutput",
     "RewriteSceneTool",
     "RewriteSceneToolInput",
     "RewriteSceneToolOutput",
