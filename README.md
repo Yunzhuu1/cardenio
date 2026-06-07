@@ -508,6 +508,17 @@ which saves a new screenplay artifact version and does not mutate prior
 history. Scene snapshots from two saved screenplay versions can be compared
 with `/api/v1/projects/{project_id}/screenplay/scenes/{scene_id}/versions:diff`.
 
+### Backend consistency rename
+
+The backend exposes deterministic character rename at
+`/api/v1/projects/{project_id}/consistency:rename`. The request requires
+`confirm=true`, keeps the stable `character_id` unchanged, saves new artifact
+versions for the character profile and affected text artifacts, and updates the
+project back to `editing`. This implementation covers the FR-9.4 global rename
+path only; conflict suggestions for changed character rules remain future work.
+No third-party dependency or external model service is introduced by this
+capability.
+
 ### Git hooks
 
 本仓库使用 [lefthook](https://github.com/evilmartians/lefthook) 管理本地 Git hooks。lefthook 是第三方开发工具，当前仅用于提交前和推送前的工程规范检查，不属于产品原创功能。
