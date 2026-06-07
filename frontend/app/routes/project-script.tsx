@@ -28,14 +28,6 @@ import {
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardHeader,
-  CardPanel,
-  CardTitle,
-} from "~/components/ui/card";
-import {
   Empty,
   EmptyContent,
   EmptyDescription,
@@ -529,11 +521,18 @@ function AiInferredListCard({
   const items = aiList?.items ?? [];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("script.aiList.title")}</CardTitle>
-        <CardDescription>{t("script.aiList.description")}</CardDescription>
-        <CardAction>
+    <section className="space-y-4 border-t pt-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <h2 className="font-medium text-base">{t("script.aiList.title")}</h2>
+          <p className="text-muted-foreground text-sm">
+            {t("script.aiList.description")}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Badge variant="warning">
+            {t("script.aiList.count", { count: aiList?.count ?? 0 })}
+          </Badge>
           <Button
             loading={refreshing}
             onClick={onRefresh}
@@ -543,67 +542,60 @@ function AiInferredListCard({
             <RefreshCwIcon />
             {t("script.aiList.refresh")}
           </Button>
-        </CardAction>
-      </CardHeader>
-      <CardPanel className="space-y-3">
-        <Badge variant="warning">
-          {t("script.aiList.count", { count: aiList?.count ?? 0 })}
-        </Badge>
-        {items.length > 0 ? (
-          <div className="grid gap-3">
-            {items.map((item) => {
-              const scene = sceneById.get(item.scene_id);
-              const title = scene
-                ? sceneTitle(scene)
-                : t("script.aiList.unknownScene", { id: item.scene_id });
-              return (
-                <div
-                  className="rounded-lg border bg-warning/8 p-4"
-                  key={`${item.scene_id}-${item.beat_index}`}
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="space-y-2">
-                      <div className="font-medium text-sm">
-                        {t("script.aiList.itemTitle", {
-                          number: item.beat_index + 1,
-                          sceneTitle: title,
-                        })}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant="warning">
-                          {t("script.flags.ai_inferred")}
-                        </Badge>
-                        <Badge variant="secondary">
-                          {t(`script.beatTypes.${item.beat.type}`)}
-                        </Badge>
-                        <Badge variant="secondary">
-                          {sourceRefLabel(t, item.beat.source_ref)}
-                        </Badge>
-                      </div>
-                      <p className="text-sm leading-relaxed">
-                        {beatSummary(item.beat) || t("script.emptyField")}
-                      </p>
+        </div>
+      </div>
+      {items.length > 0 ? (
+        <div className="grid gap-3">
+          {items.map((item) => {
+            const scene = sceneById.get(item.scene_id);
+            const title = scene
+              ? sceneTitle(scene)
+              : t("script.aiList.unknownScene", { id: item.scene_id });
+            return (
+              <div
+                className="rounded-lg border bg-warning/8 p-4"
+                key={`${item.scene_id}-${item.beat_index}`}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-2">
+                    <div className="font-medium text-sm">
+                      {t("script.aiList.itemTitle", {
+                        number: item.beat_index + 1,
+                        sceneTitle: title,
+                      })}
                     </div>
-                    <Button
-                      onClick={() =>
-                        scrollToBeat(item.scene_id, item.beat_index)
-                      }
-                      size="sm"
-                      variant="outline"
-                    >
-                      {t("script.aiList.review")}
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="warning">
+                        {t("script.flags.ai_inferred")}
+                      </Badge>
+                      <Badge variant="secondary">
+                        {t(`script.beatTypes.${item.beat.type}`)}
+                      </Badge>
+                      <Badge variant="secondary">
+                        {sourceRefLabel(t, item.beat.source_ref)}
+                      </Badge>
+                    </div>
+                    <p className="text-sm leading-relaxed">
+                      {beatSummary(item.beat) || t("script.emptyField")}
+                    </p>
                   </div>
+                  <Button
+                    onClick={() => scrollToBeat(item.scene_id, item.beat_index)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    {t("script.aiList.review")}
+                  </Button>
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="rounded-lg border border-dashed p-3 text-muted-foreground text-sm">
-            {t("script.aiList.empty")}
-          </p>
-        )}
-      </CardPanel>
-    </Card>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="rounded-lg border border-dashed p-3 text-muted-foreground text-sm">
+          {t("script.aiList.empty")}
+        </p>
+      )}
+    </section>
   );
 }
