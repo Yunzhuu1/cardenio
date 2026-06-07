@@ -1,4 +1,9 @@
-import { MenuIcon, PanelLeftCloseIcon, SettingsIcon } from "lucide-react";
+import {
+  CheckIcon,
+  MenuIcon,
+  PanelLeftCloseIcon,
+  SettingsIcon,
+} from "lucide-react";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/app-shell";
@@ -18,7 +23,7 @@ import {
 } from "~/components/ui/sidebar";
 import { api } from "~/lib/api/client";
 import type { ProjectSummary } from "~/lib/api/types";
-import { stagePath } from "~/lib/stages";
+import { isStageDone, stagePath, stages } from "~/lib/stages";
 import { cn } from "~/lib/utils";
 
 export async function clientLoader() {
@@ -37,9 +42,10 @@ export default function AppShell({
 
       <SidebarInset>
         <AppTopbar projects={projects} />
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto px-5 py-8 sm:px-8">
+        <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
           <Outlet />
         </main>
+        <AppStageFooter projects={projects} />
       </SidebarInset>
     </SidebarProvider>
   );
@@ -60,7 +66,7 @@ function AppTopbar({
     : t(getTopbarTitleKey(pathname));
 
   return (
-    <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-border p-3">
+    <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 p-3">
       <div className="flex min-w-0 items-center gap-3">
         <SidebarTrigger
           aria-label={open ? t("nav.collapseSidebar") : t("nav.expandSidebar")}
@@ -106,10 +112,73 @@ function AppTopbar({
   );
 }
 
+function AppStageFooter({
+  projects,
+}: {
+  projects: ProjectSummary[];
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const { pathname } = useLocation();
+  const routeContext = getProjectRouteContext(pathname, projects);
+  if (!routeContext) return null;
+
+  const projectState = routeContext.project?.state ?? "empty";
+
+  return (
+    <footer className="shrink-0 px-5 py-3 sm:px-8">
+      <nav
+        aria-label={t("nav.stages")}
+        className="mx-auto w-full max-w-6xl overflow-x-auto"
+      >
+        <div className="flex gap-2">
+          {stages.map((stage, index) => {
+            const done = isStageDone(stage.key, projectState);
+            return (
+              <NavLink
+                className={({ isActive }) =>
+                  cn(
+                    "flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  )
+                }
+                key={stage.key}
+                to={stagePath(routeContext.projectId, stage.segment)}
+              >
+                <span
+                  className={cn(
+                    "flex size-5 items-center justify-center rounded-full border text-xs",
+                    done
+                      ? "border-success bg-success text-success-foreground"
+                      : "border-current",
+                  )}
+                >
+                  {done ? (
+                    <CheckIcon aria-hidden className="size-3" />
+                  ) : (
+                    index + 1
+                  )}
+                </span>
+                {t(`steps.${stage.key}`)}
+              </NavLink>
+            );
+          })}
+        </div>
+      </nav>
+    </footer>
+  );
+}
+
 function getProjectRouteContext(
   pathname: string,
   projects: ProjectSummary[],
-): { projectId: string; projectTitle: string; stageKey: string } | null {
+): {
+  project: ProjectSummary | undefined;
+  projectId: string;
+  projectTitle: string;
+  stageKey: string;
+} | null {
   const match = pathname.match(/^\/projects\/([^/]+)(?:\/([^/]+))?/);
   if (!match) return null;
 
@@ -118,6 +187,7 @@ function getProjectRouteContext(
 
   const project = projects.find((item) => item.id === projectId);
   return {
+    project,
     projectId,
     projectTitle: project?.title ?? projectId,
     stageKey: `pages.${projectStage}.title`,
