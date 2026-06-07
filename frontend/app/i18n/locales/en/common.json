@@ -648,6 +648,59 @@
       "failureDescription": "Try again later.",
       "reviewHint": "This scene was just rewritten. Review the AI-inferred content carefully."
     },
+    "edit": {
+      "button": "Edit scene",
+      "missingTrustFields": "This scene has beats missing source references or AI markers. Complete them before saving.",
+      "successTitle": "Scene saved",
+      "successDescription": "Your scene edits were saved.",
+      "failureTitle": "Save failed",
+      "failureDescription": "Try again later.",
+      "discardTitle": "Discard unsaved edits?",
+      "discardDescription": "This scene has unsaved edits. Continuing will discard them.",
+      "keepEditing": "Keep editing",
+      "discard": "Discard edits",
+      "intExtLabel": "Interior/exterior",
+      "timeLabel": "Time",
+      "locationLabel": "Location",
+      "moodLabel": "Mood",
+      "cancel": "Cancel",
+      "save": "Save scene",
+      "moveUp": "Move beat up",
+      "moveDown": "Move beat down",
+      "removeBeat": "Remove beat",
+      "parentheticalLabel": "Parenthetical",
+      "dialogueLabel": "Dialogue",
+      "textLabel": "Text",
+      "optionsReadonly": "Preserved options",
+      "subtextLabel": "Subtext",
+      "flagLabel": "Source marker",
+      "missingSourceRef": "Missing source reference",
+      "noCharacter": "No character",
+      "characterLabel": "Character",
+      "addBeat": "Add beat",
+      "intExt": {
+        "INT": "Interior",
+        "EXT": "Exterior"
+      },
+      "time": {
+        "DAY": "Day",
+        "NIGHT": "Night",
+        "DAWN": "Dawn",
+        "DUSK": "Dusk"
+      },
+      "flag": {
+        "from_source": "From source",
+        "ai_inferred": "AI inferred"
+      },
+      "beatType": {
+        "action": "Action",
+        "dialogue": "Dialogue",
+        "voice_over": "Voice over",
+        "off_screen": "Off screen",
+        "note": "Note",
+        "todo": "Todo"
+      }
+    },
     "states": {
       "empty": "Empty",
       "imported": "Imported",
