@@ -747,6 +747,147 @@ class TestScreenplayGeneration:
 
         assert resp.status_code == 404
 
+    async def test_rewrite_scene_only_replaces_target_scene(
+        self,
+        app_client: AsyncClient,
+        project_id: str,
+        stub_gateway: StubLlmGateway,
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        generated = generate_resp.json()
+        original_scenes = generated["data"]["scenes"]
+        target_scene = original_scenes[0]
+        stub_gateway.fixtures = {
+            **stub_gateway.fixtures,
+            "rewrite": {
+                **target_scene,
+                "synopsis": "The confrontation starts earlier.",
+                "beats": [
+                    {
+                        "type": "action",
+                        "text": "Lin Wan closes the archive door before Chen Mo can leave.",
+                        "source_ref": target_scene["source_ref"],
+                        "flag": "from_source",
+                    },
+                    {
+                        "type": "dialogue",
+                        "character": target_scene["characters"][0],
+                        "dialogue": "You hid this from me.",
+                        "source_ref": target_scene["source_ref"],
+                        "flag": "from_source",
+                    },
+                ],
+            },
+        }
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{target_scene['id']}:rewrite",
+            json={"instruction": "Bring the conflict forward."},
+        )
+
+        assert resp.status_code == 202
+        saved = resp.json()
+        assert saved["parent_version"] == generated["version"]
+        assert saved["version"] != generated["version"]
+        assert saved["data"]["scenes"][0]["id"] == target_scene["id"]
+        assert saved["data"]["scenes"][0]["synopsis"] == "The confrontation starts earlier."
+        assert saved["data"]["scenes"][0]["beats"][0]["text"].startswith("Lin Wan closes")
+        assert saved["data"]["scenes"][1:] == original_scenes[1:]
+        assert stub_gateway.call_log[-1].task == "rewrite"
+        request_context = {
+            item["type"]: item["data"] for item in stub_gateway.call_log[-1].context
+        }
+        assert request_context["rewrite_request"]["instruction"] == (
+            "Bring the conflict forward."
+        )
+        assert request_context["target_scene"]["id"] == target_scene["id"]
+        assert "next" in request_context["adjacent_scenes"]
+
+        project_resp = await app_client.get(f"/api/v1/projects/{project_id}")
+        assert project_resp.status_code == 200
+        assert project_resp.json()["state"] == "editing"
+
+    async def test_rewrite_scene_backfills_missing_trust_fields(
+        self,
+        app_client: AsyncClient,
+        project_id: str,
+        stub_gateway: StubLlmGateway,
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        target_scene = generate_resp.json()["data"]["scenes"][0]
+        stub_gateway.fixtures = {
+            **stub_gateway.fixtures,
+            "rewrite": {
+                **target_scene,
+                "beats": [
+                    {
+                        "type": "action",
+                        "text": "A newly sharpened action beat.",
+                    },
+                    {
+                        "type": "dialogue",
+                        "character": target_scene["characters"][0],
+                        "dialogue": "Not another secret.",
+                    },
+                ],
+            },
+        }
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{target_scene['id']}:rewrite",
+            json={"instruction": "Make it sharper."},
+        )
+
+        assert resp.status_code == 202
+        beats = resp.json()["data"]["scenes"][0]["beats"]
+        assert all(beat["source_ref"] == target_scene["source_ref"] for beat in beats)
+        assert all(beat["flag"] == "ai_inferred" for beat in beats)
+
+    async def test_rewrite_scene_requires_non_blank_instruction(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        scene_id = generate_resp.json()["data"]["scenes"][0]["id"]
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{scene_id}:rewrite",
+            json={"instruction": "   "},
+        )
+
+        assert resp.status_code == 422
+
+    async def test_rewrite_scene_missing_scene_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        await app_client.post(f"/api/v1/projects/{project_id}/screenplay:generate")
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/missing:rewrite",
+            json={"instruction": "Make the conflict clearer."},
+        )
+
+        assert resp.status_code == 404
+
+    async def test_rewrite_scene_missing_screenplay_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/sc_001:rewrite",
+            json={"instruction": "Make the conflict clearer."},
+        )
+
+        assert resp.status_code == 404
+
     async def test_get_scene_trace_resolves_source_paragraphs(
         self, app_client: AsyncClient, project_id: str
     ) -> None:
