@@ -26,7 +26,6 @@ import { Field, FieldDescription, FieldLabel } from "~/components/ui/field";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Radio, RadioGroup } from "~/components/ui/radio-group";
-import { Separator } from "~/components/ui/separator";
 import { Switch } from "~/components/ui/switch";
 import { toastManager } from "~/components/ui/toast";
 import { api } from "~/lib/api/client";
@@ -388,7 +387,6 @@ export default function AnalysisIntent({
                 value={form.mood_floor ?? ""}
               />
             </Field>
-            <Separator />
             <div className="grid gap-3 md:grid-cols-3">
               <IntentSwitch
                 checked={form.allow_new_plot}
