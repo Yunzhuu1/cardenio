@@ -10,7 +10,7 @@
 | 文档状态 | Draft（评审中） |
 | 协议 | HTTP/1.1 · JSON · 生成类接口用 SSE 流式 |
 | 关联文档 | [`requirements.md`](../product/requirements.md)（需求与 §7 YAML Schema）、[`design.md`](./design.md)（分层架构 / LLM 网关）、[`agent-workflow.md`](./agent-workflow.md)（编排与信任强制） |
-| 最近更新 | 2026-06-06 |
+| 最近更新 | 2026-06-07 |
 
 本文给出**契约层**接口定义。设计文档明确「框架无关、provider 无关」（design.md §11），故此处只约定**资源、动作、报文与状态语义**，不绑定具体后端框架；字段命名沿用 PRD §7 的最终契约。接口编号采用 `API-x`，每条接口标注其对应的 `FR-x` / `NFR-x` 与里程碑（M0–M8）。
 
@@ -32,9 +32,11 @@
 
 ### 1.2 鉴权
 
-- 除公开健康检查外，所有接口需 `Authorization: Bearer <token>`。
+- 公开接口仅包括健康检查、注册、登录；其余接口需 `Authorization: Bearer <access_token>`。
+- `access_token` 由本服务签发，`token_type` 固定为 `bearer`，过期时间由 `expires_at` 表达。
 - 项目级数据隔离（NFR-1）：token 主体只能访问其拥有/被授权的 `prj_*`；越权返回 `403 forbidden`。
-- 鉴权细节（OAuth / 会话）待选型，列入开放问题 §10。
+- 缺失、过期、撤销或无法验证的 token 返回 `401 unauthenticated`。
+- 登出会撤销当前会话；已撤销会话对应的 access token 不得继续访问受保护接口。
 
 ### 1.3 语言三分（NFR-7）
 
@@ -73,7 +75,7 @@ GET /api/v1/projects?limit=20&cursor=<opaque>
 }
 ```
 
-- `code`：稳定机读错误码（见 §9），`message` 为可读文案（按 `Accept-Language` 本地化）。
+- `code`：稳定机读错误码（见 §16），`message` 为可读文案（按 `Accept-Language` 本地化）。
 - `retryable`：客户端是否可原样重试（如 LLM 限流为 `true`）。
 - LLM 厂商错误在网关收敛为结构化错误，**不向上泄露 provider 细节**（design.md §9）。
 
@@ -118,7 +120,7 @@ imported → understood(✓) → profiled(✓) → intent_set → outlined(✓)
 ```
 
 - 标 `(✓)` 的关卡需作者**显式确认**（`:confirm` 动作）才能进入下一阶段。
-- 在前置关卡未满足时调用下游生成接口，返回 `409 state_gate_blocked`（见 §9 门控表）。
+- 在前置关卡未满足时调用下游生成接口，返回 `409 state_gate_blocked`（见 §16 门控表）。
 - `editing` 与 `report` 可反复往返；回到上游工件编辑会把受影响下游标记 `needs_recompute`。
 
 项目当前阶段可随时查询：
@@ -179,7 +181,107 @@ data: {"code":"llm_unavailable","retryable":true}
 
 ---
 
-## 3. 项目管理（Projects）· `M0`
+## 3. 认证（Auth）· NFR-1 · `M0`
+
+### API-A1 注册 · `POST /api/v1/auth/register`
+
+公开接口。用于创建作者账号并返回当前登录态。
+
+请求：
+
+```json
+{
+  "email": "author@example.com",
+  "password": "correct horse battery staple",
+  "display_name": "林晚"
+}
+```
+
+约束：
+
+- `email` 全局唯一，服务端按规范化后的邮箱判断重复。
+- `password` 明文只出现在请求体中，服务端必须以不可逆哈希保存，不得落日志。
+- `display_name` 可选；为空时客户端可展示邮箱前缀或服务端返回的默认名。
+
+响应 `201`：
+
+```json
+{
+  "access_token": "eyJ...",
+  "token_type": "bearer",
+  "expires_at": "2026-06-07T10:30:00Z",
+  "user": {
+    "id": "usr_12345678",
+    "email": "author@example.com",
+    "display_name": "林晚"
+  }
+}
+```
+
+错误：
+
+- `400 invalid_request`：邮箱格式非法、密码不满足策略或请求体非法。
+- `409 version_conflict`：邮箱已注册。
+
+### API-A2 登录 · `POST /api/v1/auth/login`
+
+公开接口。使用邮箱和密码换取 Bearer access token。
+
+请求：
+
+```json
+{
+  "email": "author@example.com",
+  "password": "correct horse battery staple"
+}
+```
+
+响应 `200`：同 API-A1 的登录态响应。
+
+错误：
+
+- `401 unauthenticated`：邮箱不存在、密码错误、账号不可用。为避免账号枚举，错误文案不得区分具体原因。
+
+### API-A3 当前用户 · `GET /api/v1/auth/me`
+
+受保护接口。返回当前 token 主体。
+
+响应 `200`：
+
+```json
+{
+  "id": "usr_12345678",
+  "email": "author@example.com",
+  "display_name": "林晚"
+}
+```
+
+错误：
+
+- `401 unauthenticated`：缺失、过期、撤销或无效 token。
+
+### API-A4 登出 · `POST /api/v1/auth/logout`
+
+受保护接口。撤销当前会话。
+
+响应 `204`：无响应体。
+
+错误：
+
+- `401 unauthenticated`：缺失、过期、撤销或无效 token。
+
+### 3.1 用户与项目归属
+
+- `User.id` 是 token 主体，也是项目归属判断的最小单位。
+- 创建项目时，服务端必须把项目绑定到当前 `User.id`。
+- `GET /projects` 只返回当前用户拥有或被授权的项目。
+- 任意 `projects/{projectId}` 作用域接口在进入业务逻辑前必须校验当前用户是否拥有或被授权访问该项目。
+- 项目不存在、已删除时返回 `404 not_found`；项目存在但当前用户无权访问时返回 `403 forbidden`。
+- 多人协作和项目共享边界暂不在 MVP 中开放，但权限模型必须保留“被授权访问”的扩展语义。
+
+---
+
+## 4. 项目管理（Projects）· `M0`
 
 ### API-1 创建项目 · `POST /api/v1/projects`
 
@@ -211,7 +313,7 @@ data: {"code":"llm_unavailable","retryable":true}
 
 ---
 
-## 4. 导入与预处理（Source）· FR-1 · `M1`
+## 5. 导入与预处理（Source）· FR-1 · `M1`
 
 ### API-3 录入章节（粘贴/按章）· `POST /projects/{projectId}/source/chapters`
 
@@ -268,7 +370,7 @@ data: {"code":"llm_unavailable","retryable":true}
 
 ---
 
-## 5. 作品理解（Understanding）· FR-2 · `M2`
+## 6. 作品理解（Understanding）· FR-2 · `M2`
 
 > 对应 P1：必须先产出并经作者确认，才能进入下游。
 
@@ -311,7 +413,7 @@ data: {"code":"llm_unavailable","retryable":true}
 
 ---
 
-## 6. 人物档案（Characters）· FR-3 · `M2`
+## 7. 人物档案（Characters）· FR-3 · `M2`
 
 ### API-9 生成人物档案 · `POST /projects/{projectId}/characters:generate`
 
@@ -353,7 +455,7 @@ data: {"code":"llm_unavailable","retryable":true}
 
 ---
 
-## 7. 作者意图与改编方向（Intent）· FR-4 / FR-5 · `M3`
+## 8. 作者意图与改编方向（Intent）· FR-4 / FR-5 · `M3`
 
 ### API-11 设置作者意图 · `PUT /projects/{projectId}/intent`
 
@@ -402,7 +504,7 @@ data: {"code":"llm_unavailable","retryable":true}
 
 ---
 
-## 8. 分场大纲（Outline）· FR-6 · `M4`
+## 9. 分场大纲（Outline）· FR-6 · `M4`
 
 ### API-14 生成大纲 · `POST /projects/{projectId}/outline:generate`
 
@@ -456,7 +558,7 @@ POST /projects/{projectId}/outline/merge-suggestions/{suggestionId}:dismiss    #
 
 ---
 
-## 9. 剧本生成（Screenplay）· FR-7 / FR-8 · `M5`
+## 10. 剧本生成（Screenplay）· FR-7 / FR-8 · `M5`
 
 > 产品价值核心：把小说语言「翻译」为剧本语言（P3）。生成在编排层强制信任能力（agent-workflow §6）。
 
@@ -521,7 +623,7 @@ GET /projects/{projectId}/screenplay/scenes/{sceneId}   # 单场
 
 ---
 
-## 10. 打磨工作台（Editing）· FR-9 · `M6`
+## 11. 打磨工作台（Editing）· FR-9 · `M6`
 
 ### API-21 局部重生成（核心交互）· `POST /screenplay/scenes/{sceneId}:rewrite`
 
@@ -574,7 +676,7 @@ GET /projects/{projectId}/source:resolve?chapter=2&paragraphs=45-51
 
 ---
 
-## 11. 改编取舍报告（Report）· FR-10 · `M7`
+## 12. 改编取舍报告（Report）· FR-10 · `M7`
 
 ### API-25 生成报告 · `POST /projects/{projectId}/report:generate`
 
@@ -604,7 +706,7 @@ GET /projects/{projectId}/source:resolve?chapter=2&paragraphs=45-51
 
 ---
 
-## 12. 导出（Export）· FR-11 · `M-Should`
+## 13. 导出（Export）· FR-11 · `M-Should`
 
 ### API-27 创建导出 · `POST /projects/{projectId}/export`
 
@@ -629,7 +731,7 @@ GET /projects/{projectId}/source:resolve?chapter=2&paragraphs=45-51
 
 ---
 
-## 13. 设置与隐私（Settings）· NFR-1 · `M8`
+## 14. 设置与隐私（Settings）· NFR-1 · `M8`
 
 ### API-29 项目设置读写
 
@@ -652,7 +754,7 @@ PUT  /projects/{projectId}/settings
 
 ---
 
-## 14. 通用对象 Schema（机读契约）
+## 15. 通用对象 Schema（机读契约）
 
 字段命名为最终契约，新增字段需走 Schema 评审（PRD §7）。完整剧本结构以 [PRD §7](../product/requirements.md#7-数据模型--yaml-schema-规范) 为准，下表为 API 高频对象：
 
@@ -667,9 +769,9 @@ PUT  /projects/{projectId}/settings
 
 ---
 
-## 15. 错误码与状态门控
+## 16. 错误码与状态门控
 
-### 15.1 通用错误码
+### 16.1 通用错误码
 
 | HTTP | `code` | 含义 |
 | --- | --- | --- |
@@ -678,14 +780,14 @@ PUT  /projects/{projectId}/settings
 | 403 | `forbidden` | 越权访问他人项目 |
 | 404 | `not_found` | 资源不存在 |
 | 409 | `version_conflict` | 乐观锁 `If-Match` 不匹配 |
-| 409 | `state_gate_blocked` | 前置确认关卡未满足（见 15.2） |
+| 409 | `state_gate_blocked` | 前置确认关卡未满足（见 16.2） |
 | 409 | `chapter_threshold_unmet` | 原文不足 3 章 |
 | 409 | `report_flag_mismatch` | 报告统计与剧本 `flag` 不一致（FR-10） |
 | 422 | `schema_invalid` | YAML/工件回写不合 Schema，`details` 指明字段 |
 | 429 | `rate_limited` | 限流，`retryable:true` |
 | 503 | `llm_unavailable` | LLM 网关超时/降级，`retryable:true` |
 
-### 15.2 状态门控表（state_gate_blocked）
+### 16.2 状态门控表（state_gate_blocked）
 
 | 调用动作 | 要求前置状态 | 关联 |
 | --- | --- | --- |
@@ -699,10 +801,11 @@ PUT  /projects/{projectId}/settings
 
 ---
 
-## 16. 接口 ↔ 需求 ↔ 里程碑映射
+## 17. 接口 ↔ 需求 ↔ 里程碑映射
 
 | 接口组 | API | 关联需求 | 里程碑 |
 | --- | --- | --- | --- |
+| 认证 | API-A1~A4 | NFR-1 | M0 |
 | 项目管理 | API-1/2 | NFR-6/7 | M0 |
 | 导入预处理 | API-3~6 | FR-1.1~1.4 | M1 |
 | 作品理解 | API-7/8 | FR-2、FR-2.1/2.3、NFR-2 | M2 |
@@ -717,9 +820,9 @@ PUT  /projects/{projectId}/settings
 
 ---
 
-## 17. 开放问题（待 ADR）
+## 18. 开放问题（待 ADR）
 
-- **A1 鉴权与多租户**：OAuth / 会话方案、项目共享边界（当前 NG5 不做多人实时协作）。
+- **A1 项目共享边界**：多人协作与项目授权模型细节（当前 NG5 不做多人实时协作）。
 - **A2 流式协议**：SSE vs WebSocket；断线重连与事件序号（`Last-Event-ID`）补发策略。
 - **A3 Job 生命周期**：任务保留时长、重试与幂等键过期、取消语义的精确边界。
 - **A4 版本树存储**：场景级版本/分支在关系型 vs 文档型的查询形态（呼应 design.md O3）。
