@@ -5,7 +5,9 @@ import {
   type ApiErrorBody,
   type ArtifactEnvelope,
   type AuthSession,
+  type CreateExportResponse,
   type DirectionResponse,
+  type ExportJob,
   type LoginInput,
   type MvpDirection,
   type Project,
@@ -47,6 +49,8 @@ type SettingsEnvelopePayload = Omit<
   data: ProjectSettingsData;
 };
 
+type ExportStatusPayload = ExportJob | { export: ExportJob };
+
 const defaultGates: ProjectGates = {
   understanding: "empty",
   characters: "empty",
@@ -83,6 +87,10 @@ function normalizeSettingsEnvelope(
     needs_recompute: payload.needs_recompute ?? false,
     data: payload.data,
   };
+}
+
+function normalizeExportJob(payload: ExportStatusPayload): ExportJob {
+  return "export" in payload ? payload.export : payload;
 }
 
 function getDetailMessage(detail: unknown): string | null {
@@ -135,6 +143,32 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return payload as T;
+}
+
+async function requestBlob(path: string, init?: RequestInit): Promise<Blob> {
+  const headers = new Headers(init?.headers);
+  const token = getStoredToken();
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...init,
+    headers,
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    const detailMessage = getDetailMessage(payload?.detail);
+    const body = (payload?.error ?? {
+      code: "unknown",
+      message: detailMessage ?? response.statusText,
+      retryable: false,
+    }) as ApiErrorBody;
+    throw new ApiError(response.status, body);
+  }
+
+  return response.blob();
 }
 
 function getStoredToken(): string | null {
@@ -412,6 +446,19 @@ export const httpClient: ApiClient = {
       request(`/projects/${projectId}/report:generate`, {
         method: "POST",
       }),
+  },
+  export: {
+    create: (projectId, input) =>
+      request<CreateExportResponse>(`/projects/${projectId}/export`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    get: (projectId, exportId) =>
+      request<ExportStatusPayload>(
+        `/projects/${projectId}/export/${exportId}`,
+      ).then(normalizeExportJob),
+    downloadFile: (projectId, exportId) =>
+      requestBlob(`/projects/${projectId}/export/${exportId}/file`),
   },
   settings: {
     get: (projectId) =>
