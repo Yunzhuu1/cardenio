@@ -1,5 +1,6 @@
 import { Outlet } from "react-router";
 import type { Route } from "./+types/project-layout";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import { api } from "~/lib/api/client";
 
 export async function clientLoader({ params }: Route.ClientLoaderArgs) {
@@ -14,8 +15,10 @@ export function meta({ data }: Route.MetaArgs) {
 
 export default function ProjectLayout({}: Route.ComponentProps): React.ReactElement {
   return (
-    <div className="mx-auto h-full w-full max-w-6xl overflow-y-auto px-5 py-8 sm:px-8">
-      <Outlet />
-    </div>
+    <ScrollArea className="mx-auto h-full w-full max-w-6xl" scrollFade>
+      <div className="px-5 py-8 sm:px-8">
+        <Outlet />
+      </div>
+    </ScrollArea>
   );
 }
