@@ -10,10 +10,11 @@ import {
   XIcon,
 } from "lucide-react";
 import type * as React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useRevalidator } from "react-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useOutletContext, useRevalidator } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/analysis-characters";
+import type { AnalysisLayoutContext } from "./analysis-layout";
 import { StringListEditor } from "~/components/string-list-editor";
 import {
   Alert,
@@ -32,13 +33,6 @@ import {
   AlertDialogTrigger,
 } from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/components/ui/card";
 import {
   Drawer,
   DrawerClose,
@@ -181,6 +175,7 @@ export default function AnalysisCharacters({
 }: Route.ComponentProps): React.ReactElement {
   const { t } = useTranslation();
   const revalidator = useRevalidator();
+  const { setActions } = useOutletContext<AnalysisLayoutContext>();
   const { characters, understanding, projectId } = loaderData;
   const [working, setWorking] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -194,21 +189,21 @@ export default function AnalysisCharacters({
   );
   const editingCharacterId = form.id;
 
-  async function refresh(): Promise<void> {
+  const refresh = useCallback(async (): Promise<void> => {
     await revalidator.revalidate();
-  }
+  }, [revalidator]);
 
-  function openCreateDrawer(): void {
+  const openCreateDrawer = useCallback((): void => {
     setForm(emptyCharacterForm());
     setDrawerOpen(true);
-  }
+  }, []);
 
-  function openEditDrawer(character: Character): void {
+  const openEditDrawer = useCallback((character: Character): void => {
     setForm(characterToForm(character));
     setDrawerOpen(true);
-  }
+  }, []);
 
-  function requestDeleteEditingCharacter(): void {
+  const requestDeleteEditingCharacter = useCallback((): void => {
     if (!editingCharacterId) return;
     const target = characterList.find(
       (character) => character.id === editingCharacterId,
@@ -216,9 +211,9 @@ export default function AnalysisCharacters({
     if (!target) return;
     setDeleteTarget(target);
     setDrawerOpen(false);
-  }
+  }, [characterList, editingCharacterId]);
 
-  async function generateCharacters(): Promise<void> {
+  const generateCharacters = useCallback(async (): Promise<void> => {
     try {
       setWorking(true);
       await api.characters.generate(projectId);
@@ -239,9 +234,9 @@ export default function AnalysisCharacters({
     } finally {
       setWorking(false);
     }
-  }
+  }, [projectId, refresh, t]);
 
-  async function saveCharacter(): Promise<void> {
+  const saveCharacter = useCallback(async (): Promise<void> => {
     const name = form.name.trim();
     if (
       !name ||
@@ -285,9 +280,9 @@ export default function AnalysisCharacters({
     } finally {
       setWorking(false);
     }
-  }
+  }, [characterList, editingCharacterId, form, projectId, refresh, t]);
 
-  async function deleteCharacter(): Promise<void> {
+  const deleteCharacter = useCallback(async (): Promise<void> => {
     if (!deleteTarget) return;
 
     try {
@@ -308,9 +303,9 @@ export default function AnalysisCharacters({
     } finally {
       setWorking(false);
     }
-  }
+  }, [deleteTarget, projectId, refresh, t]);
 
-  async function confirmCharacters(): Promise<void> {
+  const confirmCharacters = useCallback(async (): Promise<void> => {
     try {
       setWorking(true);
       await api.characters.confirm(projectId);
@@ -328,7 +323,98 @@ export default function AnalysisCharacters({
     } finally {
       setWorking(false);
     }
-  }
+  }, [projectId, refresh, t]);
+
+  useEffect(() => {
+    if (locked || !characters) {
+      setActions(null);
+      return;
+    }
+
+    setActions(
+      <>
+        <AlertDialog>
+          <AlertDialogTrigger render={<Button variant="outline" />}>
+            <RefreshCwIcon aria-hidden />
+            {t("analysis.characters.regenerate")}
+          </AlertDialogTrigger>
+          <AlertDialogPopup>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t("analysis.characters.regenerateTitle")}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("analysis.characters.regenerateDescription")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogClose
+                render={<Button type="button" variant="ghost" />}
+              >
+                {t("analysis.characters.cancel")}
+              </AlertDialogClose>
+              <AlertDialogClose
+                render={
+                  <Button
+                    loading={working}
+                    onClick={generateCharacters}
+                    type="button"
+                  />
+                }
+              >
+                {t("analysis.characters.regenerateConfirm")}
+              </AlertDialogClose>
+            </AlertDialogFooter>
+          </AlertDialogPopup>
+        </AlertDialog>
+        <Drawer onOpenChange={setDrawerOpen} open={drawerOpen} position="right">
+          <DrawerTrigger render={<Button onClick={openCreateDrawer} />}>
+            <PlusIcon aria-hidden />
+            {t("analysis.characters.addCharacter")}
+          </DrawerTrigger>
+          <CharacterDrawer
+            characters={characterList}
+            form={form}
+            onFormChange={setForm}
+            onRequestDelete={requestDeleteEditingCharacter}
+            onSave={saveCharacter}
+            projectWorking={working}
+          />
+        </Drawer>
+        {status !== "confirmed" ? (
+          <Button loading={working} onClick={confirmCharacters}>
+            <CheckCircleIcon aria-hidden />
+            {t("analysis.characters.confirm")}
+          </Button>
+        ) : (
+          <Button
+            render={<Link to={analysisStepPath(projectId, "intent")} />}
+            variant="secondary"
+          >
+            {t("analysis.characters.confirmCta")}
+          </Button>
+        )}
+      </>,
+    );
+
+    return () => setActions(null);
+  }, [
+    characterList,
+    characters,
+    confirmCharacters,
+    drawerOpen,
+    form,
+    generateCharacters,
+    locked,
+    openCreateDrawer,
+    projectId,
+    requestDeleteEditingCharacter,
+    saveCharacter,
+    setActions,
+    status,
+    t,
+    working,
+  ]);
 
   return (
     <section className="space-y-4">
@@ -362,83 +448,6 @@ export default function AnalysisCharacters({
               </AlertDescription>
             </Alert>
           ) : null}
-
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("analysis.characters.cardTitle")}</CardTitle>
-              <CardDescription>
-                {t("analysis.characters.cardDescription")}
-              </CardDescription>
-              <CardAction className="flex flex-wrap justify-end gap-2">
-                <AlertDialog>
-                  <AlertDialogTrigger render={<Button variant="outline" />}>
-                    <RefreshCwIcon aria-hidden />
-                    {t("analysis.characters.regenerate")}
-                  </AlertDialogTrigger>
-                  <AlertDialogPopup>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        {t("analysis.characters.regenerateTitle")}
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {t("analysis.characters.regenerateDescription")}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogClose
-                        render={<Button type="button" variant="ghost" />}
-                      >
-                        {t("analysis.characters.cancel")}
-                      </AlertDialogClose>
-                      <AlertDialogClose
-                        render={
-                          <Button
-                            loading={working}
-                            onClick={generateCharacters}
-                            type="button"
-                          />
-                        }
-                      >
-                        {t("analysis.characters.regenerateConfirm")}
-                      </AlertDialogClose>
-                    </AlertDialogFooter>
-                  </AlertDialogPopup>
-                </AlertDialog>
-                <Drawer
-                  onOpenChange={setDrawerOpen}
-                  open={drawerOpen}
-                  position="right"
-                >
-                  <DrawerTrigger render={<Button onClick={openCreateDrawer} />}>
-                    <PlusIcon aria-hidden />
-                    {t("analysis.characters.addCharacter")}
-                  </DrawerTrigger>
-                  <CharacterDrawer
-                    characters={characterList}
-                    form={form}
-                    onFormChange={setForm}
-                    onRequestDelete={requestDeleteEditingCharacter}
-                    onSave={saveCharacter}
-                    projectWorking={working}
-                  />
-                </Drawer>
-                {status !== "confirmed" ? (
-                  <Button loading={working} onClick={confirmCharacters}>
-                    <CheckCircleIcon aria-hidden />
-                    {t("analysis.characters.confirm")}
-                  </Button>
-                ) : null}
-                {status === "confirmed" ? (
-                  <Button
-                    render={<Link to={analysisStepPath(projectId, "intent")} />}
-                    variant="secondary"
-                  >
-                    {t("analysis.characters.confirmCta")}
-                  </Button>
-                ) : null}
-              </CardAction>
-            </CardHeader>
-          </Card>
 
           <CharacterGraph
             characters={characterList}
