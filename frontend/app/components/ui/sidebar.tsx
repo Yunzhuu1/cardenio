@@ -1,6 +1,14 @@
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
-import { createContext, useContext, useMemo, useState } from "react";
+import { gsap } from "gsap";
+import {
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { cn } from "~/lib/utils";
 
 type SidebarContextValue = {
@@ -39,7 +47,7 @@ export function SidebarProvider({
         data-sidebar-open={open}
         data-slot="sidebar-provider"
         className={cn(
-          "flex h-dvh min-h-0 overflow-hidden bg-background text-foreground dark:bg-sidebar",
+          "flex h-dvh min-h-0 overflow-hidden bg-background text-foreground [--sidebar-width:16rem] dark:bg-sidebar",
           className,
         )}
         {...props}
@@ -68,15 +76,64 @@ export function Sidebar({
   variant?: SidebarVariant;
 }): React.ReactElement {
   const { open } = useSidebar();
+  const sidebarRef = useRef<HTMLElement>(null);
+  const hasMountedRef = useRef(false);
+
+  useLayoutEffect(() => {
+    const sidebar = sidebarRef.current;
+    if (!sidebar) return;
+
+    const sidebarWidth = getComputedStyle(sidebar).width;
+    const isDesktop = window.matchMedia("(min-width: 768px)").matches;
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    const closedX = -sidebar.offsetWidth;
+    const closedMargin = isDesktop ? `-${sidebarWidth}` : "0rem";
+    const finalVars = {
+      marginRight: open ? "0rem" : closedMargin,
+      x: open ? 0 : closedX,
+    };
+
+    const context = gsap.context(() => {
+      gsap.killTweensOf(sidebar);
+
+      if (!hasMountedRef.current || reduceMotion) {
+        gsap.set(sidebar, finalVars);
+        hasMountedRef.current = true;
+        return;
+      }
+
+      gsap.fromTo(
+        sidebar,
+        {
+          marginRight: open ? closedMargin : "0rem",
+          x: open ? closedX : 0,
+        },
+        {
+          ...finalVars,
+          duration: 0.2,
+          ease: "power3.inOut",
+          overwrite: "auto",
+        },
+      );
+    }, sidebar);
+
+    return () => context.revert();
+  }, [open]);
 
   return (
     <aside
+      ref={sidebarRef}
       data-state={open ? "open" : "closed"}
       data-variant={variant}
       data-slot="sidebar"
+      aria-hidden={!open}
       className={cn(
-        "peer fixed inset-y-0 left-0 z-20 w-64 shrink-0 flex-col gap-2 border-r border-sidebar-border bg-background p-2 text-sidebar-foreground dark:bg-sidebar md:static md:z-auto",
-        open ? "flex" : "hidden",
+        "peer fixed inset-y-0 left-0 z-20 flex w-[var(--sidebar-width)] shrink-0 flex-col gap-2 border-r border-sidebar-border bg-background p-2 text-sidebar-foreground dark:bg-sidebar md:static md:z-auto",
+        open
+          ? "translate-x-0 md:pr-0"
+          : "-translate-x-full pointer-events-none md:-mr-[var(--sidebar-width)]",
         variant === "inset" && "border-r-0",
         className,
       )}
@@ -242,7 +299,7 @@ export function SidebarInset({
       data-slot="sidebar-inset"
       className={cn(
         "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-sidebar dark:bg-background",
-        "md:peer-data-[variant=inset]:m-2 md:peer-data-[state=open]:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:overflow-hidden md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm",
+        "md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:overflow-hidden md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm",
         className,
       )}
       {...props}
