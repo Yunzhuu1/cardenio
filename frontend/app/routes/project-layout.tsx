@@ -24,10 +24,7 @@ export default function ProjectLayout({
 
   return (
     <div className="mx-auto w-full max-w-6xl">
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <div className="app-heading min-w-0 truncate text-sm font-medium text-muted-foreground">
-          {project.title}
-        </div>
+      <div className="mb-6 flex justify-end">
         <NavLink
           aria-label={t("nav.projectSettings")}
           className={({ isActive }) =>
