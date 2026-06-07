@@ -717,6 +717,19 @@
       "failureTitle": "应用失败",
       "failureDescription": "请稍后重试。"
     },
+    "todo": {
+      "title": "留白清单",
+      "description": "集中查看剧本中需要作者补充或确认的 TODO 节拍。",
+      "count": "{{count}} 条",
+      "locate": "定位",
+      "refresh": "刷新清单",
+      "emptyTitle": "当前没有留白",
+      "emptyDescription": "剧本暂无待补充内容。",
+      "onlyLabel": "只看留白",
+      "onlyDescription": "开启后突出 TODO 节拍，弱化其他内容。",
+      "noSource": "无来源",
+      "beatNumber": "节拍 {{number}}"
+    },
     "states": {
       "empty": "空项目",
       "imported": "已导入",
