@@ -518,7 +518,7 @@ export default function ProjectOutline({
             </div>
           </div>
 
-          <div className="grid gap-4">
+          <div className="divide-y">
             {scenes.map((scene, scenePosition) => (
               <OutlineSceneCard
                 characterNameById={characterNameById}
