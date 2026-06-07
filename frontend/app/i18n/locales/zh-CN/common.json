@@ -61,6 +61,7 @@
     "thresholdMet": "已满足 {{min}} 章门槛，可以进入下一步。",
     "thresholdUnmet": "已 {{current}} 章，还需 {{need}} 章。",
     "nextStep": "进入下一步",
+    "nextStepDisabledTooltip": "需要至少导入 {{min}} 章才能进入下一步。",
     "titleNotPersistedHint": "章节标题当前不会被后端持久保存，列表会按章节顺序显示本地化标题。",
     "paragraphSpacingHint": "段落之间请空一行，以保留后续 source_ref 溯源粒度。",
     "previewToggle": "查看原文",

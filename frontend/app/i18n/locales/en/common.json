@@ -61,6 +61,7 @@
     "thresholdMet": "The {{min}}-chapter threshold is met. You can continue.",
     "thresholdUnmet": "{{current}} chapters added. {{need}} more needed.",
     "nextStep": "Continue",
+    "nextStepDisabledTooltip": "Import at least {{min}} chapters to continue.",
     "titleNotPersistedHint": "Chapter titles are not persisted by the backend yet; the list uses localized titles derived from chapter order.",
     "paragraphSpacingHint": "Keep a blank line between paragraphs to preserve source_ref granularity later.",
     "previewToggle": "View source",

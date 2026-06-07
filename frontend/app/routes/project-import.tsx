@@ -1,6 +1,5 @@
 import * as React from "react";
 import {
-  CheckCircleIcon,
   ChevronDownIcon,
   FileTextIcon,
   MoreHorizontalIcon,
@@ -11,7 +10,7 @@ import {
   TriangleAlertIcon,
   UploadIcon,
 } from "lucide-react";
-import { Form, Link, useNavigation, useRevalidator } from "react-router";
+import { Form, useNavigation, useRevalidator } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/project-import";
 import {
@@ -20,12 +19,7 @@ import {
   AccordionPanel,
   AccordionTrigger,
 } from "~/components/ui/accordion";
-import {
-  Alert,
-  AlertAction,
-  AlertDescription,
-  AlertTitle,
-} from "~/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogClose,
@@ -92,7 +86,6 @@ import {
 } from "~/lib/api/types";
 import { api } from "~/lib/api/client";
 import { i18next } from "~/i18n/config";
-import { stagePath } from "~/lib/stages";
 import { cn } from "~/lib/utils";
 
 type ActionResult = {
@@ -256,8 +249,6 @@ export default function ProjectImport({
       : null;
   const currentChapters = source.stats.chapter_count;
   const hasChapters = currentChapters > 0;
-  const minimumChapters = source.threshold.min_chapters;
-  const neededChapters = Math.max(0, minimumChapters - currentChapters);
   const validSelectedChapterIds = selectedChapterIds.filter((id) =>
     source.chapters.some((chapter) => chapter.id === id),
   );
@@ -552,14 +543,6 @@ export default function ProjectImport({
           </Accordion>
         )}
       </section>
-
-      <ThresholdGate
-        currentChapters={currentChapters}
-        minimumChapters={minimumChapters}
-        neededChapters={neededChapters}
-        passed={source.threshold.passed}
-        projectId={projectId}
-      />
 
       <ImportPreviewDialog
         confirming={confirmingImport}
@@ -1231,56 +1214,5 @@ function SplitPreviewSection({
         ))}
       </div>
     </div>
-  );
-}
-
-function ThresholdGate({
-  currentChapters,
-  minimumChapters,
-  neededChapters,
-  passed,
-  projectId,
-}: {
-  currentChapters: number;
-  minimumChapters: number;
-  neededChapters: number;
-  passed: boolean;
-  projectId: ProjectId;
-}): React.ReactElement {
-  const { t } = useTranslation();
-
-  if (passed) {
-    return (
-      <Alert variant="success">
-        <CheckCircleIcon />
-        <AlertTitle>
-          {t("import.thresholdMet", { min: minimumChapters })}
-        </AlertTitle>
-        <AlertDescription>{t("pages.analysis.description")}</AlertDescription>
-        <AlertAction>
-          <Button render={<Link to={stagePath(projectId, "analysis")} />}>
-            {t("import.nextStep")}
-          </Button>
-        </AlertAction>
-      </Alert>
-    );
-  }
-
-  return (
-    <Alert variant="warning">
-      <TriangleAlertIcon />
-      <AlertTitle>
-        {t("import.thresholdUnmet", {
-          current: currentChapters,
-          need: neededChapters,
-        })}
-      </AlertTitle>
-      <AlertDescription>{t("pages.import.description")}</AlertDescription>
-      <AlertAction>
-        <Button disabled type="button">
-          {t("import.nextStep")}
-        </Button>
-      </AlertAction>
-    </Alert>
   );
 }
