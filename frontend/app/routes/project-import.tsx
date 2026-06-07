@@ -3,7 +3,6 @@ import {
   CheckCircleIcon,
   ChevronDownIcon,
   FileTextIcon,
-  InfoIcon,
   MoreHorizontalIcon,
   PencilIcon,
   PlusIcon,
@@ -408,12 +407,6 @@ export default function ProjectImport({
 
   return (
     <div className="flex flex-col gap-8">
-      <Alert variant="info">
-        <InfoIcon />
-        <AlertTitle>{t("import.titleNotPersistedHint")}</AlertTitle>
-        <AlertDescription>{t("import.paragraphSpacingHint")}</AlertDescription>
-      </Alert>
-
       <Tabs defaultValue="manual">
         <TabsList variant="underline">
           <TabsTab value="manual">{t("import.manualTab")}</TabsTab>
