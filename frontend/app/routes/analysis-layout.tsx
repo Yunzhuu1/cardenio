@@ -158,8 +158,8 @@ export default function AnalysisLayout({
         </div>
       </div>
 
-      <ScrollArea className="min-h-0 w-full flex-1" scrollFade>
-        <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8">
+      <ScrollArea className="min-h-0 w-full flex-1" fill scrollFade>
+        <div className="mx-auto min-h-full w-full max-w-6xl px-5 py-8 sm:px-8">
           <Outlet context={{ setActions } satisfies AnalysisLayoutContext} />
         </div>
       </ScrollArea>

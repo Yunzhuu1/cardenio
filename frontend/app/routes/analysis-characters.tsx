@@ -417,7 +417,7 @@ export default function AnalysisCharacters({
   ]);
 
   return (
-    <section className="space-y-4">
+    <section className="h-full space-y-4">
       {locked ? (
         <Alert variant="warning">
           <AlertTitle>{t("analysis.characters.lockedTitle")}</AlertTitle>
@@ -437,7 +437,7 @@ export default function AnalysisCharacters({
           </AlertAction>
         </Alert>
       ) : characters ? (
-        <div>
+        <div className="h-full min-h-0">
           <CharacterGraph
             characters={characterList}
             onNodeClick={openEditDrawer}
@@ -634,9 +634,12 @@ function CharacterGraph({
   }, [elements]);
 
   return (
-    <section aria-label={t("analysis.characters.graphLabel")}>
+    <section
+      aria-label={t("analysis.characters.graphLabel")}
+      className="h-full"
+    >
       <div
-        className="h-[min(62vh,40rem)] min-h-[30rem] overflow-hidden rounded-lg border bg-background"
+        className="h-full min-h-[30rem] overflow-hidden rounded-lg border bg-background"
         ref={containerRef}
       />
     </section>
