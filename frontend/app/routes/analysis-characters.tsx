@@ -610,7 +610,16 @@ function CharacterGraph({
 
     graphRef.current = graph;
 
+    const resizeObserver = new ResizeObserver(() => {
+      window.requestAnimationFrame(() => {
+        graph.resize();
+        graph.fit(undefined, 48);
+      });
+    });
+    resizeObserver.observe(container);
+
     return () => {
+      resizeObserver.disconnect();
       graph.destroy();
       graphRef.current = null;
     };
@@ -636,10 +645,10 @@ function CharacterGraph({
   return (
     <section
       aria-label={t("analysis.characters.graphLabel")}
-      className="h-full"
+      className="h-full min-h-0"
     >
       <div
-        className="h-full min-h-[30rem] overflow-hidden rounded-lg border bg-background"
+        className="h-full min-h-0 overflow-hidden rounded-lg border bg-background"
         ref={containerRef}
       />
     </section>
