@@ -463,6 +463,89 @@ class TestScreenplayGeneration:
 
         assert resp.status_code == 422
 
+    async def test_todos_empty_when_screenplay_has_no_todo_beats(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        await app_client.post(f"/api/v1/projects/{project_id}/screenplay:generate")
+
+        resp = await app_client.get(f"/api/v1/projects/{project_id}/screenplay/todos")
+
+        assert resp.status_code == 200
+        assert resp.json() == {"items": [], "count": 0}
+
+    async def test_todos_return_scene_and_beat_locations(
+        self,
+        app_client: AsyncClient,
+        project_id: str,
+        stub_gateway: StubLlmGateway,
+    ) -> None:
+        outline = await generate_confirmed_outline(app_client, project_id)
+        first_scene = outline["data"]["scenes"][0]
+        second_scene = outline["data"]["scenes"][1]
+        stub_gateway.fixtures = {
+            **stub_gateway.fixtures,
+            "scene": {
+                "scenes": [
+                    {
+                        **first_scene,
+                        "beats": [
+                            {
+                                "type": "action",
+                                "text": "Lin Wan opens the archive.",
+                                "source_ref": first_scene["source_ref"],
+                                "flag": "from_source",
+                            },
+                            {
+                                "type": "todo",
+                                "text": "TODO: author should supply the exact confrontation line.",
+                                "source_ref": first_scene["source_ref"],
+                            },
+                        ],
+                    },
+                    {
+                        **second_scene,
+                        "beats": [
+                            {
+                                "type": "todo",
+                                "text": "TODO: clarify whether Chen Mo notices the clue.",
+                            }
+                        ],
+                    },
+                ],
+                "shot_hints": {"enabled": False},
+            },
+        }
+        await app_client.post(f"/api/v1/projects/{project_id}/screenplay:generate")
+
+        resp = await app_client.get(f"/api/v1/projects/{project_id}/screenplay/todos")
+
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload["count"] == 2
+        assert payload["items"][0]["scene_id"] == first_scene["id"]
+        assert payload["items"][0]["beat_index"] == 1
+        assert payload["items"][0]["source_ref"] == first_scene["source_ref"]
+        assert payload["items"][0]["beat"]["type"] == "todo"
+        assert payload["items"][1]["scene_id"] == second_scene["id"]
+        assert payload["items"][1]["beat_index"] == 0
+        assert payload["items"][1]["source_ref"] is None
+        assert payload["items"][1]["beat"]["source_ref"] is None
+
+    async def test_todos_missing_screenplay_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        resp = await app_client.get(f"/api/v1/projects/{project_id}/screenplay/todos")
+
+        assert resp.status_code == 404
+
+    async def test_todos_missing_project_returns_404(
+        self, app_client: AsyncClient
+    ) -> None:
+        resp = await app_client.get("/api/v1/projects/missing/screenplay/todos")
+
+        assert resp.status_code == 404
+
     async def test_missing_subtext_and_mood_are_annotated(
         self,
         app_client: AsyncClient,
