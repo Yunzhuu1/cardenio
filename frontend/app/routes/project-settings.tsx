@@ -3,12 +3,23 @@ import {
   LockKeyholeIcon,
   SaveIcon,
   SettingsIcon,
+  Trash2Icon,
 } from "lucide-react";
 import type * as React from "react";
 import { useState } from "react";
-import { useRevalidator } from "react-router";
+import { useNavigate, useRevalidator } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/project-settings";
+import {
+  AlertDialog,
+  AlertDialogClose,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogPopup,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "~/components/ui/alert-dialog";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -20,20 +31,58 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { Field, FieldDescription, FieldLabel } from "~/components/ui/field";
+import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import {
+  Select,
+  SelectItem,
+  SelectPopup,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { Separator } from "~/components/ui/separator";
 import { Switch } from "~/components/ui/switch";
 import { toastManager } from "~/components/ui/toast";
 import { api } from "~/lib/api/client";
 import {
   ApiError,
+  type AdaptationDirection,
   type ArtifactEnvelope,
+  type CreateProjectInput,
+  type MvpDirection,
   type Project,
   type ProjectId,
   type ProjectSettingsData,
+  type SourceLanguage,
 } from "~/lib/api/types";
 
 type SettingsStatus = ArtifactEnvelope<ProjectSettingsData>["state"] | "empty";
+type SelectOption<T extends string> = {
+  label: string;
+  value: T;
+};
+type ProjectFormState = {
+  adaptation_direction: AdaptationDirection | null;
+  output_language: CreateProjectInput["output_language"];
+  source_language: SourceLanguage;
+  title: string;
+};
+
+const sourceLanguageOptions: SourceLanguage[] = [
+  "zh-CN",
+  "en",
+  "mixed",
+  "unknown",
+];
+const outputLanguageOptions: CreateProjectInput["output_language"][] = [
+  "zh-CN",
+  "en",
+];
+const directionOptions: MvpDirection[] = [
+  "faithful",
+  "cinematic",
+  "short_drama",
+];
 
 async function getOrNull<T>(request: Promise<T>): Promise<T | null> {
   try {
@@ -86,14 +135,23 @@ export default function ProjectSettings({
   loaderData,
 }: Route.ComponentProps): React.ReactElement {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const revalidator = useRevalidator();
   const { project, projectId, settings } = loaderData;
   const settingsData = settings?.data ?? fallbackSettings(project);
   const status: SettingsStatus = settings?.state ?? "empty";
+  const [projectForm, setProjectForm] = useState<ProjectFormState>({
+    adaptation_direction: project.meta.adaptation_direction,
+    output_language: project.meta.output_language,
+    source_language: project.meta.source_language,
+    title: project.title,
+  });
   const [form, setForm] = useState({
     shot_hints_enabled: settingsData.shot_hints_enabled,
   });
   const [working, setWorking] = useState(false);
+  const [projectWorking, setProjectWorking] = useState(false);
+  const [deleteWorking, setDeleteWorking] = useState(false);
 
   async function saveSettings(): Promise<void> {
     try {
@@ -116,6 +174,51 @@ export default function ProjectSettings({
       });
     } finally {
       setWorking(false);
+    }
+  }
+
+  async function saveProject(): Promise<void> {
+    try {
+      setProjectWorking(true);
+      const title = projectForm.title.trim();
+      await api.projects.patch(projectId, {
+        adaptation_direction: projectForm.adaptation_direction,
+        output_language: projectForm.output_language,
+        source_language: projectForm.source_language,
+        title: title || project.title,
+      });
+      toastManager.add({
+        title: t("settings.project.saveSuccessTitle"),
+        type: "success",
+      });
+      await revalidator.revalidate();
+    } catch (error) {
+      toastManager.add({
+        description: getErrorMessage(error),
+        title: t("settings.project.saveErrorTitle"),
+        type: "error",
+      });
+    } finally {
+      setProjectWorking(false);
+    }
+  }
+
+  async function deleteProject(): Promise<void> {
+    try {
+      setDeleteWorking(true);
+      await api.projects.remove(projectId);
+      toastManager.add({
+        title: t("settings.danger.deleteSuccessTitle"),
+        type: "success",
+      });
+      navigate("/", { replace: true });
+    } catch (error) {
+      toastManager.add({
+        description: getErrorMessage(error),
+        title: t("settings.danger.deleteErrorTitle"),
+        type: "error",
+      });
+      setDeleteWorking(false);
     }
   }
 
@@ -145,6 +248,81 @@ export default function ProjectSettings({
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)]">
         <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("settings.project.title")}</CardTitle>
+              <CardDescription>
+                {t("settings.project.description")}
+              </CardDescription>
+              <CardAction>
+                <Button loading={projectWorking} onClick={saveProject}>
+                  <SaveIcon aria-hidden />
+                  {t("settings.project.saveButton")}
+                </Button>
+              </CardAction>
+            </CardHeader>
+            <CardPanel className="grid gap-4 sm:grid-cols-2">
+              <Field className="sm:col-span-2">
+                <FieldLabel htmlFor="project-title">
+                  {t("settings.project.name")}
+                </FieldLabel>
+                <Input
+                  id="project-title"
+                  onChange={(event) =>
+                    setProjectForm((current) => ({
+                      ...current,
+                      title: event.target.value,
+                    }))
+                  }
+                  value={projectForm.title}
+                />
+              </Field>
+              <SelectField
+                items={sourceLanguageOptions.map((value) => ({
+                  label: t(`settings.languages.values.${value}`),
+                  value,
+                }))}
+                label={t("settings.languages.source")}
+                onChange={(source_language) =>
+                  setProjectForm((current) => ({ ...current, source_language }))
+                }
+                value={projectForm.source_language}
+              />
+              <SelectField
+                items={outputLanguageOptions.map((value) => ({
+                  label: t(`settings.languages.values.${value}`),
+                  value,
+                }))}
+                label={t("settings.languages.output")}
+                onChange={(output_language) =>
+                  setProjectForm((current) => ({ ...current, output_language }))
+                }
+                value={projectForm.output_language}
+              />
+              <SelectField
+                items={[
+                  {
+                    label: t("settings.direction.none"),
+                    value: "none",
+                  },
+                  ...directionOptions.map((value) => ({
+                    label: t(`settings.direction.values.${value}`),
+                    value,
+                  })),
+                ]}
+                label={t("settings.direction.label")}
+                onChange={(value) =>
+                  setProjectForm((current) => ({
+                    ...current,
+                    adaptation_direction:
+                      value === "none" ? null : (value as MvpDirection),
+                  }))
+                }
+                value={projectForm.adaptation_direction ?? "none"}
+              />
+            </CardPanel>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>{t("settings.privacy.title")}</CardTitle>
@@ -239,19 +417,105 @@ export default function ProjectSettings({
             />
             <LanguageField
               label={t("settings.languages.source")}
-              value={project.meta.source_language}
+              value={projectForm.source_language}
             />
             <LanguageField
               label={t("settings.languages.output")}
-              value={project.meta.output_language}
+              value={projectForm.output_language}
             />
             <p className="rounded-lg border border-dashed bg-muted/24 px-3 py-2 text-muted-foreground text-xs">
               {t("settings.languages.readonlyNote")}
             </p>
           </CardPanel>
         </Card>
+
+        <Card className="border-destructive/32 xl:col-start-2">
+          <CardHeader>
+            <CardTitle>{t("settings.danger.title")}</CardTitle>
+            <CardDescription>
+              {t("settings.danger.description")}
+            </CardDescription>
+            <CardAction>
+              <AlertDialog>
+                <AlertDialogTrigger
+                  render={
+                    <Button type="button" variant="destructive">
+                      <Trash2Icon aria-hidden />
+                      {t("settings.danger.deleteButton")}
+                    </Button>
+                  }
+                />
+                <AlertDialogPopup>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {t("settings.danger.deleteTitle")}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t("settings.danger.deleteDescription", {
+                        title: project.title,
+                      })}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogClose
+                      render={<Button type="button" variant="outline" />}
+                    >
+                      {t("settings.danger.cancel")}
+                    </AlertDialogClose>
+                    <Button
+                      loading={deleteWorking}
+                      onClick={() => void deleteProject()}
+                      type="button"
+                      variant="destructive"
+                    >
+                      {t("settings.danger.confirmDelete")}
+                    </Button>
+                  </AlertDialogFooter>
+                </AlertDialogPopup>
+              </AlertDialog>
+            </CardAction>
+          </CardHeader>
+        </Card>
       </div>
     </section>
+  );
+}
+
+function SelectField<T extends string>({
+  items,
+  label,
+  onChange,
+  value,
+}: {
+  items: SelectOption<T>[];
+  label: string;
+  onChange: (value: T) => void;
+  value: T;
+}): React.ReactElement {
+  const selectedItem = items.find((item) => item.value === value) ?? items[0];
+  return (
+    <Field>
+      <FieldLabel>{label}</FieldLabel>
+      <Select
+        itemToStringValue={(item) => item.value}
+        items={items}
+        onValueChange={(nextValue) => {
+          if (nextValue) onChange(nextValue.value);
+        }}
+        value={selectedItem}
+      >
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectPopup>
+          {items.map((item) => (
+            <SelectItem key={item.value} value={item}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectPopup>
+      </Select>
+    </Field>
   );
 }
 

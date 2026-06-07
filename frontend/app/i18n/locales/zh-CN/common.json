@@ -708,13 +708,30 @@
         "description": "保存后会作为剧本生成页的镜头建议默认值；已有剧本仍优先使用剧本工件自己的值。"
       }
     },
+    "project": {
+      "title": "项目信息",
+      "description": "更新项目名称、语言与默认改编方向。",
+      "name": "项目名称",
+      "saveButton": "保存项目",
+      "saveSuccessTitle": "项目已更新",
+      "saveErrorTitle": "更新项目失败"
+    },
+    "direction": {
+      "label": "默认改编方向",
+      "none": "暂不设定",
+      "values": {
+        "faithful": "忠实改编",
+        "cinematic": "影视化增强",
+        "short_drama": "短剧化"
+      }
+    },
     "languages": {
       "title": "语言设置",
-      "description": "语言来自项目元数据，本期只读展示。",
+      "description": "语言来自项目元数据，可在项目信息中更新。",
       "ui": "界面语言",
       "source": "源语言",
       "output": "输出语言",
-      "readonlyNote": "语言在创建项目时设定。后端项目元数据更新接口尚未实现，因此本期暂不支持在设置页修改。",
+      "readonlyNote": "界面语言仍沿用创建项目时的设置；源语言与输出语言会随项目信息保存。",
       "values": {
         "zh-CN": "简体中文",
         "en": "English",
@@ -726,6 +743,17 @@
       "button": "保存设置",
       "successTitle": "设置已保存",
       "errorTitle": "保存设置失败"
+    },
+    "danger": {
+      "title": "危险操作",
+      "description": "删除项目会移除该项目及其关联原文、工件和设置。",
+      "deleteButton": "删除项目",
+      "deleteTitle": "删除这个项目？",
+      "deleteDescription": "确定要删除「{{title}}」吗？此操作无法撤销。",
+      "cancel": "取消",
+      "confirmDelete": "确认删除",
+      "deleteSuccessTitle": "项目已删除",
+      "deleteErrorTitle": "删除项目失败"
     }
   },
   "pages": {

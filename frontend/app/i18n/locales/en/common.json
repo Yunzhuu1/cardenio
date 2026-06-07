@@ -707,13 +707,30 @@
         "description": "After saving, this becomes the default shot-hint setting on the screenplay generation page. Existing screenplay artifacts still take priority."
       }
     },
+    "project": {
+      "title": "Project information",
+      "description": "Update the project name, languages, and default adaptation direction.",
+      "name": "Project name",
+      "saveButton": "Save project",
+      "saveSuccessTitle": "Project updated",
+      "saveErrorTitle": "Failed to update project"
+    },
+    "direction": {
+      "label": "Default adaptation direction",
+      "none": "Not set",
+      "values": {
+        "faithful": "Faithful",
+        "cinematic": "Cinematic",
+        "short_drama": "Short drama"
+      }
+    },
     "languages": {
       "title": "Language settings",
-      "description": "Languages come from project metadata and are read-only in this release.",
+      "description": "Languages come from project metadata and can be updated in project information.",
       "ui": "UI language",
       "source": "Source language",
       "output": "Output language",
-      "readonlyNote": "Languages are set when the project is created. The backend project metadata update endpoint is not implemented yet, so editing languages here is not supported in this release.",
+      "readonlyNote": "UI language still follows the value chosen when the project was created. Source and output languages are saved with project information.",
       "values": {
         "zh-CN": "Simplified Chinese",
         "en": "English",
@@ -725,6 +742,17 @@
       "button": "Save settings",
       "successTitle": "Settings saved",
       "errorTitle": "Failed to save settings"
+    },
+    "danger": {
+      "title": "Danger zone",
+      "description": "Deleting a project removes the project and its source text, artifacts, and settings.",
+      "deleteButton": "Delete project",
+      "deleteTitle": "Delete this project?",
+      "deleteDescription": "Delete \"{{title}}\"? This action cannot be undone.",
+      "cancel": "Cancel",
+      "confirmDelete": "Delete project",
+      "deleteSuccessTitle": "Project deleted",
+      "deleteErrorTitle": "Failed to delete project"
     }
   },
   "pages": {
