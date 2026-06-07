@@ -17,6 +17,7 @@ export type StringListEditorProps = {
   placeholder?: string;
   description?: string;
   inputType?: React.HTMLInputTypeAttribute;
+  reserveValueSpace?: boolean;
 };
 
 export function StringListEditor({
@@ -26,6 +27,7 @@ export function StringListEditor({
   placeholder,
   description,
   inputType = "text",
+  reserveValueSpace = true,
 }: StringListEditorProps): React.ReactElement {
   const [draft, setDraft] = useState("");
 
@@ -72,21 +74,23 @@ export function StringListEditor({
           </Button>
         </InputGroupAddon>
       </InputGroup>
-      <div className="flex min-h-6 flex-wrap gap-1.5">
-        {values.map((value) => (
-          <Badge key={value} size="lg" variant="secondary">
-            <span className="max-w-64 truncate">{value}</span>
-            <button
-              aria-label={`${label}: ${value}`}
-              className="rounded-sm outline-none hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={() => removeValue(value)}
-              type="button"
-            >
-              <XIcon aria-hidden className="size-3" />
-            </button>
-          </Badge>
-        ))}
-      </div>
+      {reserveValueSpace || values.length > 0 ? (
+        <div className="flex min-h-6 flex-wrap gap-1.5">
+          {values.map((value) => (
+            <Badge key={value} size="lg" variant="secondary">
+              <span className="max-w-64 truncate">{value}</span>
+              <button
+                aria-label={`${label}: ${value}`}
+                className="rounded-sm outline-none hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => removeValue(value)}
+                type="button"
+              >
+                <XIcon aria-hidden className="size-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      ) : null}
     </Field>
   );
 }

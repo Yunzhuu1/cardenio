@@ -341,6 +341,7 @@ export default function AnalysisIntent({
                 label={t("analysis.intent.fields.keep")}
                 onChange={(values) => updateList("keep", values)}
                 placeholder={t("analysis.intent.placeholders.keep")}
+                reserveValueSpace={false}
                 values={form.keep}
               />
               <StringListEditor
@@ -348,6 +349,7 @@ export default function AnalysisIntent({
                 label={t("analysis.intent.fields.no_delete")}
                 onChange={(values) => updateList("no_delete", values)}
                 placeholder={t("analysis.intent.placeholders.no_delete")}
+                reserveValueSpace={false}
                 values={form.no_delete}
               />
               <StringListEditor
@@ -355,6 +357,7 @@ export default function AnalysisIntent({
                 label={t("analysis.intent.fields.no_merge")}
                 onChange={(values) => updateList("no_merge", values)}
                 placeholder={t("analysis.intent.placeholders.no_merge")}
+                reserveValueSpace={false}
                 values={form.no_merge}
               />
               <StringListEditor
@@ -364,6 +367,7 @@ export default function AnalysisIntent({
                 label={t("analysis.intent.fields.must_keep_lines")}
                 onChange={(values) => updateList("must_keep_lines", values)}
                 placeholder={t("analysis.intent.placeholders.must_keep_lines")}
+                reserveValueSpace={false}
                 values={form.must_keep_lines}
               />
             </div>
