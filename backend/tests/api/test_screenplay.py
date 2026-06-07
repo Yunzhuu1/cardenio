@@ -607,6 +607,146 @@ class TestScreenplayGeneration:
         assert resp.json()["id"] == "sc_001"
         assert resp.json()["beats"]
 
+    async def test_update_full_screenplay_saves_new_version_and_preserves_trust_fields(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        generated = generate_resp.json()
+        data = generated["data"]
+        data["scenes"][0]["mood"] = "quiet dread"
+        data["scenes"][0]["beats"][0]["text"] = "Lin Wan pauses at the archive door."
+        original_source_ref = data["scenes"][0]["beats"][0]["source_ref"]
+        original_flag = data["scenes"][0]["beats"][0]["flag"]
+        original_subtext = data["scenes"][0]["beats"][0]["subtext"]
+
+        resp = await app_client.put(
+            f"/api/v1/projects/{project_id}/screenplay",
+            json=data,
+        )
+
+        assert resp.status_code == 200
+        saved = resp.json()
+        assert saved["type"] == "screenplay"
+        assert saved["state"] == "draft"
+        assert saved["parent_version"] == generated["version"]
+        assert saved["version"] != generated["version"]
+        first_beat = saved["data"]["scenes"][0]["beats"][0]
+        assert saved["data"]["scenes"][0]["mood"] == "quiet dread"
+        assert first_beat["text"] == "Lin Wan pauses at the archive door."
+        assert first_beat["source_ref"] == original_source_ref
+        assert first_beat["flag"] == original_flag
+        assert first_beat["subtext"] == original_subtext
+
+        project_resp = await app_client.get(f"/api/v1/projects/{project_id}")
+        assert project_resp.status_code == 200
+        assert project_resp.json()["state"] == "editing"
+
+    async def test_update_single_scene_only_replaces_target_scene(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        generated = generate_resp.json()
+        original_scenes = generated["data"]["scenes"]
+        edited_scene = {**original_scenes[0], "synopsis": "Edited scene synopsis."}
+        edited_scene["beats"] = [
+            {
+                **beat,
+                "text": "Edited action beat."
+                if beat["type"] == "action" and index == 0
+                else beat.get("text"),
+            }
+            for index, beat in enumerate(edited_scene["beats"])
+        ]
+
+        resp = await app_client.put(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{edited_scene['id']}",
+            json=edited_scene,
+        )
+
+        assert resp.status_code == 200
+        saved = resp.json()
+        assert saved["parent_version"] == generated["version"]
+        assert saved["data"]["scenes"][0]["synopsis"] == "Edited scene synopsis."
+        assert saved["data"]["scenes"][0]["beats"][0]["text"] == "Edited action beat."
+        assert saved["data"]["scenes"][1:] == original_scenes[1:]
+
+        scene_resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{edited_scene['id']}"
+        )
+        assert scene_resp.status_code == 200
+        assert scene_resp.json()["synopsis"] == "Edited scene synopsis."
+
+    async def test_update_scene_rejects_path_body_id_mismatch(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        scene = generate_resp.json()["data"]["scenes"][0]
+        scene["id"] = "different_scene"
+
+        resp = await app_client.put(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/sc_001",
+            json=scene,
+        )
+
+        assert resp.status_code == 422
+
+    async def test_update_scene_missing_scene_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        scene = generate_resp.json()["data"]["scenes"][0]
+        scene["id"] = "missing"
+
+        resp = await app_client.put(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/missing",
+            json=scene,
+        )
+
+        assert resp.status_code == 404
+
+    async def test_update_screenplay_rejects_missing_trust_fields(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        data = generate_resp.json()["data"]
+        data["scenes"][0]["beats"][0].pop("source_ref")
+
+        resp = await app_client.put(
+            f"/api/v1/projects/{project_id}/screenplay",
+            json=data,
+        )
+
+        assert resp.status_code == 422
+        detail = resp.json()["detail"]
+        assert detail["code"] == "missing_trust_fields"
+        assert detail["items"][0]["scene_id"] == data["scenes"][0]["id"]
+        assert detail["items"][0]["fields"] == ["source_ref"]
+
+    async def test_update_screenplay_missing_screenplay_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        resp = await app_client.put(
+            f"/api/v1/projects/{project_id}/screenplay",
+            json={"scenes": [], "shot_hints": {"enabled": False}},
+        )
+
+        assert resp.status_code == 404
+
     async def test_get_scene_trace_resolves_source_paragraphs(
         self, app_client: AsyncClient, project_id: str
     ) -> None:
