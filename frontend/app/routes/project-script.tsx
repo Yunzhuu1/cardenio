@@ -220,7 +220,7 @@ export default function ProjectScript({
       ) : null}
 
       {outlineConfirmed && !screenplay ? (
-        <Empty className="rounded-xl border bg-card">
+        <Empty className="mx-auto min-h-[52dvh] max-w-2xl">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <ClapperboardIcon />
