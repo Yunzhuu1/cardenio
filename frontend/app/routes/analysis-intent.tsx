@@ -1,14 +1,10 @@
-import {
-  CheckCircleIcon,
-  ClipboardCheckIcon,
-  GitPullRequestArrowIcon,
-  SlidersHorizontalIcon,
-} from "lucide-react";
+import { CheckCircleIcon, ClipboardCheckIcon } from "lucide-react";
 import type * as React from "react";
-import { useState } from "react";
-import { Link, useRevalidator } from "react-router";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useOutletContext, useRevalidator } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/analysis-intent";
+import type { AnalysisLayoutContext } from "./analysis-layout";
 import { StringListEditor } from "~/components/string-list-editor";
 import {
   Alert,
@@ -17,26 +13,10 @@ import {
   AlertTitle,
 } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardHeader,
-  CardPanel,
-  CardTitle,
-} from "~/components/ui/card";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "~/components/ui/empty";
 import { Field, FieldDescription, FieldLabel } from "~/components/ui/field";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Radio, RadioGroup } from "~/components/ui/radio-group";
-import { Separator } from "~/components/ui/separator";
 import { Switch } from "~/components/ui/switch";
 import { toastManager } from "~/components/ui/toast";
 import { api } from "~/lib/api/client";
@@ -48,7 +28,7 @@ import {
   type MvpDirection,
   type ProjectId,
 } from "~/lib/api/types";
-import { analysisStepPath, stagePath } from "~/lib/stages";
+import { analysisStepPath } from "~/lib/stages";
 
 const mvpDirections: MvpDirection[] = ["faithful", "cinematic", "short_drama"];
 
@@ -101,6 +81,7 @@ export default function AnalysisIntent({
 }: Route.ComponentProps): React.ReactElement {
   const { t } = useTranslation();
   const revalidator = useRevalidator();
+  const { setActions } = useOutletContext<AnalysisLayoutContext>();
   const { characters, intent, project, projectId } = loaderData;
   const initialDirection = isMvpDirection(project.meta.adaptation_direction)
     ? project.meta.adaptation_direction
@@ -138,17 +119,17 @@ export default function AnalysisIntent({
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  async function refresh(): Promise<void> {
+  const refresh = useCallback(async (): Promise<void> => {
     await revalidator.revalidate();
-  }
+  }, [revalidator]);
 
-  async function validateConflicts(): Promise<IntentConflict[]> {
+  const validateConflicts = useCallback(async (): Promise<IntentConflict[]> => {
     const response = await api.intent.validate(projectId);
     setConflicts(response.conflicts);
     return response.conflicts;
-  }
+  }, [projectId]);
 
-  async function saveIntent(): Promise<void> {
+  const saveIntent = useCallback(async (): Promise<void> => {
     try {
       setWorking(true);
       const payload: IntentConstraints = {
@@ -178,35 +159,41 @@ export default function AnalysisIntent({
     } finally {
       setWorking(false);
     }
-  }
+  }, [direction, form, projectId, refresh, t, validateConflicts]);
 
-  async function selectDirection(nextDirection: MvpDirection): Promise<void> {
-    try {
-      setWorking(true);
-      const response = await api.intent.setDirection(projectId, nextDirection);
-      setDirection(response.direction);
-      toastManager.add({
-        title: t("analysis.intent.selectDirectionSuccess"),
-        type: "success",
-      });
-      if (savedIntent) {
-        await validateConflicts();
-      } else {
-        setConflicts(null);
+  const selectDirection = useCallback(
+    async (nextDirection: MvpDirection): Promise<void> => {
+      try {
+        setWorking(true);
+        const response = await api.intent.setDirection(
+          projectId,
+          nextDirection,
+        );
+        setDirection(response.direction);
+        toastManager.add({
+          title: t("analysis.intent.selectDirectionSuccess"),
+          type: "success",
+        });
+        if (savedIntent) {
+          await validateConflicts();
+        } else {
+          setConflicts(null);
+        }
+        await refresh();
+      } catch (error) {
+        toastManager.add({
+          description: getErrorMessage(error),
+          title: t("analysis.intent.actionError"),
+          type: "error",
+        });
+      } finally {
+        setWorking(false);
       }
-      await refresh();
-    } catch (error) {
-      toastManager.add({
-        description: getErrorMessage(error),
-        title: t("analysis.intent.actionError"),
-        type: "error",
-      });
-    } finally {
-      setWorking(false);
-    }
-  }
+    },
+    [projectId, savedIntent, t, validateConflicts, refresh],
+  );
 
-  async function runValidation(): Promise<void> {
+  const runValidation = useCallback(async (): Promise<void> => {
     if (!canValidate) return;
 
     try {
@@ -225,7 +212,44 @@ export default function AnalysisIntent({
     } finally {
       setWorking(false);
     }
-  }
+  }, [canValidate, t, validateConflicts]);
+
+  useEffect(() => {
+    if (locked) {
+      setActions(null);
+      return;
+    }
+
+    setActions(
+      <>
+        <Button loading={working} onClick={saveIntent} variant="secondary">
+          <CheckCircleIcon aria-hidden />
+          {t("analysis.intent.save")}
+        </Button>
+        <Button
+          disabled={!canValidate}
+          loading={working}
+          onClick={runValidation}
+          title={!canValidate ? t("analysis.intent.validateFirst") : undefined}
+          variant="outline"
+        >
+          <ClipboardCheckIcon aria-hidden />
+          {t("analysis.intent.validate")}
+        </Button>
+      </>,
+    );
+
+    return () => setActions(null);
+  }, [
+    canValidate,
+    direction,
+    locked,
+    runValidation,
+    saveIntent,
+    setActions,
+    t,
+    working,
+  ]);
 
   return (
     <section className="space-y-4">
@@ -247,244 +271,184 @@ export default function AnalysisIntent({
           </AlertAction>
         </Alert>
       ) : (
-        <div className="space-y-4">
-          {!savedIntent ? (
-            <Empty className="rounded-lg border border-dashed">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <SlidersHorizontalIcon aria-hidden className="size-4" />
-                </EmptyMedia>
-                <EmptyTitle>{t("analysis.intent.emptyTitle")}</EmptyTitle>
-                <EmptyDescription>
-                  {t("analysis.intent.emptyDescription")}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : null}
-
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("analysis.intent.formTitle")}</CardTitle>
-              <CardDescription>
+        <div className="space-y-8">
+          <section className="space-y-5">
+            <div className="space-y-1">
+              <h2 className="font-medium text-base">
+                {t("analysis.intent.formTitle")}
+              </h2>
+              <p className="text-muted-foreground text-sm">
                 {t("analysis.intent.formDescription")}
-              </CardDescription>
-              <CardAction>
-                <Button loading={working} onClick={saveIntent}>
-                  <CheckCircleIcon aria-hidden />
-                  {t("analysis.intent.save")}
-                </Button>
-              </CardAction>
-            </CardHeader>
-            <CardPanel className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <StringListEditor
-                  description={t("analysis.intent.fieldDescriptions.keep")}
-                  label={t("analysis.intent.fields.keep")}
-                  onChange={(values) => updateList("keep", values)}
-                  placeholder={t("analysis.intent.placeholders.keep")}
-                  values={form.keep}
-                />
-                <StringListEditor
-                  description={t("analysis.intent.fieldDescriptions.no_delete")}
-                  label={t("analysis.intent.fields.no_delete")}
-                  onChange={(values) => updateList("no_delete", values)}
-                  placeholder={t("analysis.intent.placeholders.no_delete")}
-                  values={form.no_delete}
-                />
-                <StringListEditor
-                  description={t("analysis.intent.fieldDescriptions.no_merge")}
-                  label={t("analysis.intent.fields.no_merge")}
-                  onChange={(values) => updateList("no_merge", values)}
-                  placeholder={t("analysis.intent.placeholders.no_merge")}
-                  values={form.no_merge}
-                />
-                <StringListEditor
-                  description={t(
-                    "analysis.intent.fieldDescriptions.must_keep_lines",
-                  )}
-                  label={t("analysis.intent.fields.must_keep_lines")}
-                  onChange={(values) => updateList("must_keep_lines", values)}
-                  placeholder={t(
-                    "analysis.intent.placeholders.must_keep_lines",
-                  )}
-                  values={form.must_keep_lines}
-                />
-              </div>
-              <Field className="w-full">
-                <FieldLabel>
-                  {t("analysis.intent.fields.mood_floor")}
-                </FieldLabel>
-                <FieldDescription>
-                  {t("analysis.intent.fieldDescriptions.mood_floor")}
-                </FieldDescription>
-                <Input
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      mood_floor: event.target.value,
-                    }))
-                  }
-                  placeholder={t("analysis.intent.placeholders.mood_floor")}
-                  type="text"
-                  value={form.mood_floor ?? ""}
-                />
-              </Field>
-              <Separator />
-              <div className="grid gap-3 md:grid-cols-3">
-                <IntentSwitch
-                  checked={form.allow_new_plot}
-                  description={t(
-                    "analysis.intent.fieldDescriptions.allow_new_plot",
-                  )}
-                  id="allow-new-plot"
-                  label={t("analysis.intent.fields.allow_new_plot")}
-                  onCheckedChange={(value) =>
-                    updateBoolean("allow_new_plot", value)
-                  }
-                />
-                <IntentSwitch
-                  checked={form.allow_reorder}
-                  description={t(
-                    "analysis.intent.fieldDescriptions.allow_reorder",
-                  )}
-                  id="allow-reorder"
-                  label={t("analysis.intent.fields.allow_reorder")}
-                  onCheckedChange={(value) =>
-                    updateBoolean("allow_reorder", value)
-                  }
-                />
-                <IntentSwitch
-                  checked={form.allow_new_ending}
-                  description={t(
-                    "analysis.intent.fieldDescriptions.allow_new_ending",
-                  )}
-                  id="allow-new-ending"
-                  label={t("analysis.intent.fields.allow_new_ending")}
-                  onCheckedChange={(value) =>
-                    updateBoolean("allow_new_ending", value)
-                  }
-                />
-              </div>
-            </CardPanel>
-          </Card>
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <StringListEditor
+                description={t("analysis.intent.fieldDescriptions.keep")}
+                label={t("analysis.intent.fields.keep")}
+                onChange={(values) => updateList("keep", values)}
+                placeholder={t("analysis.intent.placeholders.keep")}
+                reserveValueSpace={false}
+                values={form.keep}
+              />
+              <StringListEditor
+                description={t("analysis.intent.fieldDescriptions.no_delete")}
+                label={t("analysis.intent.fields.no_delete")}
+                onChange={(values) => updateList("no_delete", values)}
+                placeholder={t("analysis.intent.placeholders.no_delete")}
+                reserveValueSpace={false}
+                values={form.no_delete}
+              />
+              <StringListEditor
+                description={t("analysis.intent.fieldDescriptions.no_merge")}
+                label={t("analysis.intent.fields.no_merge")}
+                onChange={(values) => updateList("no_merge", values)}
+                placeholder={t("analysis.intent.placeholders.no_merge")}
+                reserveValueSpace={false}
+                values={form.no_merge}
+              />
+              <StringListEditor
+                description={t(
+                  "analysis.intent.fieldDescriptions.must_keep_lines",
+                )}
+                label={t("analysis.intent.fields.must_keep_lines")}
+                onChange={(values) => updateList("must_keep_lines", values)}
+                placeholder={t("analysis.intent.placeholders.must_keep_lines")}
+                reserveValueSpace={false}
+                values={form.must_keep_lines}
+              />
+            </div>
+            <Field className="w-full">
+              <FieldLabel>{t("analysis.intent.fields.mood_floor")}</FieldLabel>
+              <FieldDescription>
+                {t("analysis.intent.fieldDescriptions.mood_floor")}
+              </FieldDescription>
+              <Input
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    mood_floor: event.target.value,
+                  }))
+                }
+                placeholder={t("analysis.intent.placeholders.mood_floor")}
+                type="text"
+                value={form.mood_floor ?? ""}
+              />
+            </Field>
+            <div className="grid gap-3 md:grid-cols-3">
+              <IntentSwitch
+                checked={form.allow_new_plot}
+                description={t(
+                  "analysis.intent.fieldDescriptions.allow_new_plot",
+                )}
+                id="allow-new-plot"
+                label={t("analysis.intent.fields.allow_new_plot")}
+                onCheckedChange={(value) =>
+                  updateBoolean("allow_new_plot", value)
+                }
+              />
+              <IntentSwitch
+                checked={form.allow_reorder}
+                description={t(
+                  "analysis.intent.fieldDescriptions.allow_reorder",
+                )}
+                id="allow-reorder"
+                label={t("analysis.intent.fields.allow_reorder")}
+                onCheckedChange={(value) =>
+                  updateBoolean("allow_reorder", value)
+                }
+              />
+              <IntentSwitch
+                checked={form.allow_new_ending}
+                description={t(
+                  "analysis.intent.fieldDescriptions.allow_new_ending",
+                )}
+                id="allow-new-ending"
+                label={t("analysis.intent.fields.allow_new_ending")}
+                onCheckedChange={(value) =>
+                  updateBoolean("allow_new_ending", value)
+                }
+              />
+            </div>
+          </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("analysis.intent.directionTitle")}</CardTitle>
-              <CardDescription>
+          <section className="space-y-4 border-t pt-6">
+            <div className="space-y-1">
+              <h2 className="font-medium text-base">
+                {t("analysis.intent.directionTitle")}
+              </h2>
+              <p className="text-muted-foreground text-sm">
                 {t("analysis.intent.directionDescription")}
-              </CardDescription>
-            </CardHeader>
-            <CardPanel>
-              <RadioGroup
-                aria-label={t("analysis.intent.directionTitle")}
-                onValueChange={(value) => {
-                  if (isMvpDirection(value)) void selectDirection(value);
-                }}
-                value={direction ?? undefined}
-              >
-                {mvpDirections.map((item) => (
-                  <Label
-                    className="flex items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/64 has-[[data-checked]]:border-primary has-[[data-checked]]:bg-primary/6"
-                    key={item}
-                  >
-                    <Radio value={item} />
-                    <span className="grid gap-1">
-                      <span>
-                        {t(`analysis.intent.directions.${item}.label`)}
-                      </span>
-                      <span className="font-normal text-muted-foreground text-sm">
-                        {t(`analysis.intent.directions.${item}.description`)}
-                      </span>
-                    </span>
-                  </Label>
-                ))}
-              </RadioGroup>
-            </CardPanel>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("analysis.intent.validationTitle")}</CardTitle>
-              <CardDescription>
-                {t("analysis.intent.validationDescription")}
-              </CardDescription>
-              <CardAction>
-                <Button
-                  disabled={!canValidate}
-                  loading={working}
-                  onClick={runValidation}
-                  variant="outline"
+              </p>
+            </div>
+            <RadioGroup
+              aria-label={t("analysis.intent.directionTitle")}
+              className="grid gap-3"
+              onValueChange={(value) => {
+                if (isMvpDirection(value)) void selectDirection(value);
+              }}
+              value={direction ?? undefined}
+            >
+              {mvpDirections.map((item) => (
+                <Label
+                  className="flex items-start gap-3 rounded-lg border bg-card p-4 transition-colors hover:bg-muted/48 has-[[data-checked]]:border-primary has-[[data-checked]]:bg-primary/6"
+                  key={item}
                 >
-                  <ClipboardCheckIcon aria-hidden />
-                  {t("analysis.intent.validate")}
-                </Button>
-              </CardAction>
-            </CardHeader>
-            <CardPanel className="space-y-3">
-              {!canValidate ? (
-                <Alert variant="info">
-                  <AlertTitle>{t("analysis.intent.validateFirst")}</AlertTitle>
+                  <Radio value={item} />
+                  <span className="grid gap-1">
+                    <span>{t(`analysis.intent.directions.${item}.label`)}</span>
+                    <span className="font-normal text-muted-foreground text-sm">
+                      {t(`analysis.intent.directions.${item}.description`)}
+                    </span>
+                  </span>
+                </Label>
+              ))}
+            </RadioGroup>
+          </section>
+
+          <section className="space-y-4 border-t pt-6">
+            <div className="space-y-1">
+              <h2 className="font-medium text-base">
+                {t("analysis.intent.validationTitle")}
+              </h2>
+              <p className="text-muted-foreground text-sm">
+                {t("analysis.intent.validationDescription")}
+              </p>
+            </div>
+            {conflicts ? (
+              conflicts.length === 0 ? (
+                <Alert variant="success">
+                  <AlertTitle>
+                    {t("analysis.intent.noConflictsTitle")}
+                  </AlertTitle>
                   <AlertDescription>
-                    {t("analysis.intent.validationDescription")}
+                    {t("analysis.intent.noConflictsDescription")}
                   </AlertDescription>
                 </Alert>
-              ) : null}
-              {conflicts ? (
-                conflicts.length === 0 ? (
-                  <Alert variant="success">
-                    <AlertTitle>
-                      {t("analysis.intent.noConflictsTitle")}
-                    </AlertTitle>
-                    <AlertDescription>
-                      {t("analysis.intent.noConflictsDescription")}
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <div className="space-y-2">
-                    {conflicts.map((conflict) => (
-                      <Alert key={conflict.code} variant="warning">
-                        <AlertTitle>
-                          {t("analysis.intent.conflictTitle")}
-                        </AlertTitle>
-                        <AlertDescription>
-                          <span className="block">
-                            {t(`analysis.intent.conflicts.${conflict.code}`, {
-                              defaultValue:
-                                conflict.message ||
-                                t("analysis.intent.conflicts.unknown"),
-                            })}
-                          </span>
-                          <span className="mt-1 block">
-                            {t("analysis.intent.conflictDescription")}
-                          </span>
-                        </AlertDescription>
-                      </Alert>
-                    ))}
-                  </div>
-                )
-              ) : null}
-            </CardPanel>
-          </Card>
-
-          {savedIntent ? (
-            <Alert variant="success">
-              <AlertTitle>{t("analysis.intent.completeTitle")}</AlertTitle>
-              <AlertDescription>
-                {t("analysis.intent.completeDescription")}
-              </AlertDescription>
-              <AlertAction>
-                <Button
-                  render={<Link to={stagePath(projectId, "outline")} />}
-                  size="sm"
-                  variant="outline"
-                >
-                  <GitPullRequestArrowIcon aria-hidden />
-                  {t("analysis.intent.outlineCta")}
-                </Button>
-              </AlertAction>
-            </Alert>
-          ) : null}
+              ) : (
+                <div className="space-y-2">
+                  {conflicts.map((conflict) => (
+                    <Alert key={conflict.code} variant="warning">
+                      <AlertTitle>
+                        {t("analysis.intent.conflictTitle")}
+                      </AlertTitle>
+                      <AlertDescription>
+                        <span className="block">
+                          {t(`analysis.intent.conflicts.${conflict.code}`, {
+                            defaultValue:
+                              conflict.message ||
+                              t("analysis.intent.conflicts.unknown"),
+                          })}
+                        </span>
+                        <span className="mt-1 block">
+                          {t("analysis.intent.conflictDescription")}
+                        </span>
+                      </AlertDescription>
+                    </Alert>
+                  ))}
+                </div>
+              )
+            ) : null}
+          </section>
         </div>
       )}
     </section>
@@ -505,7 +469,7 @@ function IntentSwitch({
   onCheckedChange: (checked: boolean) => void;
 }): React.ReactElement {
   return (
-    <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
+    <div className="flex items-start justify-between gap-4 rounded-lg border bg-card p-4">
       <div className="grid gap-1">
         <Label htmlFor={id}>{label}</Label>
         <p className="text-muted-foreground text-sm">{description}</p>

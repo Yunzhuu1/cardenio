@@ -1,18 +1,25 @@
+import cytoscape, {
+  type Core as CytoscapeCore,
+  type ElementDefinition,
+} from "cytoscape";
 import {
   CheckCircleIcon,
-  MoreHorizontalIcon,
   PlusIcon,
   RefreshCwIcon,
-  Trash2Icon,
-  UserPenIcon,
   UsersIcon,
   XIcon,
 } from "lucide-react";
 import type * as React from "react";
-import { useMemo, useState } from "react";
-import { Link, useRevalidator } from "react-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Link,
+  useNavigate,
+  useOutletContext,
+  useRevalidator,
+} from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/analysis-characters";
+import type { AnalysisLayoutContext } from "./analysis-layout";
 import { StringListEditor } from "~/components/string-list-editor";
 import {
   Alert,
@@ -30,27 +37,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "~/components/ui/alert-dialog";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardHeader,
-  CardPanel,
-  CardTitle,
-} from "~/components/ui/card";
-import {
-  Dialog,
-  DialogClose,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogPanel,
-  DialogPopup,
-  DialogTitle,
-  DialogTrigger,
-} from "~/components/ui/dialog";
+  Drawer,
+  DrawerClose,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerPanel,
+  DrawerPopup,
+  DrawerTitle,
+  DrawerTrigger,
+} from "~/components/ui/drawer";
 import {
   Empty,
   EmptyDescription,
@@ -60,7 +58,6 @@ import {
 } from "~/components/ui/empty";
 import { Field, FieldLabel } from "~/components/ui/field";
 import { Input } from "~/components/ui/input";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "~/components/ui/menu";
 import {
   Select,
   SelectItem,
@@ -68,7 +65,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/components/ui/select";
-import { Separator } from "~/components/ui/separator";
 import { toastManager } from "~/components/ui/toast";
 import { api } from "~/lib/api/client";
 import {
@@ -81,6 +77,12 @@ import {
 import { analysisStepPath } from "~/lib/stages";
 
 const roleOrder: CharacterRole[] = ["protagonist", "supporting", "mentioned"];
+
+const roleColors: Record<CharacterRole, string> = {
+  mentioned: "#8f8f8f",
+  protagonist: "#d9a700",
+  supporting: "#4f8f8a",
+};
 
 type CharacterFormState = {
   id: string | null;
@@ -164,14 +166,6 @@ function makeCharacterId(name: string, existingIds: string[]): string {
   return `${base}-${suffix}`;
 }
 
-function roleBadgeVariant(
-  role: CharacterRole,
-): "default" | "secondary" | "info" {
-  if (role === "protagonist") return "default";
-  if (role === "supporting") return "info";
-  return "secondary";
-}
-
 export async function clientLoader({ params }: Route.ClientLoaderArgs) {
   const projectId = params.projectId as ProjectId;
   const [characters, understanding] = await Promise.all([
@@ -185,10 +179,12 @@ export default function AnalysisCharacters({
   loaderData,
 }: Route.ComponentProps): React.ReactElement {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const revalidator = useRevalidator();
+  const { setActions } = useOutletContext<AnalysisLayoutContext>();
   const { characters, understanding, projectId } = loaderData;
   const [working, setWorking] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<CharacterFormState>(emptyCharacterForm);
   const [deleteTarget, setDeleteTarget] = useState<Character | null>(null);
   const locked = understanding?.state !== "confirmed";
@@ -198,32 +194,32 @@ export default function AnalysisCharacters({
     [characters],
   );
   const editingCharacterId = form.id;
-  const groupedCharacters = useMemo(
-    () =>
-      roleOrder.map((role) => ({
-        characters: characterList.filter(
-          (character) => character.role === role,
-        ),
-        role,
-      })),
-    [characterList],
-  );
 
-  async function refresh(): Promise<void> {
+  const refresh = useCallback(async (): Promise<void> => {
     await revalidator.revalidate();
-  }
+  }, [revalidator]);
 
-  function openCreateDialog(): void {
+  const openCreateDrawer = useCallback((): void => {
     setForm(emptyCharacterForm());
-    setDialogOpen(true);
-  }
+    setDrawerOpen(true);
+  }, []);
 
-  function openEditDialog(character: Character): void {
+  const openEditDrawer = useCallback((character: Character): void => {
     setForm(characterToForm(character));
-    setDialogOpen(true);
-  }
+    setDrawerOpen(true);
+  }, []);
 
-  async function generateCharacters(): Promise<void> {
+  const requestDeleteEditingCharacter = useCallback((): void => {
+    if (!editingCharacterId) return;
+    const target = characterList.find(
+      (character) => character.id === editingCharacterId,
+    );
+    if (!target) return;
+    setDeleteTarget(target);
+    setDrawerOpen(false);
+  }, [characterList, editingCharacterId]);
+
+  const generateCharacters = useCallback(async (): Promise<void> => {
     try {
       setWorking(true);
       await api.characters.generate(projectId);
@@ -244,9 +240,9 @@ export default function AnalysisCharacters({
     } finally {
       setWorking(false);
     }
-  }
+  }, [projectId, refresh, t]);
 
-  async function saveCharacter(): Promise<void> {
+  const saveCharacter = useCallback(async (): Promise<void> => {
     const name = form.name.trim();
     if (
       !name ||
@@ -276,7 +272,7 @@ export default function AnalysisCharacters({
           type: "success",
         });
       }
-      setDialogOpen(false);
+      setDrawerOpen(false);
       await refresh();
     } catch (error) {
       toastManager.add({
@@ -290,9 +286,9 @@ export default function AnalysisCharacters({
     } finally {
       setWorking(false);
     }
-  }
+  }, [characterList, editingCharacterId, form, projectId, refresh, t]);
 
-  async function deleteCharacter(): Promise<void> {
+  const deleteCharacter = useCallback(async (): Promise<void> => {
     if (!deleteTarget) return;
 
     try {
@@ -313,9 +309,9 @@ export default function AnalysisCharacters({
     } finally {
       setWorking(false);
     }
-  }
+  }, [deleteTarget, projectId, refresh, t]);
 
-  async function confirmCharacters(): Promise<void> {
+  const confirmCharacters = useCallback(async (): Promise<void> => {
     try {
       setWorking(true);
       await api.characters.confirm(projectId);
@@ -324,6 +320,7 @@ export default function AnalysisCharacters({
         type: "success",
       });
       await refresh();
+      await navigate(analysisStepPath(projectId, "intent"));
     } catch (error) {
       toastManager.add({
         description: getErrorMessage(error),
@@ -333,10 +330,101 @@ export default function AnalysisCharacters({
     } finally {
       setWorking(false);
     }
-  }
+  }, [navigate, projectId, refresh, t]);
+
+  useEffect(() => {
+    if (locked || !characters) {
+      setActions(null);
+      return;
+    }
+
+    setActions(
+      <>
+        <AlertDialog>
+          <AlertDialogTrigger render={<Button variant="outline" />}>
+            <RefreshCwIcon aria-hidden />
+            {t("analysis.characters.regenerate")}
+          </AlertDialogTrigger>
+          <AlertDialogPopup>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t("analysis.characters.regenerateTitle")}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("analysis.characters.regenerateDescription")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogClose
+                render={<Button type="button" variant="ghost" />}
+              >
+                {t("analysis.characters.cancel")}
+              </AlertDialogClose>
+              <AlertDialogClose
+                render={
+                  <Button
+                    loading={working}
+                    onClick={generateCharacters}
+                    type="button"
+                  />
+                }
+              >
+                {t("analysis.characters.regenerateConfirm")}
+              </AlertDialogClose>
+            </AlertDialogFooter>
+          </AlertDialogPopup>
+        </AlertDialog>
+        <Drawer onOpenChange={setDrawerOpen} open={drawerOpen} position="right">
+          <DrawerTrigger render={<Button onClick={openCreateDrawer} />}>
+            <PlusIcon aria-hidden />
+            {t("analysis.characters.addCharacter")}
+          </DrawerTrigger>
+          <CharacterDrawer
+            characters={characterList}
+            form={form}
+            onFormChange={setForm}
+            onRequestDelete={requestDeleteEditingCharacter}
+            onSave={saveCharacter}
+            projectWorking={working}
+          />
+        </Drawer>
+        {status !== "confirmed" ? (
+          <Button loading={working} onClick={confirmCharacters}>
+            <CheckCircleIcon aria-hidden />
+            {t("analysis.characters.confirm")}
+          </Button>
+        ) : (
+          <Button
+            render={<Link to={analysisStepPath(projectId, "intent")} />}
+            variant="secondary"
+          >
+            {t("analysis.characters.confirmCta")}
+          </Button>
+        )}
+      </>,
+    );
+
+    return () => setActions(null);
+  }, [
+    characterList,
+    characters,
+    confirmCharacters,
+    drawerOpen,
+    form,
+    generateCharacters,
+    locked,
+    openCreateDrawer,
+    projectId,
+    requestDeleteEditingCharacter,
+    saveCharacter,
+    setActions,
+    status,
+    t,
+    working,
+  ]);
 
   return (
-    <section className="space-y-4">
+    <section className="h-full space-y-4">
       {locked ? (
         <Alert variant="warning">
           <AlertTitle>{t("analysis.characters.lockedTitle")}</AlertTitle>
@@ -356,114 +444,11 @@ export default function AnalysisCharacters({
           </AlertAction>
         </Alert>
       ) : characters ? (
-        <div className="space-y-4">
-          {status !== "confirmed" ? (
-            <Alert variant="info">
-              <AlertTitle>
-                {t("analysis.characters.needsReconfirmTitle")}
-              </AlertTitle>
-              <AlertDescription>
-                {t("analysis.characters.needsReconfirmDescription")}
-              </AlertDescription>
-            </Alert>
-          ) : null}
-
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("analysis.characters.cardTitle")}</CardTitle>
-              <CardDescription>
-                {t("analysis.characters.cardDescription")}
-              </CardDescription>
-              <CardAction className="flex flex-wrap justify-end gap-2">
-                <AlertDialog>
-                  <AlertDialogTrigger render={<Button variant="outline" />}>
-                    <RefreshCwIcon aria-hidden />
-                    {t("analysis.characters.regenerate")}
-                  </AlertDialogTrigger>
-                  <AlertDialogPopup>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        {t("analysis.characters.regenerateTitle")}
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {t("analysis.characters.regenerateDescription")}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogClose
-                        render={<Button type="button" variant="ghost" />}
-                      >
-                        {t("analysis.characters.cancel")}
-                      </AlertDialogClose>
-                      <AlertDialogClose
-                        render={
-                          <Button
-                            loading={working}
-                            onClick={generateCharacters}
-                            type="button"
-                          />
-                        }
-                      >
-                        {t("analysis.characters.regenerateConfirm")}
-                      </AlertDialogClose>
-                    </AlertDialogFooter>
-                  </AlertDialogPopup>
-                </AlertDialog>
-                <Dialog onOpenChange={setDialogOpen} open={dialogOpen}>
-                  <DialogTrigger render={<Button onClick={openCreateDialog} />}>
-                    <PlusIcon aria-hidden />
-                    {t("analysis.characters.addCharacter")}
-                  </DialogTrigger>
-                  <CharacterDialog
-                    characters={characterList}
-                    form={form}
-                    onFormChange={setForm}
-                    onSave={saveCharacter}
-                    projectWorking={working}
-                  />
-                </Dialog>
-                {status !== "confirmed" ? (
-                  <Button loading={working} onClick={confirmCharacters}>
-                    <CheckCircleIcon aria-hidden />
-                    {t("analysis.characters.confirm")}
-                  </Button>
-                ) : null}
-                {status === "confirmed" ? (
-                  <Button
-                    render={<Link to={analysisStepPath(projectId, "intent")} />}
-                    variant="secondary"
-                  >
-                    {t("analysis.characters.confirmCta")}
-                  </Button>
-                ) : null}
-              </CardAction>
-            </CardHeader>
-          </Card>
-
-          {groupedCharacters.map((group) => (
-            <section className="space-y-3" key={group.role}>
-              <h3 className="font-medium text-base">
-                {t(`analysis.characters.roles.${group.role}`)}
-              </h3>
-              {group.characters.length > 0 ? (
-                <div className="grid gap-3 xl:grid-cols-2">
-                  {group.characters.map((character) => (
-                    <CharacterCard
-                      character={character}
-                      characters={characterList}
-                      key={character.id}
-                      onDelete={setDeleteTarget}
-                      onEdit={openEditDialog}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-sm">
-                  {t("analysis.characters.noCharacters")}
-                </p>
-              )}
-            </section>
-          ))}
+        <div className="h-full min-h-0">
+          <CharacterGraph
+            characters={characterList}
+            onNodeClick={openEditDrawer}
+          />
         </div>
       ) : (
         <Empty className="rounded-lg border border-dashed">
@@ -521,147 +506,222 @@ export default function AnalysisCharacters({
   );
 }
 
-function CharacterCard({
-  character,
+function CharacterGraph({
   characters,
-  onDelete,
-  onEdit,
+  onNodeClick,
 }: {
-  character: Character;
   characters: Character[];
-  onDelete: (character: Character) => void;
-  onEdit: (character: Character) => void;
+  onNodeClick: (character: Character) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const relationName = (id: string) =>
-    characters.find((item) => item.id === id)?.name ?? id;
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const graphRef = useRef<CytoscapeCore | null>(null);
+  const charactersRef = useRef(characters);
+  const onNodeClickRef = useRef(onNodeClick);
+  const elements = useMemo(
+    () => buildCharacterGraphElements(characters),
+    [characters],
+  );
+
+  useEffect(() => {
+    charactersRef.current = characters;
+    onNodeClickRef.current = onNodeClick;
+  }, [characters, onNodeClick]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const graph = cytoscape({
+      container,
+      elements,
+      layout: {
+        animate: true,
+        animationDuration: 500,
+        fit: true,
+        name: "cose",
+        nodeRepulsion: 5200,
+        padding: 48,
+      },
+      maxZoom: 2.4,
+      minZoom: 0.45,
+      style: [
+        {
+          selector: "node",
+          style: {
+            "background-color": "data(color)",
+            "border-color": "#ffffff",
+            "border-opacity": 0.92,
+            "border-width": 2,
+            color: "#1f2933",
+            content: "data(label)",
+            "font-family":
+              "IBM Plex Sans, IBM Plex Sans SC, Noto Sans SC, sans-serif",
+            "font-size": 12,
+            "font-weight": 600,
+            height: "mapData(weight, 1, 4, 36, 58)",
+            label: "data(label)",
+            "overlay-opacity": 0,
+            "text-background-color": "#ffffff",
+            "text-background-opacity": 0.78,
+            "text-background-padding": "3px",
+            "text-margin-y": -10,
+            "text-outline-width": 0,
+            "text-valign": "top",
+            width: "mapData(weight, 1, 4, 36, 58)",
+          },
+        },
+        {
+          selector: "edge",
+          style: {
+            "curve-style": "bezier",
+            "font-family":
+              "IBM Plex Sans, IBM Plex Sans SC, Noto Sans SC, sans-serif",
+            "font-size": 10,
+            label: "data(label)",
+            "line-color": "#b9b2a3",
+            opacity: 0.74,
+            "target-arrow-color": "#b9b2a3",
+            "target-arrow-shape": "triangle",
+            "text-background-color": "#faf9f7",
+            "text-background-opacity": 0.84,
+            "text-background-padding": "2px",
+            "text-rotation": "autorotate",
+            width: 1.25,
+          },
+        },
+        {
+          selector: "node:selected",
+          style: {
+            "border-color": "#d9a700",
+            "border-width": 4,
+          },
+        },
+        {
+          selector: "edge:selected",
+          style: {
+            "line-color": "#d9a700",
+            "target-arrow-color": "#d9a700",
+            width: 2,
+          },
+        },
+      ],
+      wheelSensitivity: 0.18,
+    });
+
+    graph.on("tap", "node", (event) => {
+      const id = event.target.id();
+      const character = charactersRef.current.find((item) => item.id === id);
+      if (character) onNodeClickRef.current(character);
+    });
+
+    graphRef.current = graph;
+
+    const resizeObserver = new ResizeObserver(() => {
+      window.requestAnimationFrame(() => {
+        graph.resize();
+        graph.fit(undefined, 48);
+      });
+    });
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+      graph.destroy();
+      graphRef.current = null;
+    };
+  }, [elements]);
+
+  useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph) return;
+
+    graph.json({ elements });
+    graph
+      .layout({
+        animate: true,
+        animationDuration: 450,
+        fit: true,
+        name: "cose",
+        nodeRepulsion: 5200,
+        padding: 48,
+      })
+      .run();
+  }, [elements]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex min-w-0 items-center gap-2">
-          <span className="truncate">{character.name}</span>
-          <Badge size="sm" variant={roleBadgeVariant(character.role)}>
-            {t(`analysis.characters.roles.${character.role}`)}
-          </Badge>
-        </CardTitle>
-        <CardDescription>{character.id}</CardDescription>
-        <CardAction>
-          <Menu>
-            <MenuTrigger
-              aria-label={t("analysis.characters.menuLabel")}
-              render={<Button size="icon-sm" variant="ghost" />}
-            >
-              <MoreHorizontalIcon aria-hidden />
-            </MenuTrigger>
-            <MenuPopup align="end">
-              <MenuItem onClick={() => onEdit(character)}>
-                <UserPenIcon aria-hidden />
-                {t("analysis.characters.editCharacter")}
-              </MenuItem>
-              <MenuItem
-                onClick={() => onDelete(character)}
-                variant="destructive"
-              >
-                <Trash2Icon aria-hidden />
-                {t("analysis.characters.deleteCharacter")}
-              </MenuItem>
-            </MenuPopup>
-          </Menu>
-        </CardAction>
-      </CardHeader>
-      <CardPanel className="space-y-3">
-        <dl className="grid gap-2 text-sm">
-          <CharacterDetail
-            label={t("analysis.characters.fields.voice")}
-            value={character.voice}
-          />
-          <CharacterDetail
-            label={t("analysis.characters.fields.desire")}
-            value={character.desire}
-          />
-          <CharacterDetail
-            label={t("analysis.characters.fields.fear")}
-            value={character.fear}
-          />
-          {character.arc ? (
-            <CharacterDetail
-              label={t("analysis.characters.fields.arc")}
-              value={character.arc}
-            />
-          ) : null}
-        </dl>
-
-        <Separator />
-
-        <div className="space-y-2">
-          <div className="font-medium text-sm">
-            {t("analysis.characters.fields.hard_rules")}
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {character.hard_rules.length > 0 ? (
-              character.hard_rules.map((rule) => (
-                <Badge key={rule} variant="secondary">
-                  {rule}
-                </Badge>
-              ))
-            ) : (
-              <span className="text-muted-foreground text-sm">-</span>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <div className="font-medium text-sm">
-            {t("analysis.characters.fields.relations")}
-          </div>
-          {character.relations.length > 0 ? (
-            <ul className="space-y-1 text-sm">
-              {character.relations.map((relation, index) => (
-                <li key={`${relation.to}-${relation.type}-${index}`}>
-                  {"-> "}
-                  {relationName(relation.to)}
-                  {relation.type ? ` (${relation.type})` : ""}
-                  {relation.change ? `: ${relation.change}` : ""}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <span className="text-muted-foreground text-sm">
-              {t("analysis.characters.relations.empty")}
-            </span>
-          )}
-        </div>
-      </CardPanel>
-    </Card>
+    <section
+      aria-label={t("analysis.characters.graphLabel")}
+      className="h-full min-h-0"
+    >
+      <div
+        className="h-full min-h-0 overflow-hidden rounded-lg border bg-background"
+        ref={containerRef}
+      />
+    </section>
   );
 }
 
-function CharacterDetail({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}): React.ReactElement {
-  return (
-    <div className="grid gap-1 sm:grid-cols-[7rem_1fr]">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd>{value}</dd>
-    </div>
+function buildCharacterGraphElements(
+  characters: Character[],
+): ElementDefinition[] {
+  const ids = new Set(characters.map((character) => character.id));
+  const relationCounts = new Map<string, number>();
+
+  for (const character of characters) {
+    relationCounts.set(
+      character.id,
+      character.relations.filter((relation) => ids.has(relation.to)).length,
+    );
+    for (const relation of character.relations) {
+      if (!ids.has(relation.to)) continue;
+      relationCounts.set(
+        relation.to,
+        (relationCounts.get(relation.to) ?? 0) + 1,
+      );
+    }
+  }
+
+  const nodes: ElementDefinition[] = characters.map((character) => ({
+    data: {
+      color: roleColors[character.role],
+      id: character.id,
+      label: character.name,
+      role: character.role,
+      weight: Math.min((relationCounts.get(character.id) ?? 0) + 1, 4),
+    },
+    group: "nodes",
+  }));
+
+  const edges: ElementDefinition[] = characters.flatMap((character) =>
+    character.relations
+      .filter((relation) => ids.has(relation.to))
+      .map((relation, index) => ({
+        data: {
+          id: `${character.id}-${relation.to}-${index}`,
+          label: relation.type,
+          source: character.id,
+          target: relation.to,
+        },
+        group: "edges",
+      })),
   );
+
+  return [...nodes, ...edges];
 }
 
-function CharacterDialog({
+function CharacterDrawer({
   characters,
   form,
   onFormChange,
+  onRequestDelete,
   onSave,
   projectWorking,
 }: {
   characters: Character[];
   form: CharacterFormState;
   onFormChange: React.Dispatch<React.SetStateAction<CharacterFormState>>;
+  onRequestDelete: () => void;
   onSave: () => Promise<void>;
   projectWorking: boolean;
 }): React.ReactElement {
@@ -685,19 +745,19 @@ function CharacterDialog({
   }
 
   return (
-    <DialogPopup className="max-w-3xl">
-      <DialogHeader>
-        <DialogTitle>
+    <DrawerPopup showCloseButton variant="inset">
+      <DrawerHeader>
+        <DrawerTitle>
           {isEditing
             ? t("analysis.characters.editCharacter")
             : t("analysis.characters.addCharacter")}
-        </DialogTitle>
-        <DialogDescription>
+        </DrawerTitle>
+        <DrawerDescription>
           {t("analysis.characters.cardDescription")}
-        </DialogDescription>
-      </DialogHeader>
-      <DialogPanel className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
+        </DrawerDescription>
+      </DrawerHeader>
+      <DrawerPanel className="space-y-4">
+        <div className="grid gap-4">
           <Field className="w-full">
             <FieldLabel>{t("analysis.characters.fields.name")}</FieldLabel>
             <Input
@@ -712,9 +772,7 @@ function CharacterDialog({
             }
             value={form.role}
           />
-        </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
           <Field className="w-full">
             <FieldLabel>{t("analysis.characters.fields.voice")}</FieldLabel>
             <Input
@@ -769,18 +827,28 @@ function CharacterDialog({
           }
           relations={form.relations}
         />
-      </DialogPanel>
-      <DialogFooter>
-        <DialogClose render={<Button type="button" variant="ghost" />}>
+      </DrawerPanel>
+      <DrawerFooter>
+        {isEditing ? (
+          <Button
+            className="me-auto"
+            onClick={onRequestDelete}
+            type="button"
+            variant="destructive"
+          >
+            {t("analysis.characters.deleteCharacter")}
+          </Button>
+        ) : null}
+        <DrawerClose render={<Button type="button" variant="ghost" />}>
           {t("analysis.characters.cancel")}
-        </DialogClose>
+        </DrawerClose>
         <Button disabled={!canSave} loading={projectWorking} onClick={onSave}>
           {isEditing
             ? t("analysis.characters.saveCharacter")
             : t("analysis.characters.createCharacter")}
         </Button>
-      </DialogFooter>
-    </DialogPopup>
+      </DrawerFooter>
+    </DrawerPopup>
   );
 }
 

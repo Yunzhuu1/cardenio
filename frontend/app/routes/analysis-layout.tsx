@@ -1,8 +1,10 @@
 import { CheckIcon, LockIcon } from "lucide-react";
 import { NavLink, Outlet } from "react-router";
 import { useTranslation } from "react-i18next";
+import { useState, type ReactNode } from "react";
 import type { Route } from "./+types/analysis-layout";
 import { Badge } from "~/components/ui/badge";
+import { ScrollArea } from "~/components/ui/scroll-area";
 import { api } from "~/lib/api/client";
 import { ApiError, type ArtifactState } from "~/lib/api/types";
 import { analysisStepPath, type AnalysisStep } from "~/lib/stages";
@@ -10,6 +12,10 @@ import { cn } from "~/lib/utils";
 
 type NullableArtifact = { state: ArtifactState } | null;
 type StepStatus = "empty" | ArtifactState;
+
+export type AnalysisLayoutContext = {
+  setActions: (actions: ReactNode) => void;
+};
 
 async function getOrNull<T>(request: Promise<T>): Promise<T | null> {
   try {
@@ -49,6 +55,7 @@ export default function AnalysisLayout({
 }: Route.ComponentProps): React.ReactElement {
   const { t } = useTranslation();
   const { project, understanding, characters, intent } = loaderData;
+  const [actions, setActions] = useState<ReactNode>(null);
   const steps: Array<{
     key: AnalysisStep;
     index: number;
@@ -76,73 +83,87 @@ export default function AnalysisLayout({
   ];
 
   return (
-    <div className="space-y-6">
-      <nav
-        aria-label={t("analysis.navLabel")}
-        className="flex gap-2 overflow-x-auto rounded-lg border border-border bg-muted/30 p-2"
-      >
-        {steps.map((step) => {
-          const done = step.status === "confirmed";
-          const content = (
-            <>
-              <span
-                className={cn(
-                  "flex size-5 items-center justify-center rounded-full border text-xs",
-                  done
-                    ? "border-success bg-success text-success-foreground"
-                    : "border-current",
-                )}
-              >
-                {done ? (
-                  <CheckIcon aria-hidden className="size-3" />
-                ) : (
-                  step.index
-                )}
-              </span>
-              <span>{t(`analysis.steps.${step.key}`)}</span>
-              {step.locked ? (
-                <LockIcon aria-hidden className="size-3.5 opacity-70" />
-              ) : (
-                <Badge size="sm" variant={done ? "success" : "secondary"}>
-                  {t(`analysis.status.${step.status}`)}
-                </Badge>
-              )}
-            </>
-          );
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 py-3">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-5 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
+          <nav
+            aria-label={t("analysis.navLabel")}
+            className="flex gap-2 overflow-x-auto"
+          >
+            {steps.map((step) => {
+              const done = step.status === "confirmed";
+              const content = (
+                <>
+                  <span
+                    className={cn(
+                      "flex size-5 items-center justify-center rounded-full border text-xs",
+                      done
+                        ? "border-success bg-success text-success-foreground"
+                        : "border-current",
+                    )}
+                  >
+                    {done ? (
+                      <CheckIcon aria-hidden className="size-3" />
+                    ) : (
+                      step.index
+                    )}
+                  </span>
+                  <span>{t(`analysis.steps.${step.key}`)}</span>
+                  {step.locked ? (
+                    <LockIcon aria-hidden className="size-3.5 opacity-70" />
+                  ) : (
+                    <Badge size="sm" variant={done ? "success" : "secondary"}>
+                      {t(`analysis.status.${step.status}`)}
+                    </Badge>
+                  )}
+                </>
+              );
 
-          if (step.locked) {
-            return (
-              <span
-                aria-disabled="true"
-                className="flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground opacity-70"
-                key={step.key}
-                title={t("analysis.locked")}
-              >
-                {content}
-              </span>
-            );
-          }
-
-          return (
-            <NavLink
-              className={({ isActive }) =>
-                cn(
-                  "flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-background text-foreground shadow-xs"
-                    : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
-                )
+              if (step.locked) {
+                return (
+                  <span
+                    aria-disabled="true"
+                    className="flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground opacity-70"
+                    key={step.key}
+                    title={t("analysis.locked")}
+                  >
+                    {content}
+                  </span>
+                );
               }
-              key={step.key}
-              to={analysisStepPath(project.id, step.key)}
-            >
-              {content}
-            </NavLink>
-          );
-        })}
-      </nav>
 
-      <Outlet />
+              return (
+                <NavLink
+                  className={({ isActive }) =>
+                    cn(
+                      "flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-accent text-foreground"
+                        : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                    )
+                  }
+                  end
+                  key={step.key}
+                  to={analysisStepPath(project.id, step.key)}
+                >
+                  {content}
+                </NavLink>
+              );
+            })}
+          </nav>
+          {actions ? (
+            <div className="flex shrink-0 flex-wrap gap-2 lg:justify-end">
+              {actions}
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      <ScrollArea className="min-h-0 w-full flex-1" fill scrollFade>
+        <div className="mx-auto h-full min-h-full w-full max-w-6xl px-5 py-8 sm:px-8">
+          <Outlet context={{ setActions } satisfies AnalysisLayoutContext} />
+        </div>
+      </ScrollArea>
     </div>
   );
 }

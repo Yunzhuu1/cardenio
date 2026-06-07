@@ -6,10 +6,16 @@ import {
   SaveIcon,
   SparklesIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
-import { Link, useNavigate, useRevalidator } from "react-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Link,
+  useNavigate,
+  useOutletContext,
+  useRevalidator,
+} from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/analysis-understanding";
+import type { AnalysisLayoutContext } from "./analysis-layout";
 import { StringListEditor } from "~/components/string-list-editor";
 import {
   Alert,
@@ -29,14 +35,6 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardHeader,
-  CardPanel,
-  CardTitle,
-} from "~/components/ui/card";
 import {
   Collapsible,
   CollapsiblePanel,
@@ -62,6 +60,7 @@ import {
   type UnderstandingData,
 } from "~/lib/api/types";
 import { analysisStepPath, stagePath } from "~/lib/stages";
+import { cn } from "~/lib/utils";
 
 type EditableTextField =
   | "logline"
@@ -106,6 +105,7 @@ export default function AnalysisUnderstanding({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const revalidator = useRevalidator();
+  const { setActions } = useOutletContext<AnalysisLayoutContext>();
   const projectId = params.projectId as ProjectId;
   const { understanding, threshold } = loaderData;
   const [draft, setDraft] = useState<UnderstandingData | null>(
@@ -115,6 +115,7 @@ export default function AnalysisUnderstanding({
 
   const status = understanding?.state ?? "empty";
   const isConfirmed = status === "confirmed";
+  const hasUnderstanding = Boolean(understanding && draft);
   const isDirty =
     Boolean(draft) &&
     JSON.stringify(draft) !== JSON.stringify(understanding?.data);
@@ -161,11 +162,11 @@ export default function AnalysisUnderstanding({
     [t],
   );
 
-  async function refresh(): Promise<void> {
+  const refresh = useCallback(async (): Promise<void> => {
     await revalidator.revalidate();
-  }
+  }, [revalidator]);
 
-  async function generateUnderstanding(): Promise<void> {
+  const generateUnderstanding = useCallback(async (): Promise<void> => {
     try {
       setWorking(true);
       const envelope = await api.understanding.generate(projectId);
@@ -184,9 +185,9 @@ export default function AnalysisUnderstanding({
     } finally {
       setWorking(false);
     }
-  }
+  }, [projectId, refresh, t]);
 
-  async function saveUnderstanding(): Promise<void> {
+  const saveUnderstanding = useCallback(async (): Promise<void> => {
     if (!draft) return;
 
     try {
@@ -212,9 +213,9 @@ export default function AnalysisUnderstanding({
     } finally {
       setWorking(false);
     }
-  }
+  }, [draft, projectId, refresh, t, understanding]);
 
-  async function confirmUnderstanding(): Promise<void> {
+  const confirmUnderstanding = useCallback(async (): Promise<void> => {
     try {
       setWorking(true);
       await api.understanding.confirm(projectId);
@@ -233,7 +234,85 @@ export default function AnalysisUnderstanding({
     } finally {
       setWorking(false);
     }
-  }
+  }, [navigate, projectId, refresh, t]);
+
+  useEffect(() => {
+    if (!hasUnderstanding) {
+      setActions(null);
+      return;
+    }
+
+    setActions(
+      <>
+        <AlertDialog>
+          <AlertDialogTrigger render={<Button variant="outline" />}>
+            <RefreshCwIcon aria-hidden />
+            {t("analysis.understanding.regenerate")}
+          </AlertDialogTrigger>
+          <AlertDialogPopup>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t("analysis.understanding.regenerateTitle")}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("analysis.understanding.regenerateDescription")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogClose
+                render={<Button type="button" variant="ghost" />}
+              >
+                {t("analysis.understanding.cancel")}
+              </AlertDialogClose>
+              <AlertDialogClose
+                render={
+                  <Button
+                    loading={working}
+                    onClick={generateUnderstanding}
+                    type="button"
+                  />
+                }
+              >
+                {t("analysis.understanding.regenerateConfirm")}
+              </AlertDialogClose>
+            </AlertDialogFooter>
+          </AlertDialogPopup>
+        </AlertDialog>
+        <Button
+          disabled={!canSave}
+          loading={working}
+          onClick={saveUnderstanding}
+          variant="secondary"
+        >
+          <SaveIcon aria-hidden />
+          {t("analysis.understanding.save")}
+        </Button>
+        <Button
+          disabled={isDirty}
+          loading={working}
+          onClick={confirmUnderstanding}
+          title={
+            isDirty ? t("analysis.understanding.saveBeforeConfirm") : undefined
+          }
+        >
+          <CheckCircleIcon aria-hidden />
+          {t("analysis.understanding.confirm")}
+        </Button>
+      </>,
+    );
+
+    return () => setActions(null);
+  }, [
+    canSave,
+    confirmUnderstanding,
+    generateUnderstanding,
+    hasUnderstanding,
+    isDirty,
+    saveUnderstanding,
+    setActions,
+    t,
+    working,
+  ]);
 
   function updateField(key: EditableTextField, value: string): void {
     setDraft((current) => (current ? { ...current, [key]: value } : current));
@@ -248,7 +327,7 @@ export default function AnalysisUnderstanding({
 
   return (
     <section className="space-y-4">
-      {!threshold.passed ? (
+      {!threshold.passed && hasUnderstanding ? (
         <Alert variant="warning">
           <AlertTitle>{t("analysis.understanding.thresholdTitle")}</AlertTitle>
           <AlertDescription>
@@ -278,158 +357,105 @@ export default function AnalysisUnderstanding({
       ) : null}
 
       {!understanding || !draft ? (
-        <Empty className="rounded-lg border border-dashed">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <BookOpenIcon aria-hidden className="size-4" />
-            </EmptyMedia>
-            <EmptyTitle>{t("analysis.understanding.emptyTitle")}</EmptyTitle>
-            <EmptyDescription>
-              {t("analysis.understanding.emptyDescription")}
-            </EmptyDescription>
-          </EmptyHeader>
-          <Button
-            disabled={!threshold.passed}
-            loading={working}
-            onClick={generateUnderstanding}
-          >
-            <SparklesIcon aria-hidden />
-            {t("analysis.understanding.generate")}
-          </Button>
-        </Empty>
+        <section className="flex min-h-[calc(100dvh-11rem)] items-center justify-center overflow-hidden">
+          <Empty className="w-full max-w-xl">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <BookOpenIcon aria-hidden className="size-4" />
+              </EmptyMedia>
+              <EmptyTitle>{t("analysis.understanding.emptyTitle")}</EmptyTitle>
+              <EmptyDescription
+                className={cn(!threshold.passed && "text-warning")}
+              >
+                {threshold.passed
+                  ? t("analysis.understanding.emptyDescription")
+                  : t("analysis.understanding.thresholdDescription", {
+                      min: threshold.min_chapters,
+                    })}
+              </EmptyDescription>
+            </EmptyHeader>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button
+                disabled={!threshold.passed}
+                loading={working}
+                onClick={generateUnderstanding}
+              >
+                <SparklesIcon aria-hidden />
+                {t("analysis.understanding.generate")}
+              </Button>
+              {!threshold.passed ? (
+                <Button
+                  render={<Link to={stagePath(projectId, "import")} />}
+                  variant="outline"
+                >
+                  {t("analysis.understanding.importLink")}
+                </Button>
+              ) : null}
+            </div>
+          </Empty>
+        </section>
       ) : (
         <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("analysis.understanding.cardTitle")}</CardTitle>
-              <CardDescription>
-                {t("analysis.understanding.cardDescription")}
-              </CardDescription>
-              <CardAction className="flex flex-wrap justify-end gap-2">
-                <AlertDialog>
-                  <AlertDialogTrigger render={<Button variant="outline" />}>
-                    <RefreshCwIcon aria-hidden />
-                    {t("analysis.understanding.regenerate")}
-                  </AlertDialogTrigger>
-                  <AlertDialogPopup>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        {t("analysis.understanding.regenerateTitle")}
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {t("analysis.understanding.regenerateDescription")}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogClose
-                        render={<Button type="button" variant="ghost" />}
-                      >
-                        {t("analysis.understanding.cancel")}
-                      </AlertDialogClose>
-                      <AlertDialogClose
-                        render={
-                          <Button
-                            loading={working}
-                            onClick={generateUnderstanding}
-                            type="button"
-                          />
-                        }
-                      >
-                        {t("analysis.understanding.regenerateConfirm")}
-                      </AlertDialogClose>
-                    </AlertDialogFooter>
-                  </AlertDialogPopup>
-                </AlertDialog>
-                <Button
-                  disabled={!canSave}
-                  loading={working}
-                  onClick={saveUnderstanding}
-                  variant="secondary"
-                >
-                  <SaveIcon aria-hidden />
-                  {t("analysis.understanding.save")}
-                </Button>
-                <Button
-                  disabled={isDirty}
-                  loading={working}
-                  onClick={confirmUnderstanding}
-                  title={
-                    isDirty
-                      ? t("analysis.understanding.saveBeforeConfirm")
-                      : undefined
-                  }
-                >
-                  <CheckCircleIcon aria-hidden />
-                  {t("analysis.understanding.confirm")}
-                </Button>
-              </CardAction>
-            </CardHeader>
-            <CardPanel className="space-y-5">
-              <div className="grid gap-4 lg:grid-cols-2">
-                {editableFields.map((field) => (
-                  <Field className="w-full" key={field.key}>
-                    <FieldLabel>{field.label}</FieldLabel>
-                    <Input
-                      onChange={(event) =>
-                        updateField(field.key, event.target.value)
-                      }
-                      placeholder={field.placeholder}
-                      value={draft[field.key]}
-                    />
-                  </Field>
-                ))}
-              </div>
+          <section className="space-y-5">
+            <div className="grid gap-4 lg:grid-cols-2">
+              {editableFields.map((field) => (
+                <Field className="w-full" key={field.key}>
+                  <FieldLabel>{field.label}</FieldLabel>
+                  <Input
+                    onChange={(event) =>
+                      updateField(field.key, event.target.value)
+                    }
+                    placeholder={field.placeholder}
+                    value={draft[field.key]}
+                  />
+                </Field>
+              ))}
+            </div>
 
-              <Field className="w-full">
-                <FieldLabel>
-                  {t("analysis.understanding.fields.synopsis")}
-                </FieldLabel>
-                <Textarea
-                  onChange={(event) =>
-                    setDraft((current) =>
-                      current
-                        ? { ...current, synopsis: event.target.value }
-                        : current,
-                    )
-                  }
-                  placeholder={t(
-                    "analysis.understanding.placeholders.synopsis",
-                  )}
-                  value={draft.synopsis}
-                />
-              </Field>
+            <Field className="w-full">
+              <FieldLabel>
+                {t("analysis.understanding.fields.synopsis")}
+              </FieldLabel>
+              <Textarea
+                onChange={(event) =>
+                  setDraft((current) =>
+                    current
+                      ? { ...current, synopsis: event.target.value }
+                      : current,
+                  )
+                }
+                placeholder={t("analysis.understanding.placeholders.synopsis")}
+                value={draft.synopsis}
+              />
+            </Field>
 
-              <div className="grid gap-4 lg:grid-cols-3">
-                <StringListEditor
-                  label={t("analysis.understanding.fields.themes")}
-                  onChange={(values) => updateArray("themes", values)}
-                  placeholder={t("analysis.understanding.addPlaceholder")}
-                  values={draft.themes}
-                />
-                <StringListEditor
-                  label={t("analysis.understanding.fields.strengths")}
-                  onChange={(values) => updateArray("strengths", values)}
-                  placeholder={t("analysis.understanding.addPlaceholder")}
-                  values={draft.strengths}
-                />
-                <StringListEditor
-                  label={t("analysis.understanding.fields.difficulties")}
-                  onChange={(values) => updateArray("difficulties", values)}
-                  placeholder={t("analysis.understanding.addPlaceholder")}
-                  values={draft.difficulties}
-                />
-              </div>
-            </CardPanel>
-          </Card>
+            <div className="grid gap-4 lg:grid-cols-3">
+              <StringListEditor
+                label={t("analysis.understanding.fields.themes")}
+                onChange={(values) => updateArray("themes", values)}
+                placeholder={t("analysis.understanding.addPlaceholder")}
+                values={draft.themes}
+              />
+              <StringListEditor
+                label={t("analysis.understanding.fields.strengths")}
+                onChange={(values) => updateArray("strengths", values)}
+                placeholder={t("analysis.understanding.addPlaceholder")}
+                values={draft.strengths}
+              />
+              <StringListEditor
+                label={t("analysis.understanding.fields.difficulties")}
+                onChange={(values) => updateArray("difficulties", values)}
+                placeholder={t("analysis.understanding.addPlaceholder")}
+                values={draft.difficulties}
+              />
+            </div>
+          </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("analysis.understanding.trustTitle")}</CardTitle>
-              <CardDescription>
+          <section className="space-y-4 border-t pt-5">
+            <div className="space-y-3">
+              <div className="text-muted-foreground text-sm">
                 {t("analysis.understanding.trustDescription")}
-              </CardDescription>
-            </CardHeader>
-            <CardPanel className="space-y-4">
+              </div>
               <div className="flex flex-wrap gap-2">
                 <Badge variant="info">
                   {t("analysis.understanding.narrative.perspective", {
@@ -449,45 +475,43 @@ export default function AnalysisUnderstanding({
                     : t("analysis.understanding.narrative.reliable")}
                 </Badge>
               </div>
+            </div>
 
-              <Separator />
+            <Separator />
 
-              <Collapsible>
-                <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left font-medium text-sm hover:bg-accent/50">
-                  <span>
-                    {t("analysis.understanding.nonVisualizableTitle")}
-                  </span>
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    {t("analysis.understanding.nonVisualizableCount", {
-                      count: draft.non_visualizable.length,
-                    })}
-                    <ChevronDownIcon aria-hidden className="size-4" />
-                  </span>
-                </CollapsibleTrigger>
-                <CollapsiblePanel>
-                  <div className="space-y-2 pt-3">
-                    {draft.non_visualizable.length > 0 ? (
-                      draft.non_visualizable.map((mark, index) => (
-                        <div
-                          className="rounded-lg border bg-muted/30 p-3"
-                          key={`${mark.note}-${index}`}
-                        >
-                          <div className="mb-1 text-muted-foreground text-xs">
-                            {formatSourceRef(mark.source_ref)}
-                          </div>
-                          <p className="text-sm">{mark.note}</p>
+            <Collapsible>
+              <CollapsibleTrigger className="flex w-full items-center justify-between py-2 text-left font-medium text-sm hover:text-foreground">
+                <span>{t("analysis.understanding.nonVisualizableTitle")}</span>
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  {t("analysis.understanding.nonVisualizableCount", {
+                    count: draft.non_visualizable.length,
+                  })}
+                  <ChevronDownIcon aria-hidden className="size-4" />
+                </span>
+              </CollapsibleTrigger>
+              <CollapsiblePanel>
+                <div className="space-y-3 pt-2">
+                  {draft.non_visualizable.length > 0 ? (
+                    draft.non_visualizable.map((mark, index) => (
+                      <div
+                        className="border-l pl-3"
+                        key={`${mark.note}-${index}`}
+                      >
+                        <div className="mb-1 text-muted-foreground text-xs">
+                          {formatSourceRef(mark.source_ref)}
                         </div>
-                      ))
-                    ) : (
-                      <p className="text-muted-foreground text-sm">
-                        {t("analysis.understanding.nonVisualizableEmpty")}
-                      </p>
-                    )}
-                  </div>
-                </CollapsiblePanel>
-              </Collapsible>
-            </CardPanel>
-          </Card>
+                        <p className="text-sm">{mark.note}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-sm">
+                      {t("analysis.understanding.nonVisualizableEmpty")}
+                    </p>
+                  )}
+                </div>
+              </CollapsiblePanel>
+            </Collapsible>
+          </section>
         </div>
       )}
     </section>
