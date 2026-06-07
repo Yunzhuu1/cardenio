@@ -77,6 +77,16 @@ export type SourceParagraph = {
   text: string;
 };
 
+export type ResolvedParagraph = {
+  index: number;
+  text: string;
+};
+
+export type ResolveResponse = {
+  chapter: number;
+  paragraphs: ResolvedParagraph[];
+};
+
 export type Chapter = {
   id: ChapterId;
   title: string;
@@ -317,6 +327,32 @@ export type BeatsFilterItem = {
 
 export type BeatsFilterResponse = {
   items: BeatsFilterItem[];
+  count: number;
+};
+
+export type TraceBeat = {
+  beat_index: number;
+  source_ref: SourceRef | null;
+  flag: Flag | null;
+  type: string;
+};
+
+export type SceneTrace = {
+  scene_id: string;
+  source_ref: SourceRef;
+  paragraphs: ResolvedParagraph[];
+  beats: TraceBeat[];
+};
+
+export type TodoItem = {
+  scene_id: string;
+  beat_index: number;
+  source_ref: SourceRef | null;
+  beat: Beat;
+};
+
+export type TodosResponse = {
+  items: TodoItem[];
   count: number;
 };
 

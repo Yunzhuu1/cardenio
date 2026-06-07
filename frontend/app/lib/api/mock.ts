@@ -23,10 +23,12 @@ import {
   type Project,
   type ProjectId,
   type ProjectSummary,
+  type ResolveResponse,
   type ScreenplayData,
   type ScreenplayScene,
   type Source,
   type SourceParagraph,
+  type SourceRef,
   type UnderstandingData,
 } from "./types";
 
@@ -369,6 +371,19 @@ function setProjectImported(projectId: ProjectId): void {
   });
 }
 
+function setProjectEditing(projectId: ProjectId): void {
+  const project = store.get(projectId);
+  if (!project) return;
+  store.set(projectId, {
+    ...project,
+    state:
+      project.state === "generated" || project.state === "editing"
+        ? "editing"
+        : project.state,
+    updated_at: new Date().toISOString(),
+  });
+}
+
 function makeEnvelope<T>(
   type: string,
   state: ArtifactState,
@@ -600,6 +615,143 @@ function validateMockSourceRef(scene: OutlineScene): void {
       missing_paragraphs: [],
     },
   });
+}
+
+function validateScreenplayTrustFields(data: ScreenplayData): void {
+  const items = data.scenes.flatMap((scene) =>
+    scene.beats.flatMap((beat, beatIndex) => {
+      if (beat.type === "todo") return [];
+      const fields = [
+        !beat.source_ref ? "source_ref" : null,
+        !beat.flag ? "flag" : null,
+      ].filter((field): field is string => Boolean(field));
+      if (fields.length === 0) return [];
+      return [
+        {
+          scene_id: scene.id,
+          beat_index: beatIndex,
+          fields,
+        },
+      ];
+    }),
+  );
+
+  if (items.length === 0) return;
+
+  throw new ApiError(422, {
+    code: "missing_trust_fields",
+    message: "Screenplay edits must preserve source_ref and flag",
+    retryable: false,
+    details: { items },
+  });
+}
+
+function saveScreenplay(
+  projectId: ProjectId,
+  data: ScreenplayData,
+  parentVersion: string | null,
+): ArtifactEnvelope<ScreenplayData> {
+  const envelope = makeEnvelope("screenplay", "draft", data, parentVersion);
+  screenplayStore.set(projectId, envelope);
+  return envelope;
+}
+
+function parseParagraphSelector(selector: string): number[] {
+  const trimmed = selector.trim();
+  if (!trimmed) {
+    throw new ApiError(422, {
+      code: "validation_error",
+      message: "Paragraph selector is required",
+      retryable: false,
+    });
+  }
+
+  const seen = new Set<number>();
+  const paragraphs: number[] = [];
+  for (const part of trimmed.split(",")) {
+    const value = part.trim();
+    if (!value) {
+      throw new ApiError(422, {
+        code: "validation_error",
+        message: "Invalid paragraph selector",
+        retryable: false,
+      });
+    }
+
+    const range = value.match(/^(\d+)\s*-\s*(\d+)$/);
+    const single = value.match(/^\d+$/);
+    const rangeStart = range ? Number(range[1]) : null;
+    const rangeEnd = range ? Number(range[2]) : null;
+    if (rangeStart !== null && rangeEnd !== null && rangeEnd < rangeStart) {
+      throw new ApiError(422, {
+        code: "validation_error",
+        message: "Invalid paragraph selector",
+        retryable: false,
+      });
+    }
+    const values = range
+      ? Array.from(
+          { length: (rangeEnd as number) - (rangeStart as number) + 1 },
+          (_, index) => (rangeStart as number) + index,
+        )
+      : single
+        ? [Number(value)]
+        : [];
+
+    if (
+      values.length === 0 ||
+      values.some((item) => !Number.isInteger(item) || item < 1)
+    ) {
+      throw new ApiError(422, {
+        code: "validation_error",
+        message: "Invalid paragraph selector",
+        retryable: false,
+      });
+    }
+
+    for (const paragraph of values) {
+      if (seen.has(paragraph)) continue;
+      seen.add(paragraph);
+      paragraphs.push(paragraph);
+    }
+  }
+
+  if (paragraphs.length === 0) {
+    throw new ApiError(422, {
+      code: "validation_error",
+      message: "Invalid paragraph selector",
+      retryable: false,
+    });
+  }
+
+  return paragraphs;
+}
+
+function resolveSourceRef(
+  projectId: ProjectId,
+  sourceRef: SourceRef,
+): ResolveResponse {
+  const source = makeSource(sourceStore.get(projectId) ?? []);
+  const chapter = source.chapters.find(
+    (item) => item.order === sourceRef.chapter,
+  );
+  if (!chapter) throw notFound("Source reference not found");
+
+  const paragraphs = sourceRef.paragraphs.map((paragraphIndex) => {
+    const paragraph = chapter.paragraphs.find(
+      (item) => item.index === paragraphIndex,
+    );
+    if (!paragraph) throw notFound("Source reference not found");
+    return {
+      index: paragraph.index,
+      text: paragraph.text,
+    };
+  });
+
+  return {
+    chapter: sourceRef.chapter,
+    paragraphs,
+  };
 }
 
 function makeOutlineData(projectId: ProjectId): OutlineData {
@@ -1066,6 +1218,14 @@ export const mockClient: ApiClient = {
       setProjectImported(projectId);
       return saveSource(projectId, chapters);
     },
+    async resolve(projectId, chapter, paragraphs) {
+      getProjectOrThrow(projectId);
+      await delay();
+      return resolveSourceRef(projectId, {
+        chapter,
+        paragraphs: parseParagraphSelector(paragraphs),
+      });
+    },
   },
   understanding: {
     async get(projectId) {
@@ -1505,13 +1665,145 @@ export const mockClient: ApiClient = {
       if (!scene) throw notFound("Screenplay scene not found");
       return scene;
     },
-    async getBeats(projectId, flag) {
+    async updateScreenplay(projectId, data) {
+      getProjectOrThrow(projectId);
+      await delay();
+      const previous = getScreenplayEnvelope(projectId);
+      validateScreenplayTrustFields(data);
+      const envelope = saveScreenplay(projectId, data, previous.version);
+      setProjectEditing(projectId);
+      return envelope;
+    },
+    async updateScene(projectId, sceneId, scene) {
+      getProjectOrThrow(projectId);
+      await delay();
+      if (scene.id !== sceneId) {
+        throw new ApiError(422, {
+          code: "validation_error",
+          message: "Scene id in request body must match path scene_id",
+          retryable: false,
+        });
+      }
+
+      const previous = getScreenplayEnvelope(projectId);
+      const index = previous.data.scenes.findIndex(
+        (item) => item.id === sceneId,
+      );
+      if (index < 0) throw notFound("Scene not found");
+
+      const scenes = [...previous.data.scenes];
+      scenes[index] = scene;
+      const data = {
+        ...previous.data,
+        scenes,
+      };
+      validateScreenplayTrustFields(data);
+      const envelope = saveScreenplay(projectId, data, previous.version);
+      setProjectEditing(projectId);
+      return envelope;
+    },
+    async rewriteScene(projectId, sceneId, instruction) {
+      getProjectOrThrow(projectId);
+      await delay();
+      const normalizedInstruction = instruction.trim();
+      if (!normalizedInstruction) {
+        throw new ApiError(422, {
+          code: "validation_error",
+          message: "Instruction must not be empty",
+          retryable: false,
+        });
+      }
+
+      const previous = getScreenplayEnvelope(projectId);
+      const index = previous.data.scenes.findIndex(
+        (item) => item.id === sceneId,
+      );
+      if (index < 0) throw notFound("Scene not found");
+
+      const scene = previous.data.scenes[index];
+      const scenes = [...previous.data.scenes];
+      scenes[index] = {
+        ...scene,
+        beats: [
+          ...scene.beats,
+          {
+            type: "note",
+            text: `重生成指令：${normalizedInstruction}`,
+            character: null,
+            parenthetical: null,
+            dialogue: null,
+            subtext: "这是改编层新增的表达方案。",
+            source_ref: scene.source_ref,
+            flag: "ai_inferred",
+            options: null,
+          },
+        ],
+      };
+
+      const envelope = saveScreenplay(
+        projectId,
+        {
+          ...previous.data,
+          scenes,
+        },
+        previous.version,
+      );
+      setProjectEditing(projectId);
+      return envelope;
+    },
+    async getTodos(projectId) {
+      getProjectOrThrow(projectId);
+      await delay();
+      const items = getScreenplayEnvelope(projectId).data.scenes.flatMap(
+        (scene) =>
+          scene.beats.flatMap((beat, beatIndex) => {
+            if (beat.type !== "todo") return [];
+            return [
+              {
+                scene_id: scene.id,
+                beat_index: beatIndex,
+                source_ref: beat.source_ref ?? null,
+                beat,
+              },
+            ];
+          }),
+      );
+      return { items, count: items.length };
+    },
+    async getTrace(projectId, sceneId) {
+      getProjectOrThrow(projectId);
+      await delay();
+      const scene = getScreenplayEnvelope(projectId).data.scenes.find(
+        (item) => item.id === sceneId,
+      );
+      if (!scene) throw notFound("Scene not found");
+      const resolved = resolveSourceRef(projectId, scene.source_ref);
+      return {
+        scene_id: scene.id,
+        source_ref: scene.source_ref,
+        paragraphs: resolved.paragraphs,
+        beats: scene.beats.map((beat, beatIndex) => ({
+          beat_index: beatIndex,
+          source_ref: beat.source_ref ?? null,
+          flag: beat.flag ?? null,
+          type: beat.type,
+        })),
+      };
+    },
+    async getBeats(projectId, flag, source) {
       getProjectOrThrow(projectId);
       await delay();
       const items = getScreenplayEnvelope(projectId).data.scenes.flatMap(
         (scene) =>
           scene.beats.flatMap((beat, beatIndex) => {
             if (flag && beat.flag !== flag) return [];
+            if (
+              source &&
+              (beat.source_ref?.chapter !== source.chapter ||
+                !beat.source_ref.paragraphs.includes(source.paragraph))
+            ) {
+              return [];
+            }
             return [
               {
                 scene_id: scene.id,

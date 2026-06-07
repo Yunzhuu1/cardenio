@@ -23,10 +23,13 @@ import type {
   Project,
   ProjectId,
   ProjectSummary,
+  ResolveResponse,
   ResegmentInput,
   ScreenplayData,
   ScreenplayScene,
+  SceneTrace,
   Source,
+  TodosResponse,
   UnderstandingData,
   UpdateChapterInput,
   BeatsFilterResponse,
@@ -58,6 +61,11 @@ export type SourceApi = {
     projectId: ProjectId,
     input: ConfirmImportInput,
   ): Promise<Source>;
+  resolve(
+    projectId: ProjectId,
+    chapter: number,
+    paragraphs: string,
+  ): Promise<ResolveResponse>;
 };
 
 export type UnderstandingApi = {
@@ -135,7 +143,27 @@ export type ScreenplayApi = {
     options?: { shot_hints?: boolean },
   ): Promise<ArtifactEnvelope<ScreenplayData>>;
   getScene(projectId: ProjectId, sceneId: string): Promise<ScreenplayScene>;
-  getBeats(projectId: ProjectId, flag?: Flag): Promise<BeatsFilterResponse>;
+  updateScreenplay(
+    projectId: ProjectId,
+    data: ScreenplayData,
+  ): Promise<ArtifactEnvelope<ScreenplayData>>;
+  updateScene(
+    projectId: ProjectId,
+    sceneId: string,
+    scene: ScreenplayScene,
+  ): Promise<ArtifactEnvelope<ScreenplayData>>;
+  rewriteScene(
+    projectId: ProjectId,
+    sceneId: string,
+    instruction: string,
+  ): Promise<ArtifactEnvelope<ScreenplayData>>;
+  getTodos(projectId: ProjectId): Promise<TodosResponse>;
+  getTrace(projectId: ProjectId, sceneId: string): Promise<SceneTrace>;
+  getBeats(
+    projectId: ProjectId,
+    flag?: Flag,
+    source?: { chapter: number; paragraph: number },
+  ): Promise<BeatsFilterResponse>;
 };
 
 export type ApiClient = {
