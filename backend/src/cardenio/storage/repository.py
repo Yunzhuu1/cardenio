@@ -6,9 +6,10 @@ over raw ORM operations, keeping query logic out of the API layer.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from cardenio.storage.sqlalchemy_models import (
@@ -26,6 +27,12 @@ class ProjectRepository:
         self.session = session
 
     async def get(self, project_id: str) -> ProjectModel | None:
+        project = await self.session.get(ProjectModel, project_id)
+        if project is not None and project.deleted_at is not None:
+            return None
+        return project
+
+    async def get_any(self, project_id: str) -> ProjectModel | None:
         return await self.session.get(ProjectModel, project_id)
 
     async def create(self, **kwargs: Any) -> ProjectModel:
@@ -56,10 +63,32 @@ class ProjectRepository:
             project.adaptation_direction = adaptation_direction
             await self.session.flush()
 
+    async def update_meta(self, project_id: str, **kwargs: Any) -> ProjectModel | None:
+        project = await self.get(project_id)
+        if project is None:
+            return None
+        for field, value in kwargs.items():
+            setattr(project, field, value)
+        await self.session.flush()
+        return project
+
+    async def soft_delete(self, project_id: str) -> bool:
+        project = await self.get(project_id)
+        if project is None:
+            return False
+        project.deleted_at = datetime.now(UTC)
+        await self.session.flush()
+        return True
+
     async def list_projects(
         self, *, limit: int = 20, cursor: str | None = None
     ) -> list[ProjectModel]:
-        stmt = select(ProjectModel).order_by(ProjectModel.updated_at.desc()).limit(limit)
+        stmt = (
+            select(ProjectModel)
+            .where(ProjectModel.deleted_at.is_(None))
+            .order_by(ProjectModel.updated_at.desc())
+            .limit(limit)
+        )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
@@ -140,8 +169,6 @@ class ArtifactRepository:
     async def get_paragraphs(
         self, project_id: str, *, chapter_id: str | None = None
     ) -> list[SourceParagraphModel]:
-        from sqlalchemy import select
-
         stmt = select(SourceParagraphModel).where(
             SourceParagraphModel.project_id == project_id
         )
@@ -155,8 +182,6 @@ class ArtifactRepository:
         self, project_id: str, chapter_id: str
     ) -> int:
         """Delete all paragraphs for a chapter. Returns count deleted."""
-        from sqlalchemy import delete
-
         stmt = (
             delete(SourceParagraphModel)
             .where(SourceParagraphModel.project_id == project_id)
@@ -168,11 +193,16 @@ class ArtifactRepository:
 
     async def delete_all_paragraphs(self, project_id: str) -> int:
         """Delete all source paragraphs for a project. Returns count deleted."""
-        from sqlalchemy import delete
-
         stmt = delete(SourceParagraphModel).where(
             SourceParagraphModel.project_id == project_id
         )
+        result = await self.session.execute(stmt)
+        await self.session.flush()
+        return result.rowcount
+
+    async def delete_all_artifacts(self, project_id: str) -> int:
+        """Delete all artifacts for a project. Returns count deleted."""
+        stmt = delete(ArtifactModel).where(ArtifactModel.project_id == project_id)
         result = await self.session.execute(stmt)
         await self.session.flush()
         return result.rowcount
@@ -202,3 +232,9 @@ class JobRepository:
             if error:
                 job.error = error
             await self.session.flush()
+
+    async def delete_project_jobs(self, project_id: str) -> int:
+        stmt = delete(JobModel).where(JobModel.project_id == project_id)
+        result = await self.session.execute(stmt)
+        await self.session.flush()
+        return result.rowcount

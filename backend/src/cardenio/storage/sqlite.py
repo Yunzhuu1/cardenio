@@ -6,6 +6,7 @@ by changing the engine URL and using the asyncpg driver.
 
 from __future__ import annotations
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from cardenio.storage.sqlalchemy_models import Base
@@ -24,3 +25,8 @@ async def init_db(engine: AsyncEngine) -> None:
     """Create all tables.  For MVP; use Alembic migrations in production."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        if engine.url.get_backend_name() == "sqlite":
+            columns = await conn.execute(text("PRAGMA table_info(projects)"))
+            names = {row[1] for row in columns}
+            if "deleted_at" not in names:
+                await conn.execute(text("ALTER TABLE projects ADD COLUMN deleted_at DATETIME"))
