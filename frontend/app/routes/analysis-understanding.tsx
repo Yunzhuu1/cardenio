@@ -6,10 +6,16 @@ import {
   SaveIcon,
   SparklesIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
-import { Link, useNavigate, useRevalidator } from "react-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Link,
+  useNavigate,
+  useOutletContext,
+  useRevalidator,
+} from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/analysis-understanding";
+import type { AnalysisLayoutContext } from "./analysis-layout";
 import { StringListEditor } from "~/components/string-list-editor";
 import {
   Alert,
@@ -99,6 +105,7 @@ export default function AnalysisUnderstanding({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const revalidator = useRevalidator();
+  const { setActions } = useOutletContext<AnalysisLayoutContext>();
   const projectId = params.projectId as ProjectId;
   const { understanding, threshold } = loaderData;
   const [draft, setDraft] = useState<UnderstandingData | null>(
@@ -155,11 +162,11 @@ export default function AnalysisUnderstanding({
     [t],
   );
 
-  async function refresh(): Promise<void> {
+  const refresh = useCallback(async (): Promise<void> => {
     await revalidator.revalidate();
-  }
+  }, [revalidator]);
 
-  async function generateUnderstanding(): Promise<void> {
+  const generateUnderstanding = useCallback(async (): Promise<void> => {
     try {
       setWorking(true);
       const envelope = await api.understanding.generate(projectId);
@@ -178,9 +185,9 @@ export default function AnalysisUnderstanding({
     } finally {
       setWorking(false);
     }
-  }
+  }, [projectId, refresh, t]);
 
-  async function saveUnderstanding(): Promise<void> {
+  const saveUnderstanding = useCallback(async (): Promise<void> => {
     if (!draft) return;
 
     try {
@@ -206,9 +213,9 @@ export default function AnalysisUnderstanding({
     } finally {
       setWorking(false);
     }
-  }
+  }, [draft, projectId, refresh, t, understanding]);
 
-  async function confirmUnderstanding(): Promise<void> {
+  const confirmUnderstanding = useCallback(async (): Promise<void> => {
     try {
       setWorking(true);
       await api.understanding.confirm(projectId);
@@ -227,7 +234,85 @@ export default function AnalysisUnderstanding({
     } finally {
       setWorking(false);
     }
-  }
+  }, [navigate, projectId, refresh, t]);
+
+  useEffect(() => {
+    if (!hasUnderstanding) {
+      setActions(null);
+      return;
+    }
+
+    setActions(
+      <>
+        <AlertDialog>
+          <AlertDialogTrigger render={<Button variant="outline" />}>
+            <RefreshCwIcon aria-hidden />
+            {t("analysis.understanding.regenerate")}
+          </AlertDialogTrigger>
+          <AlertDialogPopup>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t("analysis.understanding.regenerateTitle")}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("analysis.understanding.regenerateDescription")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogClose
+                render={<Button type="button" variant="ghost" />}
+              >
+                {t("analysis.understanding.cancel")}
+              </AlertDialogClose>
+              <AlertDialogClose
+                render={
+                  <Button
+                    loading={working}
+                    onClick={generateUnderstanding}
+                    type="button"
+                  />
+                }
+              >
+                {t("analysis.understanding.regenerateConfirm")}
+              </AlertDialogClose>
+            </AlertDialogFooter>
+          </AlertDialogPopup>
+        </AlertDialog>
+        <Button
+          disabled={!canSave}
+          loading={working}
+          onClick={saveUnderstanding}
+          variant="secondary"
+        >
+          <SaveIcon aria-hidden />
+          {t("analysis.understanding.save")}
+        </Button>
+        <Button
+          disabled={isDirty}
+          loading={working}
+          onClick={confirmUnderstanding}
+          title={
+            isDirty ? t("analysis.understanding.saveBeforeConfirm") : undefined
+          }
+        >
+          <CheckCircleIcon aria-hidden />
+          {t("analysis.understanding.confirm")}
+        </Button>
+      </>,
+    );
+
+    return () => setActions(null);
+  }, [
+    canSave,
+    confirmUnderstanding,
+    generateUnderstanding,
+    hasUnderstanding,
+    isDirty,
+    saveUnderstanding,
+    setActions,
+    t,
+    working,
+  ]);
 
   function updateField(key: EditableTextField, value: string): void {
     setDraft((current) => (current ? { ...current, [key]: value } : current));
@@ -312,65 +397,6 @@ export default function AnalysisUnderstanding({
       ) : (
         <div className="space-y-4">
           <section className="space-y-5">
-            <div className="flex flex-wrap justify-end gap-2">
-              <AlertDialog>
-                <AlertDialogTrigger render={<Button variant="outline" />}>
-                  <RefreshCwIcon aria-hidden />
-                  {t("analysis.understanding.regenerate")}
-                </AlertDialogTrigger>
-                <AlertDialogPopup>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      {t("analysis.understanding.regenerateTitle")}
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {t("analysis.understanding.regenerateDescription")}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogClose
-                      render={<Button type="button" variant="ghost" />}
-                    >
-                      {t("analysis.understanding.cancel")}
-                    </AlertDialogClose>
-                    <AlertDialogClose
-                      render={
-                        <Button
-                          loading={working}
-                          onClick={generateUnderstanding}
-                          type="button"
-                        />
-                      }
-                    >
-                      {t("analysis.understanding.regenerateConfirm")}
-                    </AlertDialogClose>
-                  </AlertDialogFooter>
-                </AlertDialogPopup>
-              </AlertDialog>
-              <Button
-                disabled={!canSave}
-                loading={working}
-                onClick={saveUnderstanding}
-                variant="secondary"
-              >
-                <SaveIcon aria-hidden />
-                {t("analysis.understanding.save")}
-              </Button>
-              <Button
-                disabled={isDirty}
-                loading={working}
-                onClick={confirmUnderstanding}
-                title={
-                  isDirty
-                    ? t("analysis.understanding.saveBeforeConfirm")
-                    : undefined
-                }
-              >
-                <CheckCircleIcon aria-hidden />
-                {t("analysis.understanding.confirm")}
-              </Button>
-            </div>
-
             <div className="grid gap-4 lg:grid-cols-2">
               {editableFields.map((field) => (
                 <Field className="w-full" key={field.key}>
