@@ -51,6 +51,22 @@ class RewriteSceneRequest(BaseModel):
         return stripped
 
 
+class CheckoutSceneVersionRequest(BaseModel):
+    """Request body for API-22 scene version checkout."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: str
+
+    @field_validator("version")
+    @classmethod
+    def version_must_not_be_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("version must not be blank")
+        return stripped
+
+
 @router.post(":generate", status_code=202)
 async def generate_screenplay(
     project_id: str,
@@ -469,9 +485,36 @@ async def create_scene_version(project_id: str, scene_id: str, body: dict) -> di
 
 
 @router.post("/scenes/{scene_id}:checkout")
-async def checkout_scene_version(project_id: str, scene_id: str, body: dict) -> dict:
+async def checkout_scene_version(
+    project_id: str,
+    scene_id: str,
+    body: CheckoutSceneVersionRequest,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-22: Switch to / rollback to a scene version."""
-    raise NotImplementedError("Version checkout not yet implemented")
+    previous, current = await _get_screenplay_data(store, project_id)
+    target_index = _find_scene_index(current, scene_id)
+
+    artifact = await store.get_artifact_version(
+        project_id,
+        "screenplay",
+        body.version,
+    )
+    if artifact is None:
+        raise HTTPException(status_code=404, detail="Scene version not found")
+
+    version_data = ScreenplayData.model_validate(artifact.data)
+    version_scene = _find_scene_or_none(version_data, scene_id)
+    if version_scene is None:
+        raise HTTPException(status_code=404, detail="Scene version not found")
+
+    scenes = [*current.scenes]
+    scenes[target_index] = version_scene
+    updated = current.model_copy(update={"scenes": scenes})
+    _validate_edit_trust_fields(updated)
+    saved = await _save_screenplay(store, project_id, updated, previous)
+    await _mark_project_editing(store, project_id)
+    return saved.model_dump(mode="json")
 
 
 @router.get("/scenes/{scene_id}/versions:diff")

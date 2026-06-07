@@ -869,6 +869,108 @@ class TestScreenplayGeneration:
         assert resp.status_code == 404
         assert resp.json()["detail"] == "Project not found"
 
+    async def test_checkout_scene_version_restores_scene_only(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        generated = generate_resp.json()
+        original_scenes = generated["data"]["scenes"]
+        edited_scene = {
+            **original_scenes[0],
+            "synopsis": "Edited before checkout.",
+        }
+        edit_resp = await app_client.put(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{edited_scene['id']}",
+            json=edited_scene,
+        )
+        assert edit_resp.status_code == 200
+        edited = edit_resp.json()
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{edited_scene['id']}:checkout",
+            json={"version": generated["version"]},
+        )
+
+        assert resp.status_code == 200
+        checked_out = resp.json()
+        assert checked_out["parent_version"] == edited["version"]
+        assert checked_out["version"] not in {generated["version"], edited["version"]}
+        assert checked_out["data"]["scenes"][0] == original_scenes[0]
+        assert checked_out["data"]["scenes"][1:] == edited["data"]["scenes"][1:]
+
+        latest_resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{edited_scene['id']}"
+        )
+        assert latest_resp.status_code == 200
+        assert latest_resp.json() == original_scenes[0]
+
+        project_resp = await app_client.get(f"/api/v1/projects/{project_id}")
+        assert project_resp.status_code == 200
+        assert project_resp.json()["state"] == "editing"
+
+    async def test_checkout_scene_version_missing_version_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        await app_client.post(f"/api/v1/projects/{project_id}/screenplay:generate")
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/sc_001:checkout",
+            json={"version": "missing"},
+        )
+
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Scene version not found"
+
+    async def test_checkout_scene_version_missing_scene_in_version_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        generated = generate_resp.json()
+        target_scene = generated["data"]["scenes"][1]
+        data = {
+            **generated["data"],
+            "scenes": [generated["data"]["scenes"][0]],
+        }
+        edit_resp = await app_client.put(
+            f"/api/v1/projects/{project_id}/screenplay",
+            json=data,
+        )
+        assert edit_resp.status_code == 200
+        version_without_scene = edit_resp.json()
+        restore_resp = await app_client.put(
+            f"/api/v1/projects/{project_id}/screenplay",
+            json=generated["data"],
+        )
+        assert restore_resp.status_code == 200
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{target_scene['id']}:checkout",
+            json={"version": version_without_scene["version"]},
+        )
+
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Scene version not found"
+
+    async def test_checkout_scene_version_blank_version_returns_422(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        await app_client.post(f"/api/v1/projects/{project_id}/screenplay:generate")
+
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/sc_001:checkout",
+            json={"version": "   "},
+        )
+
+        assert resp.status_code == 422
+
     async def test_update_scene_rejects_path_body_id_mismatch(
         self, app_client: AsyncClient, project_id: str
     ) -> None:
