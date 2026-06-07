@@ -28,14 +28,6 @@ import {
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardHeader,
-  CardPanel,
-  CardTitle,
-} from "~/components/ui/card";
-import {
   Empty,
   EmptyContent,
   EmptyDescription,
@@ -228,7 +220,7 @@ export default function ProjectScript({
       ) : null}
 
       {outlineConfirmed && !screenplay ? (
-        <Empty className="rounded-xl border bg-card">
+        <Empty className="mx-auto min-h-[52dvh] max-w-2xl">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <ClapperboardIcon />
@@ -256,98 +248,91 @@ export default function ProjectScript({
 
       {screenplay ? (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("script.cardTitle")}</CardTitle>
-              <CardDescription>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 space-y-1">
+              <h1 className="app-heading text-xl">{t("script.cardTitle")}</h1>
+              <p className="text-muted-foreground text-sm">
                 {t("script.cardDescription", {
                   beatCount,
                   sceneCount: scenes.length,
                 })}
-              </CardDescription>
-              <CardAction className="flex flex-wrap gap-2">
-                <AlertDialog>
-                  <AlertDialogTrigger
-                    render={
-                      <Button disabled={working} size="sm" variant="outline" />
-                    }
-                  >
-                    <RefreshCwIcon />
-                    {t("script.regenerate")}
-                  </AlertDialogTrigger>
-                  <AlertDialogPopup>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        {t("script.regenerateTitle")}
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {t("script.regenerateDescription")}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogClose render={<Button variant="ghost" />}>
-                        {t("script.cancel")}
-                      </AlertDialogClose>
-                      <AlertDialogClose
-                        render={
-                          <Button
-                            loading={working}
-                            onClick={generateScreenplay}
-                            variant="destructive"
-                          />
-                        }
-                      >
-                        {t("script.regenerateConfirm")}
-                      </AlertDialogClose>
-                    </AlertDialogFooter>
-                  </AlertDialogPopup>
-                </AlertDialog>
-                <Button
-                  render={<Link to={stagePath(projectId, "editor")} />}
-                  size="sm"
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <AlertDialog>
+                <AlertDialogTrigger
+                  render={
+                    <Button disabled={working} size="sm" variant="outline" />
+                  }
                 >
-                  {t("script.editorCta")}
-                </Button>
-              </CardAction>
-            </CardHeader>
-            <CardPanel className="space-y-4">
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                <ShotHintsSwitch
-                  checked={shotHints}
-                  description={t("script.shotHintsDescription")}
-                  id="screenplay-shot-hints-existing"
-                  label={t("script.shotHintsLabel")}
-                  onCheckedChange={setShotHints}
-                />
-                <Badge
-                  className="justify-self-start md:justify-self-end"
-                  variant="secondary"
-                >
-                  {t("script.shotHintsState", {
-                    state: t(
-                      screenplay.data.shot_hints.enabled
-                        ? "script.shotHintsOn"
-                        : "script.shotHintsOff",
-                    ),
-                  })}
-                </Badge>
-              </div>
-              <Separator />
-              <BeatFilterControl filter={filter} onFilterChange={setFilter} />
-              <Separator />
-              <div className="grid gap-4">
-                {scenes.map((scene, index) => (
-                  <ScreenplaySceneCard
-                    characterNameById={characterNameById}
-                    filter={filter}
-                    key={scene.id}
-                    scene={scene}
-                    sceneNumber={index + 1}
-                  />
-                ))}
-              </div>
-            </CardPanel>
-          </Card>
+                  <RefreshCwIcon />
+                  {t("script.regenerate")}
+                </AlertDialogTrigger>
+                <AlertDialogPopup>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {t("script.regenerateTitle")}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t("script.regenerateDescription")}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogClose render={<Button variant="ghost" />}>
+                      {t("script.cancel")}
+                    </AlertDialogClose>
+                    <AlertDialogClose
+                      render={
+                        <Button
+                          loading={working}
+                          onClick={generateScreenplay}
+                          variant="destructive"
+                        />
+                      }
+                    >
+                      {t("script.regenerateConfirm")}
+                    </AlertDialogClose>
+                  </AlertDialogFooter>
+                </AlertDialogPopup>
+              </AlertDialog>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+            <ShotHintsSwitch
+              checked={shotHints}
+              description={t("script.shotHintsDescription")}
+              id="screenplay-shot-hints-existing"
+              label={t("script.shotHintsLabel")}
+              onCheckedChange={setShotHints}
+            />
+            <Badge
+              className="justify-self-start md:justify-self-end"
+              variant="secondary"
+            >
+              {t("script.shotHintsState", {
+                state: t(
+                  screenplay.data.shot_hints.enabled
+                    ? "script.shotHintsOn"
+                    : "script.shotHintsOff",
+                ),
+              })}
+            </Badge>
+          </div>
+          <Separator />
+          <BeatFilterControl filter={filter} onFilterChange={setFilter} />
+          <Separator />
+          <div className="divide-y">
+            {scenes.map((scene, index) => (
+              <ScreenplaySceneCard
+                characterNameById={characterNameById}
+                filter={filter}
+                key={scene.id}
+                scene={scene}
+                sceneNumber={index + 1}
+              />
+            ))}
+          </div>
 
           <AiInferredListCard
             aiList={aiList}
@@ -453,9 +438,9 @@ function ScreenplaySceneCard({
       : scene.beats.filter((beat) => beat.flag === filter).length;
 
   return (
-    <Card
+    <article
       className={cn(
-        "rounded-xl shadow-none transition-opacity",
+        "py-6 first:pt-0 last:pb-0 transition-opacity",
         filter !== "all" && matchingBeatCount === 0 ? "opacity-70" : null,
       )}
       id={`scene-${scene.id}`}
@@ -465,7 +450,7 @@ function ScreenplaySceneCard({
         scene={scene}
         sceneNumber={sceneNumber}
       />
-      <CardPanel className="space-y-4">
+      <div className="mt-4 space-y-4">
         <SceneSummary scene={scene} />
         <div className="grid gap-3">
           {scene.beats.map((beat, index) => (
@@ -484,8 +469,8 @@ function ScreenplaySceneCard({
             {t("script.filter.noSceneMatches")}
           </p>
         ) : null}
-      </CardPanel>
-    </Card>
+      </div>
+    </article>
   );
 }
 
@@ -536,11 +521,18 @@ function AiInferredListCard({
   const items = aiList?.items ?? [];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("script.aiList.title")}</CardTitle>
-        <CardDescription>{t("script.aiList.description")}</CardDescription>
-        <CardAction>
+    <section className="space-y-4 border-t pt-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <h2 className="font-medium text-base">{t("script.aiList.title")}</h2>
+          <p className="text-muted-foreground text-sm">
+            {t("script.aiList.description")}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Badge variant="warning">
+            {t("script.aiList.count", { count: aiList?.count ?? 0 })}
+          </Badge>
           <Button
             loading={refreshing}
             onClick={onRefresh}
@@ -550,67 +542,60 @@ function AiInferredListCard({
             <RefreshCwIcon />
             {t("script.aiList.refresh")}
           </Button>
-        </CardAction>
-      </CardHeader>
-      <CardPanel className="space-y-3">
-        <Badge variant="warning">
-          {t("script.aiList.count", { count: aiList?.count ?? 0 })}
-        </Badge>
-        {items.length > 0 ? (
-          <div className="grid gap-3">
-            {items.map((item) => {
-              const scene = sceneById.get(item.scene_id);
-              const title = scene
-                ? sceneTitle(scene)
-                : t("script.aiList.unknownScene", { id: item.scene_id });
-              return (
-                <div
-                  className="rounded-lg border bg-warning/8 p-4"
-                  key={`${item.scene_id}-${item.beat_index}`}
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="space-y-2">
-                      <div className="font-medium text-sm">
-                        {t("script.aiList.itemTitle", {
-                          number: item.beat_index + 1,
-                          sceneTitle: title,
-                        })}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant="warning">
-                          {t("script.flags.ai_inferred")}
-                        </Badge>
-                        <Badge variant="secondary">
-                          {t(`script.beatTypes.${item.beat.type}`)}
-                        </Badge>
-                        <Badge variant="secondary">
-                          {sourceRefLabel(t, item.beat.source_ref)}
-                        </Badge>
-                      </div>
-                      <p className="text-sm leading-relaxed">
-                        {beatSummary(item.beat) || t("script.emptyField")}
-                      </p>
+        </div>
+      </div>
+      {items.length > 0 ? (
+        <div className="grid gap-3">
+          {items.map((item) => {
+            const scene = sceneById.get(item.scene_id);
+            const title = scene
+              ? sceneTitle(scene)
+              : t("script.aiList.unknownScene", { id: item.scene_id });
+            return (
+              <div
+                className="rounded-lg border bg-warning/8 p-4"
+                key={`${item.scene_id}-${item.beat_index}`}
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="space-y-2">
+                    <div className="font-medium text-sm">
+                      {t("script.aiList.itemTitle", {
+                        number: item.beat_index + 1,
+                        sceneTitle: title,
+                      })}
                     </div>
-                    <Button
-                      onClick={() =>
-                        scrollToBeat(item.scene_id, item.beat_index)
-                      }
-                      size="sm"
-                      variant="outline"
-                    >
-                      {t("script.aiList.review")}
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="warning">
+                        {t("script.flags.ai_inferred")}
+                      </Badge>
+                      <Badge variant="secondary">
+                        {t(`script.beatTypes.${item.beat.type}`)}
+                      </Badge>
+                      <Badge variant="secondary">
+                        {sourceRefLabel(t, item.beat.source_ref)}
+                      </Badge>
+                    </div>
+                    <p className="text-sm leading-relaxed">
+                      {beatSummary(item.beat) || t("script.emptyField")}
+                    </p>
                   </div>
+                  <Button
+                    onClick={() => scrollToBeat(item.scene_id, item.beat_index)}
+                    size="sm"
+                    variant="outline"
+                  >
+                    {t("script.aiList.review")}
+                  </Button>
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="rounded-lg border border-dashed p-3 text-muted-foreground text-sm">
-            {t("script.aiList.empty")}
-          </p>
-        )}
-      </CardPanel>
-    </Card>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="rounded-lg border border-dashed p-3 text-muted-foreground text-sm">
+          {t("script.aiList.empty")}
+        </p>
+      )}
+    </section>
   );
 }
