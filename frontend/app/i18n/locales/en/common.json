@@ -123,6 +123,7 @@
     "currentStatus": "Current status",
     "backToUnderstanding": "Back to understanding",
     "backToCharacters": "Back to character profiles",
+    "nextStepDisabledTooltip": "Complete understanding, character profiles, and intent first",
     "steps": {
       "understanding": "Understanding",
       "characters": "Character profiles",

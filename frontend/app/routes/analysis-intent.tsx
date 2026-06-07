@@ -1,16 +1,7 @@
-import {
-  CheckCircleIcon,
-  ClipboardCheckIcon,
-  GitPullRequestArrowIcon,
-} from "lucide-react";
+import { CheckCircleIcon, ClipboardCheckIcon } from "lucide-react";
 import type * as React from "react";
 import { useCallback, useEffect, useState } from "react";
-import {
-  Link,
-  useNavigate,
-  useOutletContext,
-  useRevalidator,
-} from "react-router";
+import { Link, useOutletContext, useRevalidator } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/analysis-intent";
 import type { AnalysisLayoutContext } from "./analysis-layout";
@@ -37,7 +28,7 @@ import {
   type MvpDirection,
   type ProjectId,
 } from "~/lib/api/types";
-import { analysisStepPath, stagePath } from "~/lib/stages";
+import { analysisStepPath } from "~/lib/stages";
 
 const mvpDirections: MvpDirection[] = ["faithful", "cinematic", "short_drama"];
 
@@ -89,7 +80,6 @@ export default function AnalysisIntent({
   loaderData,
 }: Route.ComponentProps): React.ReactElement {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const revalidator = useRevalidator();
   const { setActions } = useOutletContext<AnalysisLayoutContext>();
   const { characters, intent, project, projectId } = loaderData;
@@ -171,37 +161,6 @@ export default function AnalysisIntent({
     }
   }, [direction, form, projectId, refresh, t, validateConflicts]);
 
-  const saveIntentAndContinue = useCallback(async (): Promise<void> => {
-    if (!direction) return;
-
-    try {
-      setWorking(true);
-      const payload: IntentConstraints = {
-        ...form,
-        mood_floor: form.mood_floor?.trim() || null,
-        target_type: direction,
-      };
-      const envelope = await api.intent.save(projectId, payload);
-      setForm(envelope.data);
-      setSavedIntent(envelope);
-      await validateConflicts();
-      toastManager.add({
-        title: t("analysis.intent.saveSuccess"),
-        type: "success",
-      });
-      await refresh();
-      await navigate(stagePath(projectId, "outline"));
-    } catch (error) {
-      toastManager.add({
-        description: getErrorMessage(error),
-        title: t("analysis.intent.actionError"),
-        type: "error",
-      });
-    } finally {
-      setWorking(false);
-    }
-  }, [direction, form, navigate, projectId, refresh, t, validateConflicts]);
-
   const selectDirection = useCallback(
     async (nextDirection: MvpDirection): Promise<void> => {
       try {
@@ -277,17 +236,6 @@ export default function AnalysisIntent({
           <ClipboardCheckIcon aria-hidden />
           {t("analysis.intent.validate")}
         </Button>
-        <Button
-          disabled={!direction}
-          loading={working}
-          onClick={saveIntentAndContinue}
-          title={
-            !direction ? t("analysis.intent.chooseDirectionFirst") : undefined
-          }
-        >
-          <GitPullRequestArrowIcon aria-hidden />
-          {t("analysis.intent.saveAndContinue")}
-        </Button>
       </>,
     );
 
@@ -298,7 +246,6 @@ export default function AnalysisIntent({
     locked,
     runValidation,
     saveIntent,
-    saveIntentAndContinue,
     setActions,
     t,
     working,

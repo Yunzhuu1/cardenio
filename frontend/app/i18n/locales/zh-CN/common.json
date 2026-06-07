@@ -123,6 +123,7 @@
     "currentStatus": "当前状态",
     "backToUnderstanding": "返回作品理解",
     "backToCharacters": "返回人物档案",
+    "nextStepDisabledTooltip": "请先完成作品理解、人物档案和意图与方向",
     "steps": {
       "understanding": "作品理解",
       "characters": "人物档案",

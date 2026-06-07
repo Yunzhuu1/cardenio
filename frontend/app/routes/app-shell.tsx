@@ -127,8 +127,12 @@ function AppStageFooter({
 
   const projectState = routeContext.project?.state ?? "empty";
   const importSource = getImportSourceFromMatches(matches);
+  const analysisComplete =
+    getAnalysisCompleteFromMatches(matches) ??
+    isStageDone("analysis", projectState);
   const showImportNextAction =
     routeContext.stageSegment === "import" && importSource !== null;
+  const showAnalysisNextAction = routeContext.stageSegment === "analysis";
 
   return (
     <footer className="shrink-0 px-5 py-3 sm:px-8">
@@ -179,6 +183,12 @@ function AppStageFooter({
             source={importSource}
           />
         ) : null}
+        {showAnalysisNextAction ? (
+          <AnalysisFooterNextAction
+            complete={analysisComplete}
+            projectId={routeContext.projectId}
+          />
+        ) : null}
       </div>
     </footer>
   );
@@ -227,6 +237,47 @@ function ImportFooterNextAction({
   );
 }
 
+function AnalysisFooterNextAction({
+  complete,
+  projectId,
+}: {
+  complete: boolean;
+  projectId: string;
+}): React.ReactElement {
+  const { t } = useTranslation();
+
+  if (complete) {
+    return (
+      <Button
+        className="shrink-0"
+        render={<Link to={stagePath(projectId, "outline")} />}
+      >
+        {t("analysis.intent.outlineCta")}
+      </Button>
+    );
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            aria-disabled
+            className="shrink-0 cursor-not-allowed opacity-64 hover:bg-primary"
+            onClick={(event) => event.preventDefault()}
+            type="button"
+          />
+        }
+      >
+        {t("analysis.intent.outlineCta")}
+      </TooltipTrigger>
+      <TooltipPopup align="end">
+        {t("analysis.nextStepDisabledTooltip")}
+      </TooltipPopup>
+    </Tooltip>
+  );
+}
+
 function getProjectRouteContext(
   pathname: string,
   projects: ProjectSummary[],
@@ -269,6 +320,43 @@ function getImportSourceFromMatches(
   }
 
   return null;
+}
+
+function getAnalysisCompleteFromMatches(
+  matches: ReturnType<typeof useMatches>,
+): boolean | null {
+  for (const match of matches) {
+    const data = match.data;
+    if (
+      typeof data === "object" &&
+      data !== null &&
+      "understanding" in data &&
+      "characters" in data &&
+      "intent" in data
+    ) {
+      const analysisData = data as {
+        characters: unknown;
+        intent: unknown;
+        understanding: unknown;
+      };
+      return (
+        isConfirmedArtifact(analysisData.understanding) &&
+        isConfirmedArtifact(analysisData.characters) &&
+        analysisData.intent !== null
+      );
+    }
+  }
+
+  return null;
+}
+
+function isConfirmedArtifact(value: unknown): boolean {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "state" in value &&
+    (value as { state: unknown }).state === "confirmed"
+  );
 }
 
 function isSource(value: unknown): value is Source {
