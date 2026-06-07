@@ -492,6 +492,14 @@ Cardenio does not use project data for model training, and the MVP keeps
 backend gateway, with a local/private processing path reserved for deployments
 that require it.
 
+### Backend artifact recovery
+
+The backend keeps saved artifacts as versioned records. Recovery endpoints at
+`/api/v1/projects/{project_id}/artifacts/{artifact_type}/versions` and
+`/api/v1/projects/{project_id}/artifacts/{artifact_type}/versions/{version}`
+list and read prior versions without mutating the latest artifact, so local
+edits and rewrites can be inspected or recovered after interruption.
+
 ### Git hooks
 
 本仓库使用 [lefthook](https://github.com/evilmartians/lefthook) 管理本地 Git hooks。lefthook 是第三方开发工具，当前仅用于提交前和推送前的工程规范检查，不属于产品原创功能。

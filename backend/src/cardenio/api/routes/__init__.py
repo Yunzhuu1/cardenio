@@ -6,6 +6,7 @@ Each module handles one resource group following the api.md spec.
 from fastapi import APIRouter
 
 from cardenio.api.routes import (
+    artifacts,
     characters,
     consistency,
     export,
@@ -21,6 +22,7 @@ from cardenio.api.routes import (
 
 router = APIRouter()
 
+router.include_router(artifacts.router, tags=["Artifacts"])
 router.include_router(projects.router, tags=["Projects"])
 router.include_router(source.router, tags=["Source"])
 router.include_router(understanding.router, tags=["Understanding"])

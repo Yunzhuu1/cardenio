@@ -39,6 +39,18 @@ class ArtifactStore(Protocol):
         """Get the latest version of an artifact."""
         ...
 
+    async def get_artifact_version(
+        self, project_id: str, artifact_type: str, version: str
+    ) -> ArtifactEnvelope | None:
+        """Get a specific saved artifact version."""
+        ...
+
+    async def list_artifact_versions(
+        self, project_id: str, artifact_type: str
+    ) -> list[ArtifactEnvelope]:
+        """List saved versions for an artifact type."""
+        ...
+
     async def save_artifact(
         self, project_id: str, artifact: ArtifactEnvelope
     ) -> ArtifactEnvelope:

@@ -85,6 +85,35 @@ class ArtifactRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_version(
+        self, project_id: str, artifact_type: str, version: str
+    ) -> ArtifactModel | None:
+        stmt = (
+            select(ArtifactModel)
+            .where(
+                ArtifactModel.project_id == project_id,
+                ArtifactModel.type == artifact_type,
+                ArtifactModel.version == version,
+            )
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def list_versions(
+        self, project_id: str, artifact_type: str
+    ) -> list[ArtifactModel]:
+        stmt = (
+            select(ArtifactModel)
+            .where(
+                ArtifactModel.project_id == project_id,
+                ArtifactModel.type == artifact_type,
+            )
+            .order_by(ArtifactModel.updated_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
     async def save(self, artifact: ArtifactModel) -> ArtifactModel:
         self.session.add(artifact)
         await self.session.flush()
