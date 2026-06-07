@@ -31,7 +31,6 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
   Card,
-  CardAction,
   CardDescription,
   CardHeader,
   CardPanel,
@@ -319,128 +318,119 @@ export default function AnalysisUnderstanding({
         </section>
       ) : (
         <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("analysis.understanding.cardTitle")}</CardTitle>
-              <CardDescription>
-                {t("analysis.understanding.cardDescription")}
-              </CardDescription>
-              <CardAction className="flex flex-wrap justify-end gap-2">
-                <AlertDialog>
-                  <AlertDialogTrigger render={<Button variant="outline" />}>
-                    <RefreshCwIcon aria-hidden />
-                    {t("analysis.understanding.regenerate")}
-                  </AlertDialogTrigger>
-                  <AlertDialogPopup>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        {t("analysis.understanding.regenerateTitle")}
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {t("analysis.understanding.regenerateDescription")}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogClose
-                        render={<Button type="button" variant="ghost" />}
-                      >
-                        {t("analysis.understanding.cancel")}
-                      </AlertDialogClose>
-                      <AlertDialogClose
-                        render={
-                          <Button
-                            loading={working}
-                            onClick={generateUnderstanding}
-                            type="button"
-                          />
-                        }
-                      >
-                        {t("analysis.understanding.regenerateConfirm")}
-                      </AlertDialogClose>
-                    </AlertDialogFooter>
-                  </AlertDialogPopup>
-                </AlertDialog>
-                <Button
-                  disabled={!canSave}
-                  loading={working}
-                  onClick={saveUnderstanding}
-                  variant="secondary"
-                >
-                  <SaveIcon aria-hidden />
-                  {t("analysis.understanding.save")}
-                </Button>
-                <Button
-                  disabled={isDirty}
-                  loading={working}
-                  onClick={confirmUnderstanding}
-                  title={
-                    isDirty
-                      ? t("analysis.understanding.saveBeforeConfirm")
-                      : undefined
-                  }
-                >
-                  <CheckCircleIcon aria-hidden />
-                  {t("analysis.understanding.confirm")}
-                </Button>
-              </CardAction>
-            </CardHeader>
-            <CardPanel className="space-y-5">
-              <div className="grid gap-4 lg:grid-cols-2">
-                {editableFields.map((field) => (
-                  <Field className="w-full" key={field.key}>
-                    <FieldLabel>{field.label}</FieldLabel>
-                    <Input
-                      onChange={(event) =>
-                        updateField(field.key, event.target.value)
+          <section className="space-y-5">
+            <div className="flex flex-wrap justify-end gap-2">
+              <AlertDialog>
+                <AlertDialogTrigger render={<Button variant="outline" />}>
+                  <RefreshCwIcon aria-hidden />
+                  {t("analysis.understanding.regenerate")}
+                </AlertDialogTrigger>
+                <AlertDialogPopup>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {t("analysis.understanding.regenerateTitle")}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t("analysis.understanding.regenerateDescription")}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogClose
+                      render={<Button type="button" variant="ghost" />}
+                    >
+                      {t("analysis.understanding.cancel")}
+                    </AlertDialogClose>
+                    <AlertDialogClose
+                      render={
+                        <Button
+                          loading={working}
+                          onClick={generateUnderstanding}
+                          type="button"
+                        />
                       }
-                      placeholder={field.placeholder}
-                      value={draft[field.key]}
-                    />
-                  </Field>
-                ))}
-              </div>
+                    >
+                      {t("analysis.understanding.regenerateConfirm")}
+                    </AlertDialogClose>
+                  </AlertDialogFooter>
+                </AlertDialogPopup>
+              </AlertDialog>
+              <Button
+                disabled={!canSave}
+                loading={working}
+                onClick={saveUnderstanding}
+                variant="secondary"
+              >
+                <SaveIcon aria-hidden />
+                {t("analysis.understanding.save")}
+              </Button>
+              <Button
+                disabled={isDirty}
+                loading={working}
+                onClick={confirmUnderstanding}
+                title={
+                  isDirty
+                    ? t("analysis.understanding.saveBeforeConfirm")
+                    : undefined
+                }
+              >
+                <CheckCircleIcon aria-hidden />
+                {t("analysis.understanding.confirm")}
+              </Button>
+            </div>
 
-              <Field className="w-full">
-                <FieldLabel>
-                  {t("analysis.understanding.fields.synopsis")}
-                </FieldLabel>
-                <Textarea
-                  onChange={(event) =>
-                    setDraft((current) =>
-                      current
-                        ? { ...current, synopsis: event.target.value }
-                        : current,
-                    )
-                  }
-                  placeholder={t(
-                    "analysis.understanding.placeholders.synopsis",
-                  )}
-                  value={draft.synopsis}
-                />
-              </Field>
+            <div className="grid gap-4 lg:grid-cols-2">
+              {editableFields.map((field) => (
+                <Field className="w-full" key={field.key}>
+                  <FieldLabel>{field.label}</FieldLabel>
+                  <Input
+                    onChange={(event) =>
+                      updateField(field.key, event.target.value)
+                    }
+                    placeholder={field.placeholder}
+                    value={draft[field.key]}
+                  />
+                </Field>
+              ))}
+            </div>
 
-              <div className="grid gap-4 lg:grid-cols-3">
-                <StringListEditor
-                  label={t("analysis.understanding.fields.themes")}
-                  onChange={(values) => updateArray("themes", values)}
-                  placeholder={t("analysis.understanding.addPlaceholder")}
-                  values={draft.themes}
-                />
-                <StringListEditor
-                  label={t("analysis.understanding.fields.strengths")}
-                  onChange={(values) => updateArray("strengths", values)}
-                  placeholder={t("analysis.understanding.addPlaceholder")}
-                  values={draft.strengths}
-                />
-                <StringListEditor
-                  label={t("analysis.understanding.fields.difficulties")}
-                  onChange={(values) => updateArray("difficulties", values)}
-                  placeholder={t("analysis.understanding.addPlaceholder")}
-                  values={draft.difficulties}
-                />
-              </div>
-            </CardPanel>
-          </Card>
+            <Field className="w-full">
+              <FieldLabel>
+                {t("analysis.understanding.fields.synopsis")}
+              </FieldLabel>
+              <Textarea
+                onChange={(event) =>
+                  setDraft((current) =>
+                    current
+                      ? { ...current, synopsis: event.target.value }
+                      : current,
+                  )
+                }
+                placeholder={t("analysis.understanding.placeholders.synopsis")}
+                value={draft.synopsis}
+              />
+            </Field>
+
+            <div className="grid gap-4 lg:grid-cols-3">
+              <StringListEditor
+                label={t("analysis.understanding.fields.themes")}
+                onChange={(values) => updateArray("themes", values)}
+                placeholder={t("analysis.understanding.addPlaceholder")}
+                values={draft.themes}
+              />
+              <StringListEditor
+                label={t("analysis.understanding.fields.strengths")}
+                onChange={(values) => updateArray("strengths", values)}
+                placeholder={t("analysis.understanding.addPlaceholder")}
+                values={draft.strengths}
+              />
+              <StringListEditor
+                label={t("analysis.understanding.fields.difficulties")}
+                onChange={(values) => updateArray("difficulties", values)}
+                placeholder={t("analysis.understanding.addPlaceholder")}
+                values={draft.difficulties}
+              />
+            </div>
+          </section>
 
           <Card>
             <CardHeader>
