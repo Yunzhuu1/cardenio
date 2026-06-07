@@ -70,6 +70,12 @@ class AgentRuntimeResult:
 class AgentRuntime:
     """Run stateless agents through one internal orchestration boundary."""
 
+    def __init__(self, *, max_trace_records: int = 100) -> None:
+        if max_trace_records < 1:
+            raise ValueError("max_trace_records must be at least 1")
+        self.max_trace_records = max_trace_records
+        self._traces: list[AgentRunRecord] = []
+
     async def run(
         self,
         *,
@@ -77,11 +83,30 @@ class AgentRuntime:
         context: AgentContext,
     ) -> AgentRuntimeResult:
         result = await agent.run(context)
-        return AgentRuntimeResult.from_agent_result(
+        runtime_result = AgentRuntimeResult.from_agent_result(
             task=agent.task_name,
             result=result,
             context=context,
         )
+        self._record_trace(runtime_result.run)
+        return runtime_result
+
+    @property
+    def traces(self) -> tuple[AgentRunRecord, ...]:
+        """Return internal, non-content run traces in insertion order."""
+        return tuple(self._traces)
+
+    def clear_traces(self) -> None:
+        """Clear internal runtime traces."""
+        self._traces.clear()
+
+    def _record_trace(self, record: AgentRunRecord | None) -> None:
+        if record is None:
+            return
+        self._traces.append(record)
+        overflow = len(self._traces) - self.max_trace_records
+        if overflow > 0:
+            del self._traces[:overflow]
 
 
 def summarize_context(context: AgentContext) -> dict[str, Any]:

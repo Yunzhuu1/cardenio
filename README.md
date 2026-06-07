@@ -563,6 +563,10 @@ new public API routes.
 An internal `AgentRuntime` provides a single execution boundary for stateless
 stage agents and records compact run metadata for backend diagnostics. It does
 not choose workflow steps and does not change the public API surface.
+The runtime also keeps a bounded in-memory trace history of these compact
+records for internal observability during tests and backend debugging. These
+traces intentionally omit source text and generated artifact content, are not
+persisted, and are not exposed through user-facing API routes.
 
 ### Git hooks
 
