@@ -75,6 +75,7 @@
     "uploadDropTitle": "Drop a TXT / DOCX file here",
     "uploadDropDescription": "You can also choose a local file. Cardenio will generate a chapter preview first.",
     "manualEntryPrompt": "Or enter chapters manually",
+    "uploadEntryPrompt": "Or upload a TXT / DOCX file",
     "uploadHint": "Uploading only creates a preview. Confirming replaces all current chapters.",
     "uploadWarnings": "Import warnings",
     "previewTitle": "Import preview",

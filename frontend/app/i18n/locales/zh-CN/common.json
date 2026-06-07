@@ -75,6 +75,7 @@
     "uploadDropTitle": "拖拽 TXT / DOCX 文件到这里",
     "uploadDropDescription": "也可以选择本地文件，系统会先生成章节预览。",
     "manualEntryPrompt": "或按章手动录入",
+    "uploadEntryPrompt": "或上传 TXT / DOCX 文件",
     "uploadHint": "上传仅生成预览，确认后会替换当前所有章节。",
     "uploadWarnings": "导入警告",
     "previewTitle": "导入预览",

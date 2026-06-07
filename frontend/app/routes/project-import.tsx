@@ -226,6 +226,9 @@ export default function ProjectImport({
   >([]);
   const [previewWarnings, setPreviewWarnings] = React.useState<string[]>([]);
   const [uploading, setUploading] = React.useState(false);
+  const [entryMode, setEntryMode] = React.useState<"upload" | "manual">(
+    "upload",
+  );
   const [confirmingImport, setConfirmingImport] = React.useState(false);
   const [selectedChapterIds, setSelectedChapterIds] = React.useState<string[]>(
     [],
@@ -250,6 +253,12 @@ export default function ProjectImport({
   const validSelectedChapterIds = selectedChapterIds.filter((id) =>
     source.chapters.some((chapter) => chapter.id === id),
   );
+
+  React.useEffect(() => {
+    document
+      .querySelector('[data-slot="scroll-area-viewport"]')
+      ?.scrollTo({ top: 0 });
+  }, [entryMode]);
 
   async function refreshSource(): Promise<void> {
     await revalidator.revalidate();
@@ -410,22 +419,34 @@ export default function ProjectImport({
 
   return (
     <div className="flex flex-col gap-8">
-      <section className="flex max-w-3xl flex-col items-center gap-4">
-        <FileUploadCard
-          onFileChange={handleFileChange}
-          onFileSelect={(file) => void handleFileSelect(file)}
-          uploading={uploading}
-        />
-        <a
-          className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-          href="#manual-chapter-entry"
-        >
-          {t("import.manualEntryPrompt")}
-        </a>
-      </section>
-
-      <section id="manual-chapter-entry">
-        <ChapterEntryForm addingChapter={addingChapter} />
+      <section className="flex min-h-[calc(100dvh-11rem)] items-center justify-center">
+        {entryMode === "upload" ? (
+          <div className="flex w-full max-w-3xl flex-col items-center gap-4">
+            <FileUploadCard
+              onFileChange={handleFileChange}
+              onFileSelect={(file) => void handleFileSelect(file)}
+              uploading={uploading}
+            />
+            <button
+              className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              onClick={() => setEntryMode("manual")}
+              type="button"
+            >
+              {t("import.manualEntryPrompt")}
+            </button>
+          </div>
+        ) : (
+          <div className="flex w-full max-w-3xl flex-col items-center gap-4">
+            <ChapterEntryForm addingChapter={addingChapter} />
+            <button
+              className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              onClick={() => setEntryMode("upload")}
+              type="button"
+            >
+              {t("import.uploadEntryPrompt")}
+            </button>
+          </div>
+        )}
       </section>
 
       <Separator />
@@ -567,7 +588,7 @@ function ChapterEntryForm({
   const { t } = useTranslation();
 
   return (
-    <Form className="flex max-w-3xl flex-col gap-5" method="post">
+    <Form className="flex w-full flex-col gap-5" method="post">
       <input name="intent" type="hidden" value="add-chapter" />
       <Field>
         <FieldLabel htmlFor="chapter-title">
