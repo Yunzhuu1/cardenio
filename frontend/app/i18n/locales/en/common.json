@@ -643,6 +643,62 @@
       }
     }
   },
+  "settings": {
+    "status": {
+      "empty": "Default settings",
+      "draft": "Draft",
+      "confirmed": "Confirmed",
+      "needs_recompute": "Needs recompute"
+    },
+    "privacy": {
+      "title": "Privacy and training commitment",
+      "description": "Project-level trust settings are shown explicitly so source text, artifacts, and settings have clear handling boundaries.",
+      "training": {
+        "label": "Not used for model training",
+        "description": "Project data cannot be enabled as training data. The MVP keeps this setting locked off and authors cannot turn it on.",
+        "badge": "Off"
+      },
+      "storage": {
+        "label": "Data storage location",
+        "description": "Source text, generated artifacts, and settings are stored in the database configured for this backend environment.",
+        "locations": {
+          "configured_sqlite_database": "Configured SQLite database for this backend"
+        }
+      },
+      "local": {
+        "label": "Local/private processing path",
+        "description": "The system reserves a local or private processing path for projects that require private deployment.",
+        "badge": "Reserved"
+      }
+    },
+    "generation": {
+      "title": "Generation preferences",
+      "description": "These project-level defaults influence downstream generation entry points.",
+      "shotHints": {
+        "label": "Enable shot hints by default",
+        "description": "After saving, this becomes the default shot-hint setting on the screenplay generation page. Existing screenplay artifacts still take priority."
+      }
+    },
+    "languages": {
+      "title": "Language settings",
+      "description": "Languages come from project metadata and are read-only in this release.",
+      "ui": "UI language",
+      "source": "Source language",
+      "output": "Output language",
+      "readonlyNote": "Languages are set when the project is created. The backend project metadata update endpoint is not implemented yet, so editing languages here is not supported in this release.",
+      "values": {
+        "zh-CN": "Simplified Chinese",
+        "en": "English",
+        "mixed": "Mixed languages",
+        "unknown": "Unknown"
+      }
+    },
+    "save": {
+      "button": "Save settings",
+      "successTitle": "Settings saved",
+      "errorTitle": "Failed to save settings"
+    }
+  },
   "pages": {
     "import": {
       "milestone": "M1",
