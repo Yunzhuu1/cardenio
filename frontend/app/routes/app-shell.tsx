@@ -1,5 +1,5 @@
-import { MenuIcon, PanelLeftCloseIcon } from "lucide-react";
-import { Outlet, useLocation } from "react-router";
+import { MenuIcon, PanelLeftCloseIcon, SettingsIcon } from "lucide-react";
+import { NavLink, Outlet, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/app-shell";
 import { AppSidebar } from "~/components/app-sidebar";
@@ -18,6 +18,8 @@ import {
 } from "~/components/ui/sidebar";
 import { api } from "~/lib/api/client";
 import type { ProjectSummary } from "~/lib/api/types";
+import { stagePath } from "~/lib/stages";
+import { cn } from "~/lib/utils";
 
 export async function clientLoader() {
   const { items } = await api.projects.list();
@@ -86,6 +88,20 @@ function AppTopbar({
           </BreadcrumbList>
         </Breadcrumb>
       </div>
+      {routeContext ? (
+        <NavLink
+          aria-label={t("nav.projectSettings")}
+          className={({ isActive }) =>
+            cn(
+              "inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground",
+              isActive && "bg-sidebar-accent text-sidebar-foreground",
+            )
+          }
+          to={stagePath(routeContext.projectId, "settings")}
+        >
+          <SettingsIcon aria-hidden="true" className="size-4" />
+        </NavLink>
+      ) : null}
     </header>
   );
 }
@@ -93,7 +109,7 @@ function AppTopbar({
 function getProjectRouteContext(
   pathname: string,
   projects: ProjectSummary[],
-): { projectTitle: string; stageKey: string } | null {
+): { projectId: string; projectTitle: string; stageKey: string } | null {
   const match = pathname.match(/^\/projects\/([^/]+)(?:\/([^/]+))?/);
   if (!match) return null;
 
@@ -102,6 +118,7 @@ function getProjectRouteContext(
 
   const project = projects.find((item) => item.id === projectId);
   return {
+    projectId,
     projectTitle: project?.title ?? projectId,
     stageKey: `pages.${projectStage}.title`,
   };
