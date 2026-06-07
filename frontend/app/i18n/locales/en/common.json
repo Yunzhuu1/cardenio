@@ -612,5 +612,38 @@
     "label": "UI language",
     "zh-CN": "中文",
     "en": "English"
+  },
+  "editor": {
+    "emptyTitle": "No screenplay draft generated",
+    "emptyDescription": "Generate the draft in the screenplay step before using the editing workbench for side-by-side review and editing.",
+    "emptyCta": "Go generate screenplay",
+    "dualPaneTitle": "Full draft side-by-side",
+    "dualPaneDescription": "The source text is on the left and the full screenplay is on the right. Click paragraphs or scenes to locate the matching side.",
+    "sourcePane": "Source",
+    "screenplayPane": "Screenplay",
+    "scrollSyncLabel": "Scroll sync",
+    "scrollSyncDescription": "When enabled, scrolling either pane keeps the other pane aligned by reading progress.",
+    "clearHighlights": "Clear highlights",
+    "locateSource": "Locate source",
+    "traceNotFoundTitle": "Source not found",
+    "traceNotFoundDescription": "This scene source_ref could not be fully resolved in the source text. Check the source reference.",
+    "projectStatus": "Project state: {{state}}",
+    "emptySource": "This project has no source text yet.",
+    "emptyScreenplay": "This screenplay has no scenes.",
+    "chapterOrder": "Chapter {{order}}",
+    "paragraphNumber": "Paragraph {{number}}",
+    "states": {
+      "empty": "Empty",
+      "imported": "Imported",
+      "understood": "Understood",
+      "profiled": "Profiled",
+      "intent_set": "Intent set",
+      "outlined": "Outlined",
+      "generated": "Generated",
+      "editing": "Editing",
+      "report": "Report",
+      "exported": "Exported",
+      "unknown": "Unknown"
+    }
   }
 }

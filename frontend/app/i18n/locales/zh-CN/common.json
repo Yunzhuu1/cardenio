@@ -612,5 +612,38 @@
     "label": "界面语言",
     "zh-CN": "中文",
     "en": "English"
+  },
+  "editor": {
+    "emptyTitle": "尚未生成剧本初稿",
+    "emptyDescription": "请先在剧本生成阶段生成初稿，再进入打磨工作台进行双栏对照和编辑。",
+    "emptyCta": "去生成剧本",
+    "dualPaneTitle": "整稿双栏对照",
+    "dualPaneDescription": "左侧显示整本原文，右侧显示整稿剧本；点击段落或场景可互相定位。",
+    "sourcePane": "原文",
+    "screenplayPane": "剧本",
+    "scrollSyncLabel": "滚动联动",
+    "scrollSyncDescription": "开启后，拖动任一栏时另一栏会按阅读进度同步滚动。",
+    "clearHighlights": "清除高亮",
+    "locateSource": "定位原文",
+    "traceNotFoundTitle": "无法定位原文",
+    "traceNotFoundDescription": "该场的 source_ref 无法在原文中完整命中，请检查来源引用。",
+    "projectStatus": "项目状态：{{state}}",
+    "emptySource": "当前项目还没有原文内容。",
+    "emptyScreenplay": "当前剧本没有场景。",
+    "chapterOrder": "第 {{order}} 章",
+    "paragraphNumber": "第 {{number}} 段",
+    "states": {
+      "empty": "空项目",
+      "imported": "已导入",
+      "understood": "已理解",
+      "profiled": "已建人物档案",
+      "intent_set": "已设置意图",
+      "outlined": "已生成大纲",
+      "generated": "已生成剧本",
+      "editing": "打磨中",
+      "report": "已生成报告",
+      "exported": "已导出",
+      "unknown": "未知"
+    }
   }
 }
