@@ -218,7 +218,7 @@
       "saveCharacter": "保存人物",
       "createCharacter": "创建人物",
       "cancel": "取消",
-      "confirm": "确认人物档案",
+      "confirm": "确认并进入意图",
       "confirmSuccess": "人物档案已确认",
       "confirmCta": "进入作者意图",
       "actionError": "操作失败",

@@ -11,7 +11,12 @@ import {
 } from "lucide-react";
 import type * as React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useOutletContext, useRevalidator } from "react-router";
+import {
+  Link,
+  useNavigate,
+  useOutletContext,
+  useRevalidator,
+} from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/analysis-characters";
 import type { AnalysisLayoutContext } from "./analysis-layout";
@@ -174,6 +179,7 @@ export default function AnalysisCharacters({
   loaderData,
 }: Route.ComponentProps): React.ReactElement {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const revalidator = useRevalidator();
   const { setActions } = useOutletContext<AnalysisLayoutContext>();
   const { characters, understanding, projectId } = loaderData;
@@ -314,6 +320,7 @@ export default function AnalysisCharacters({
         type: "success",
       });
       await refresh();
+      await navigate(analysisStepPath(projectId, "intent"));
     } catch (error) {
       toastManager.add({
         description: getErrorMessage(error),
@@ -323,7 +330,7 @@ export default function AnalysisCharacters({
     } finally {
       setWorking(false);
     }
-  }, [projectId, refresh, t]);
+  }, [navigate, projectId, refresh, t]);
 
   useEffect(() => {
     if (locked || !characters) {
