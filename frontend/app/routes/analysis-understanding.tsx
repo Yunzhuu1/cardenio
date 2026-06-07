@@ -62,6 +62,7 @@ import {
   type UnderstandingData,
 } from "~/lib/api/types";
 import { analysisStepPath, stagePath } from "~/lib/stages";
+import { cn } from "~/lib/utils";
 
 type EditableTextField =
   | "logline"
@@ -115,6 +116,7 @@ export default function AnalysisUnderstanding({
 
   const status = understanding?.state ?? "empty";
   const isConfirmed = status === "confirmed";
+  const hasUnderstanding = Boolean(understanding && draft);
   const isDirty =
     Boolean(draft) &&
     JSON.stringify(draft) !== JSON.stringify(understanding?.data);
@@ -248,7 +250,7 @@ export default function AnalysisUnderstanding({
 
   return (
     <section className="space-y-4">
-      {!threshold.passed ? (
+      {!threshold.passed && hasUnderstanding ? (
         <Alert variant="warning">
           <AlertTitle>{t("analysis.understanding.thresholdTitle")}</AlertTitle>
           <AlertDescription>
@@ -278,25 +280,43 @@ export default function AnalysisUnderstanding({
       ) : null}
 
       {!understanding || !draft ? (
-        <Empty className="rounded-lg border border-dashed">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <BookOpenIcon aria-hidden className="size-4" />
-            </EmptyMedia>
-            <EmptyTitle>{t("analysis.understanding.emptyTitle")}</EmptyTitle>
-            <EmptyDescription>
-              {t("analysis.understanding.emptyDescription")}
-            </EmptyDescription>
-          </EmptyHeader>
-          <Button
-            disabled={!threshold.passed}
-            loading={working}
-            onClick={generateUnderstanding}
-          >
-            <SparklesIcon aria-hidden />
-            {t("analysis.understanding.generate")}
-          </Button>
-        </Empty>
+        <section className="flex min-h-[calc(100dvh-11rem)] items-center justify-center overflow-hidden">
+          <Empty className="w-full max-w-xl">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <BookOpenIcon aria-hidden className="size-4" />
+              </EmptyMedia>
+              <EmptyTitle>{t("analysis.understanding.emptyTitle")}</EmptyTitle>
+              <EmptyDescription
+                className={cn(!threshold.passed && "text-warning")}
+              >
+                {threshold.passed
+                  ? t("analysis.understanding.emptyDescription")
+                  : t("analysis.understanding.thresholdDescription", {
+                      min: threshold.min_chapters,
+                    })}
+              </EmptyDescription>
+            </EmptyHeader>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button
+                disabled={!threshold.passed}
+                loading={working}
+                onClick={generateUnderstanding}
+              >
+                <SparklesIcon aria-hidden />
+                {t("analysis.understanding.generate")}
+              </Button>
+              {!threshold.passed ? (
+                <Button
+                  render={<Link to={stagePath(projectId, "import")} />}
+                  variant="outline"
+                >
+                  {t("analysis.understanding.importLink")}
+                </Button>
+              ) : null}
+            </div>
+          </Empty>
+        </section>
       ) : (
         <div className="space-y-4">
           <Card>
