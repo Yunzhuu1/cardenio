@@ -1,6 +1,5 @@
 import {
   ClapperboardIcon,
-  FileTextIcon,
   ListFilterIcon,
   RefreshCwIcon,
   SparklesIcon,
@@ -37,11 +36,6 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import {
-  Collapsible,
-  CollapsiblePanel,
-  CollapsibleTrigger,
-} from "~/components/ui/collapsible";
-import {
   Empty,
   EmptyContent,
   EmptyDescription,
@@ -58,6 +52,8 @@ import {
   ToggleGroupSeparator,
 } from "~/components/ui/toggle-group";
 import { toastManager } from "~/components/ui/toast";
+import { BeatBadges, BeatBody } from "~/components/screenplay-beat-view";
+import { SceneHeader, SceneSummary } from "~/components/screenplay-scene-view";
 import { api } from "~/lib/api/client";
 import { api as loaderApi } from "~/lib/api/client";
 import {
@@ -70,8 +66,13 @@ import {
   type ProjectId,
   type ScreenplayData,
   type ScreenplayScene,
-  type SourceRef,
 } from "~/lib/api/types";
+import {
+  beatSummary,
+  beatToneClass,
+  sceneTitle,
+  sourceRefLabel,
+} from "~/lib/screenplay-format";
 import { cn } from "~/lib/utils";
 import { stagePath } from "~/lib/stages";
 
@@ -125,104 +126,6 @@ function statusVariant(
   if (state === "draft") return "warning";
   if (state === "needs_recompute") return "warning";
   return "secondary";
-}
-
-function paragraphLabel(paragraphs: number[]): string {
-  if (paragraphs.length === 0) return "";
-  const sorted = [...paragraphs].sort((a, b) => a - b);
-  const ranges: string[] = [];
-  let rangeStart = sorted[0];
-  let previous = sorted[0];
-
-  for (const paragraph of sorted.slice(1)) {
-    if (paragraph === previous + 1) {
-      previous = paragraph;
-      continue;
-    }
-    ranges.push(
-      rangeStart === previous ? `${rangeStart}` : `${rangeStart}-${previous}`,
-    );
-    rangeStart = paragraph;
-    previous = paragraph;
-  }
-  ranges.push(
-    rangeStart === previous ? `${rangeStart}` : `${rangeStart}-${previous}`,
-  );
-  return ranges.join(", ");
-}
-
-function sourceRefLabel(
-  t: ReturnType<typeof useTranslation>["t"],
-  sourceRef: SourceRef | null,
-): string {
-  if (!sourceRef) return t("script.noSourceRef");
-  return t("script.sourceRef", {
-    chapter: sourceRef.chapter,
-    paragraphs: paragraphLabel(sourceRef.paragraphs),
-  });
-}
-
-function flagVariant(flag: Flag | null): "secondary" | "success" | "warning" {
-  if (flag === "from_source") return "success";
-  if (flag === "ai_inferred") return "warning";
-  return "secondary";
-}
-
-function beatToneClass(beat: Beat): string {
-  if (beat.type === "todo") {
-    return "border-warning/40 bg-warning/10";
-  }
-  if (beat.type === "note") {
-    return "border-info/32 bg-info/8";
-  }
-  if (beat.flag === "ai_inferred") {
-    return "border-warning/32 bg-warning/8";
-  }
-  return "border-border bg-card";
-}
-
-function characterName(
-  characterNameById: Map<string, string>,
-  characterId: string | null,
-): string {
-  if (!characterId) return "";
-  return characterNameById.get(characterId) ?? characterId;
-}
-
-function charactersLabel(
-  characters: string[],
-  characterNameById: Map<string, string>,
-  separator: string,
-): string {
-  if (characters.length === 0) return "";
-  return characters
-    .map((characterId) => characterNameById.get(characterId) ?? characterId)
-    .join(separator);
-}
-
-function optionKindKey(kind: string): string {
-  if (
-    kind === "voice_over" ||
-    kind === "action" ||
-    kind === "dialogue" ||
-    kind === "annotation"
-  ) {
-    return kind;
-  }
-  return "unknown";
-}
-
-function sceneTitle(scene: ScreenplayScene): string {
-  return `${scene.heading.location} · ${scene.synopsis ?? scene.id}`;
-}
-
-function beatSummary(beat: Beat): string {
-  return (
-    beat.dialogue ??
-    beat.text ??
-    beat.options?.map((option) => option.text).join(" / ") ??
-    ""
-  );
 }
 
 function scrollToBeat(sceneId: string, beatIndex: number): void {
@@ -571,12 +474,6 @@ function ScreenplaySceneCard({
   sceneNumber: number;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const characterSeparator = t("script.characterSeparator");
-  const cast = charactersLabel(
-    scene.characters,
-    characterNameById,
-    characterSeparator,
-  );
   const matchingBeatCount =
     filter === "all"
       ? scene.beats.length
@@ -590,25 +487,11 @@ function ScreenplaySceneCard({
       )}
       id={`scene-${scene.id}`}
     >
-      <CardHeader className="border-b">
-        <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-          <span>{t("script.sceneNumber", { number: sceneNumber })}</span>
-          <Badge variant="outline">
-            {t(`script.int_ext.${scene.heading.int_ext}`)}
-          </Badge>
-          <Badge variant="outline">{scene.heading.location}</Badge>
-          <Badge variant="outline">
-            {t(`script.time.${scene.heading.time}`)}
-          </Badge>
-        </CardTitle>
-        <CardDescription className="flex flex-wrap gap-2">
-          <Badge variant="secondary">
-            {sourceRefLabel(t, scene.source_ref)}
-          </Badge>
-          {scene.mood ? <Badge variant="secondary">{scene.mood}</Badge> : null}
-          {cast ? <Badge variant="secondary">{cast}</Badge> : null}
-        </CardDescription>
-      </CardHeader>
+      <SceneHeader
+        characterNameById={characterNameById}
+        scene={scene}
+        sceneNumber={sceneNumber}
+      />
       <CardPanel className="space-y-4">
         <SceneSummary scene={scene} />
         <div className="grid gap-3">
@@ -633,35 +516,6 @@ function ScreenplaySceneCard({
   );
 }
 
-function SceneSummary({
-  scene,
-}: {
-  scene: ScreenplayScene;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  const items = [
-    ["synopsis", scene.synopsis],
-    ["goal", scene.goal],
-    ["conflict", scene.conflict],
-    ["ending_state", scene.ending_state],
-  ] as const;
-
-  return (
-    <div className="grid gap-2 rounded-lg bg-muted/32 p-3 text-sm md:grid-cols-2">
-      {items.map(([key, value]) =>
-        value ? (
-          <div className="grid gap-1" key={key}>
-            <div className="font-medium text-muted-foreground">
-              {t(`script.fields.${key}`)}
-            </div>
-            <div>{value}</div>
-          </div>
-        ) : null,
-      )}
-    </div>
-  );
-}
-
 function BeatBlock({
   beat,
   characterNameById,
@@ -675,10 +529,6 @@ function BeatBlock({
   index: number;
   sceneId: string;
 }): React.ReactElement {
-  const { t } = useTranslation();
-  const flagLabel = beat.flag
-    ? t(`script.flags.${beat.flag}`)
-    : t("script.flags.unknown");
   const isFiltering = filter !== "all";
   const isMatch = !isFiltering || beat.flag === filter;
 
@@ -692,36 +542,8 @@ function BeatBlock({
       )}
       id={`beat-${sceneId}-${index}`}
     >
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Badge variant="outline">{index + 1}</Badge>
-        <Badge variant={beat.type === "todo" ? "warning" : "secondary"}>
-          {t(`script.beatTypes.${beat.type}`)}
-        </Badge>
-        {beat.type === "todo" ? (
-          <Badge variant="warning">{t("script.todoBadge")}</Badge>
-        ) : null}
-        <Badge variant={flagVariant(beat.flag)}>{flagLabel}</Badge>
-        <Badge variant="secondary">{sourceRefLabel(t, beat.source_ref)}</Badge>
-      </div>
-
-      {beat.type === "dialogue" ||
-      beat.type === "voice_over" ||
-      beat.type === "off_screen" ? (
-        <DialogueBeat beat={beat} characterNameById={characterNameById} />
-      ) : beat.type === "note" ? (
-        <NoteBeat beat={beat} />
-      ) : (
-        <p className="whitespace-pre-wrap leading-relaxed">
-          {beat.text ?? t("script.emptyField")}
-        </p>
-      )}
-
-      {beat.subtext ? (
-        <p className="mt-3 text-muted-foreground text-sm">
-          <span className="font-medium">{t("script.subtext")}：</span>
-          {beat.subtext}
-        </p>
-      ) : null}
+      <BeatBadges beat={beat} index={index} />
+      <BeatBody beat={beat} characterNameById={characterNameById} />
     </div>
   );
 }
@@ -817,78 +639,5 @@ function AiInferredListCard({
         )}
       </CardPanel>
     </Card>
-  );
-}
-
-function DialogueBeat({
-  beat,
-  characterNameById,
-}: {
-  beat: Beat;
-  characterNameById: Map<string, string>;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  const speaker = characterName(characterNameById, beat.character);
-  const suffix =
-    beat.type === "voice_over" || beat.type === "off_screen"
-      ? t(`script.dialogueSuffix.${beat.type}`)
-      : null;
-
-  return (
-    <div className="grid gap-2">
-      <div className="flex flex-wrap items-center gap-2 font-semibold">
-        {speaker ? <span>{speaker}</span> : null}
-        {suffix ? <Badge variant="outline">{suffix}</Badge> : null}
-        {beat.parenthetical ? (
-          <span className="font-normal text-muted-foreground">
-            {beat.parenthetical}
-          </span>
-        ) : null}
-      </div>
-      <p className="whitespace-pre-wrap leading-relaxed">
-        {beat.dialogue ?? beat.text ?? t("script.emptyField")}
-      </p>
-    </div>
-  );
-}
-
-function NoteBeat({ beat }: { beat: Beat }): React.ReactElement {
-  const { t } = useTranslation();
-  const options = beat.options ?? [];
-
-  return (
-    <div className="grid gap-3">
-      <div>
-        <div className="mb-1 font-medium">{t("script.noteTitle")}</div>
-        <p className="whitespace-pre-wrap leading-relaxed">
-          {beat.text ?? t("script.emptyField")}
-        </p>
-      </div>
-      {options.length > 0 ? (
-        <Collapsible>
-          <CollapsibleTrigger render={<Button size="xs" variant="outline" />}>
-            <FileTextIcon />
-            {t("script.optionsToggle", { count: options.length })}
-          </CollapsibleTrigger>
-          <CollapsiblePanel className="mt-3">
-            <div className="grid gap-2">
-              {options.map((option, index) => (
-                <div
-                  className="rounded-md border bg-background p-3"
-                  key={index}
-                >
-                  <Badge className="mb-2" variant="secondary">
-                    {t(`script.optionKinds.${optionKindKey(option.kind)}`)}
-                  </Badge>
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {option.text}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </CollapsiblePanel>
-        </Collapsible>
-      ) : null}
-    </div>
   );
 }
