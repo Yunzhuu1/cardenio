@@ -7,6 +7,9 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  optimizeDeps: {
+    entries: ["app/**/*.{ts,tsx}"],
+  },
   server: {
     proxy: {
       "/api": {

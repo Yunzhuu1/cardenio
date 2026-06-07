@@ -643,6 +643,62 @@
       }
     }
   },
+  "settings": {
+    "status": {
+      "empty": "默认设置",
+      "draft": "草稿",
+      "confirmed": "已确认",
+      "needs_recompute": "需重新生成"
+    },
+    "privacy": {
+      "title": "隐私与训练承诺",
+      "description": "项目级信任设置只读展示，明确原文、工件与设置的处理边界。",
+      "training": {
+        "label": "不用于模型训练",
+        "description": "项目数据不会被启用为训练数据。该设置在 MVP 中锁定为关闭，作者不能开启。",
+        "badge": "已关闭"
+      },
+      "storage": {
+        "label": "数据存储位置",
+        "description": "原文、生成工件与设置存储在当前后端环境配置的数据库中。",
+        "locations": {
+          "configured_sqlite_database": "本后端环境配置的 SQLite 数据库"
+        }
+      },
+      "local": {
+        "label": "本地/私有处理路径",
+        "description": "系统保留本地或私有化处理路径，适配需要私有部署的项目。",
+        "badge": "已保留"
+      }
+    },
+    "generation": {
+      "title": "生成偏好",
+      "description": "这些项目级默认值会影响后续生成入口。",
+      "shotHints": {
+        "label": "镜头建议默认开启",
+        "description": "保存后会作为剧本生成页的镜头建议默认值；已有剧本仍优先使用剧本工件自己的值。"
+      }
+    },
+    "languages": {
+      "title": "语言设置",
+      "description": "语言来自项目元数据，本期只读展示。",
+      "ui": "界面语言",
+      "source": "源语言",
+      "output": "输出语言",
+      "readonlyNote": "语言在创建项目时设定。后端项目元数据更新接口尚未实现，因此本期暂不支持在设置页修改。",
+      "values": {
+        "zh-CN": "简体中文",
+        "en": "English",
+        "mixed": "混合语言",
+        "unknown": "未知"
+      }
+    },
+    "save": {
+      "button": "保存设置",
+      "successTitle": "设置已保存",
+      "errorTitle": "保存设置失败"
+    }
+  },
   "pages": {
     "import": {
       "milestone": "M1",
