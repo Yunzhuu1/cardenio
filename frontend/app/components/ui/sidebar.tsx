@@ -88,10 +88,11 @@ export function Sidebar({
     const reduceMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
+    const closedX = -sidebar.offsetWidth;
     const closedMargin = isDesktop ? `-${sidebarWidth}` : "0rem";
     const finalVars = {
       marginRight: open ? "0rem" : closedMargin,
-      xPercent: open ? 0 : -100,
+      x: open ? 0 : closedX,
     };
 
     const context = gsap.context(() => {
@@ -107,13 +108,12 @@ export function Sidebar({
         sidebar,
         {
           marginRight: open ? closedMargin : "0rem",
-          xPercent: open ? -100 : 0,
+          x: open ? closedX : 0,
         },
         {
           ...finalVars,
-          clearProps: "marginRight",
-          duration: 0.18,
-          ease: "power2.out",
+          duration: 0.2,
+          ease: "power3.inOut",
           overwrite: "auto",
         },
       );
@@ -299,7 +299,7 @@ export function SidebarInset({
       data-slot="sidebar-inset"
       className={cn(
         "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-sidebar dark:bg-background",
-        "md:peer-data-[variant=inset]:m-2 md:peer-data-[state=open]:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:overflow-hidden md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm",
+        "md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:overflow-hidden md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm",
         className,
       )}
       {...props}
