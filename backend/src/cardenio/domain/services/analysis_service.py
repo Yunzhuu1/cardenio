@@ -15,6 +15,7 @@ from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, Project
 from cardenio.domain.models.characters import CharactersData
 from cardenio.domain.models.understanding import UnderstandingData
 from cardenio.gateway.protocol import LlmGateway
+from cardenio.orchestrator.gates import generation_gate_response
 from cardenio.storage.sqlite_store import SqliteArtifactStore
 
 _STUB_VALUES = {"", "stub"}
@@ -117,8 +118,12 @@ class AnalysisService:
             raise HTTPException(status_code=404, detail="Project not found")
 
         understanding = await self.store.get_artifact(project_id, "understanding")
-        if understanding is None or understanding.state != ArtifactState.CONFIRMED:
-            return understanding_gate_error(understanding.state if understanding else None)
+        gate_error = generation_gate_response(
+            "characters:generate",
+            {"understanding": understanding},
+        )
+        if gate_error is not None:
+            return gate_error
 
         chapters = await self.store.list_chapters(project_id)
         agent = ProfileAgent(self.gateway)
@@ -141,24 +146,6 @@ class AnalysisService:
         )
         saved = await self.store.save_artifact(project_id, envelope)
         return saved.model_dump(mode="json")
-
-
-def understanding_gate_error(current_state: ArtifactState | None) -> JSONResponse:
-    return JSONResponse(
-        status_code=409,
-        content={
-            "error": {
-                "code": "state_gate_blocked",
-                "message": "Understanding must be confirmed before generating characters",
-                "retryable": False,
-                "details": {
-                    "artifact": "understanding",
-                    "required_state": ArtifactState.CONFIRMED.value,
-                    "current_state": current_state.value if current_state else "empty",
-                },
-            }
-        },
-    )
 
 
 def chapter_threshold_error(current_chapters: int) -> JSONResponse:
