@@ -16,7 +16,6 @@ import {
   AlertDescription,
   AlertTitle,
 } from "~/components/ui/alert";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
   Card,
@@ -117,7 +116,6 @@ export default function AnalysisIntent({
   const [conflicts, setConflicts] = useState<IntentConflict[] | null>(null);
   const [working, setWorking] = useState(false);
   const locked = characters?.state !== "confirmed";
-  const status = savedIntent ? savedIntent.state : "empty";
   const canValidate = Boolean(savedIntent && direction);
 
   function updateList(
@@ -231,21 +229,6 @@ export default function AnalysisIntent({
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="mb-2 text-sm font-medium text-muted-foreground">
-            {t("analysis.stepOf", { current: 3, total: 3 })}
-          </div>
-          <h2 className="app-heading text-2xl">{t("analysis.intent.title")}</h2>
-          <p className="mt-2 max-w-3xl text-muted-foreground text-sm">
-            {t("analysis.intent.description")}
-          </p>
-        </div>
-        <Badge variant={status === "confirmed" ? "success" : "secondary"}>
-          {t(`analysis.status.${status}`)}
-        </Badge>
-      </div>
-
       {locked ? (
         <Alert variant="warning">
           <AlertTitle>{t("analysis.intent.lockedTitle")}</AlertTitle>

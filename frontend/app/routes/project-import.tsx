@@ -408,20 +408,6 @@ export default function ProjectImport({
 
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex max-w-3xl flex-col gap-3">
-        <div className="text-sm font-medium text-muted-foreground">
-          {t("pages.import.milestone")}
-        </div>
-        <div className="flex flex-col gap-2">
-          <h1 className="app-heading text-3xl font-semibold text-foreground">
-            {t("pages.import.title")}
-          </h1>
-          <p className="max-w-2xl text-muted-foreground">
-            {t("pages.import.description")}
-          </p>
-        </div>
-      </header>
-
       <Alert variant="info">
         <InfoIcon />
         <AlertTitle>{t("import.titleNotPersistedHint")}</AlertTitle>

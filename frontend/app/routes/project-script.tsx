@@ -58,13 +58,11 @@ import { api } from "~/lib/api/client";
 import { api as loaderApi } from "~/lib/api/client";
 import {
   ApiError,
-  type ArtifactEnvelope,
   type Beat,
   type BeatsFilterResponse,
   type Character,
   type Flag,
   type ProjectId,
-  type ScreenplayData,
   type ScreenplayScene,
 } from "~/lib/api/types";
 import {
@@ -119,15 +117,6 @@ function getErrorMessage(error: unknown): string {
   return String(error);
 }
 
-function statusVariant(
-  state: ArtifactEnvelope<ScreenplayData>["state"] | "empty",
-): "default" | "secondary" | "success" | "warning" {
-  if (state === "confirmed") return "success";
-  if (state === "draft") return "warning";
-  if (state === "needs_recompute") return "warning";
-  return "secondary";
-}
-
 function scrollToBeat(sceneId: string, beatIndex: number): void {
   const target =
     document.getElementById(`beat-${sceneId}-${beatIndex}`) ??
@@ -151,7 +140,6 @@ export default function ProjectScript({
     screenplay?.data.shot_hints.enabled ?? false,
   );
   const outlineConfirmed = outline?.state === "confirmed";
-  const status = screenplay?.state ?? "empty";
   const scenes = useMemo(() => screenplay?.data.scenes ?? [], [screenplay]);
   const beatCount = scenes.reduce(
     (count, scene) => count + scene.beats.length,
@@ -223,21 +211,6 @@ export default function ProjectScript({
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="mb-2 text-muted-foreground text-sm font-medium">
-            {t("pages.script.milestone")}
-          </div>
-          <h2 className="app-heading text-2xl">{t("pages.script.title")}</h2>
-          <p className="mt-2 max-w-3xl text-muted-foreground text-sm">
-            {t("pages.script.description")}
-          </p>
-        </div>
-        <Badge variant={statusVariant(status)}>
-          {t(`script.status.${status}`)}
-        </Badge>
-      </div>
-
       {!outlineConfirmed ? (
         <Alert variant="warning">
           <AlertTitle>{t("script.lockedTitle")}</AlertTitle>
