@@ -505,7 +505,8 @@ lists the target scene snapshot from each saved screenplay version that still
 contains that scene. A scene can be restored from a saved screenplay version
 with `/api/v1/projects/{project_id}/screenplay/scenes/{scene_id}:checkout`,
 which saves a new screenplay artifact version and does not mutate prior
-history.
+history. Scene snapshots from two saved screenplay versions can be compared
+with `/api/v1/projects/{project_id}/screenplay/scenes/{scene_id}/versions:diff`.
 
 ### Git hooks
 
