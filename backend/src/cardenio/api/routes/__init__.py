@@ -7,6 +7,7 @@ from fastapi import APIRouter
 
 from cardenio.api.routes import (
     artifacts,
+    auth,
     characters,
     consistency,
     export,
@@ -22,6 +23,7 @@ from cardenio.api.routes import (
 
 router = APIRouter()
 
+router.include_router(auth.router, tags=["Auth"])
 router.include_router(artifacts.router, tags=["Artifacts"])
 router.include_router(projects.router, tags=["Projects"])
 router.include_router(source.router, tags=["Source"])
