@@ -701,6 +701,22 @@
         "todo": "Todo"
       }
     },
+    "source": {
+      "wysiwygTab": "WYSIWYG",
+      "yamlTab": "Source (YAML)",
+      "title": "Screenplay source",
+      "description": "Edit the full draft structure directly. Applying changes overwrites the whole screenplay; non-TODO beats must keep source_ref and flag source markers or they cannot be saved.",
+      "loadCurrent": "Load current screenplay",
+      "apply": "Apply changes",
+      "reset": "Reset",
+      "syntaxError": "YAML syntax error: {{message}}",
+      "invalidShape": "YAML must be a screenplay object with scenes.",
+      "missingTrustFields": "Some beats are missing source references or AI markers. Complete them before saving.",
+      "successTitle": "Source changes applied",
+      "successDescription": "The full screenplay was updated.",
+      "failureTitle": "Apply failed",
+      "failureDescription": "Try again later."
+    },
     "states": {
       "empty": "Empty",
       "imported": "Imported",
