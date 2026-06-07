@@ -21,7 +21,7 @@ export default function ProjectLayout({}: Route.ComponentProps): React.ReactElem
 
   if (analysisOwnsScroll) {
     return (
-      <div className="mx-auto h-full min-h-0 w-full max-w-6xl px-5 sm:px-8">
+      <div className="h-full min-h-0 w-full">
         <Outlet />
       </div>
     );

@@ -84,8 +84,8 @@ export default function AnalysisLayout({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="-mx-5 shrink-0 border-b bg-background/95 px-5 py-3 backdrop-blur sm:-mx-8 sm:px-8">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="shrink-0 border-b bg-background/95 py-3 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-5 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
           <nav
             aria-label={t("analysis.navLabel")}
             className="flex gap-2 overflow-x-auto"
@@ -158,8 +158,8 @@ export default function AnalysisLayout({
         </div>
       </div>
 
-      <ScrollArea className="-mx-5 min-h-0 flex-1 sm:-mx-8" scrollFade>
-        <div className="px-5 py-8 sm:px-8">
+      <ScrollArea className="min-h-0 w-full flex-1" scrollFade>
+        <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8">
           <Outlet context={{ setActions } satisfies AnalysisLayoutContext} />
         </div>
       </ScrollArea>
