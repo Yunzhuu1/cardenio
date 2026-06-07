@@ -1,6 +1,8 @@
 import {
   AlertTriangleIcon,
   BotIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
   CheckCircle2Icon,
   FileTextIcon,
   GitMergeIcon,
@@ -45,6 +47,11 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import {
+  Collapsible,
+  CollapsiblePanel,
+  CollapsibleTrigger,
+} from "~/components/ui/collapsible";
+import {
   Empty,
   EmptyContent,
   EmptyDescription,
@@ -53,6 +60,7 @@ import {
   EmptyTitle,
 } from "~/components/ui/empty";
 import { Separator } from "~/components/ui/separator";
+import { Spinner } from "~/components/ui/spinner";
 import { toastManager } from "~/components/ui/toast";
 import { TrustChips } from "~/components/trust-chips";
 import { api } from "~/lib/api/client";
@@ -65,12 +73,15 @@ import {
   type ReportData,
   type ReportEntry,
   type ReportMergedEntry,
+  type ResolveResponse,
   type ReviewRecommendation,
   type ScreenplayData,
   type ScreenplayScene,
+  type SourceRef,
 } from "~/lib/api/types";
 import {
   flagVariant,
+  paragraphLabel,
   sceneTitle,
   sourceRefLabel,
 } from "~/lib/screenplay-format";
@@ -171,6 +182,12 @@ function countFlags(screenplay: ScreenplayData): {
     { ai_inferred: 0, from_source: 0 },
   );
 }
+
+type SourcePreviewState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { response: ResolveResponse; status: "success" }
+  | { status: "error" };
 
 export default function ProjectReport({
   loaderData,
@@ -280,6 +297,7 @@ export default function ProjectReport({
             working={working}
           />
           <ReportSections
+            projectId={projectId}
             report={report.data}
             sceneById={sceneById}
             screenplay={screenplay.data}
@@ -431,10 +449,12 @@ function ReportSummaryCard({
 }
 
 function ReportSections({
+  projectId,
   report,
   sceneById,
   screenplay,
 }: {
+  projectId: ProjectId;
   report: ReportData;
   sceneById: Map<string, ScreenplayScene>;
   screenplay: ScreenplayData;
@@ -444,18 +464,21 @@ function ReportSections({
       <ReportEntrySection
         entries={report.kept}
         icon={FileTextIcon}
+        projectId={projectId}
         sceneById={sceneById}
         titleKey="report.sections.kept"
       />
       <ReportEntrySection
         entries={report.added}
         icon={BotIcon}
+        projectId={projectId}
         sceneById={sceneById}
         titleKey="report.sections.added"
       />
       <ReportEntrySection
         entries={report.deleted}
         icon={Trash2Icon}
+        projectId={projectId}
         sceneById={sceneById}
         titleKey="report.sections.deleted"
       />
@@ -518,11 +541,13 @@ function EmptySection(): React.ReactElement {
 function ReportEntrySection({
   entries,
   icon,
+  projectId,
   sceneById,
   titleKey,
 }: {
   entries: ReportEntry[];
   icon: React.ComponentType<{ className?: string }>;
+  projectId: ProjectId;
   sceneById: Map<string, ScreenplayScene>;
   titleKey: string;
 }): React.ReactElement {
@@ -535,6 +560,7 @@ function ReportEntrySection({
               entry={entry}
               index={index}
               key={`${entry.scene_id ?? "no-scene"}-${index}-${entry.item}`}
+              projectId={projectId}
               sceneById={sceneById}
             />
           ))}
@@ -549,14 +575,42 @@ function ReportEntrySection({
 function ReportEntryRow({
   entry,
   index,
+  projectId,
   sceneById,
 }: {
   entry: ReportEntry;
   index: number;
+  projectId: ProjectId;
   sceneById: Map<string, ScreenplayScene>;
 }): React.ReactElement {
   const { t } = useTranslation();
   const scene = sceneLabel(t, sceneById, entry.scene_id);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [preview, setPreview] = useState<SourcePreviewState>({
+    status: "idle",
+  });
+
+  async function loadSourcePreview(sourceRef: SourceRef): Promise<void> {
+    if (preview.status !== "idle") return;
+    try {
+      setPreview({ status: "loading" });
+      const response = await api.source.resolve(
+        projectId,
+        sourceRef.chapter,
+        paragraphLabel(sourceRef.paragraphs),
+      );
+      setPreview({ response, status: "success" });
+    } catch {
+      setPreview({ status: "error" });
+    }
+  }
+
+  function handlePreviewOpen(open: boolean): void {
+    setPreviewOpen(open);
+    if (open && entry.source_ref) {
+      void loadSourcePreview(entry.source_ref);
+    }
+  }
 
   return (
     <div
@@ -588,6 +642,65 @@ function ReportEntryRow({
           </div>
         </div>
       </div>
+      {entry.source_ref ? (
+        <Collapsible onOpenChange={handlePreviewOpen} open={previewOpen}>
+          <CollapsibleTrigger render={<Button size="sm" variant="ghost" />}>
+            {previewOpen ? (
+              <ChevronDownIcon aria-hidden />
+            ) : (
+              <ChevronRightIcon aria-hidden />
+            )}
+            {t(previewOpen ? "report.preview.hide" : "report.preview.show")}
+          </CollapsibleTrigger>
+          <CollapsiblePanel className="mt-1">
+            <SourcePreviewPanel preview={preview} />
+          </CollapsiblePanel>
+        </Collapsible>
+      ) : null}
+    </div>
+  );
+}
+
+function SourcePreviewPanel({
+  preview,
+}: {
+  preview: SourcePreviewState;
+}): React.ReactElement {
+  const { t } = useTranslation();
+
+  if (preview.status === "idle" || preview.status === "loading") {
+    return (
+      <div className="flex items-center gap-2 rounded-lg border bg-muted/32 p-3 text-muted-foreground text-sm">
+        <Spinner aria-label={t("report.preview.loading")} className="size-4" />
+        {t("report.preview.loading")}
+      </div>
+    );
+  }
+
+  if (preview.status === "error") {
+    return (
+      <Alert variant="warning">
+        <AlertTriangleIcon />
+        <AlertTitle>{t("report.preview.missing")}</AlertTitle>
+      </Alert>
+    );
+  }
+
+  return (
+    <div className="grid gap-2 rounded-lg border bg-muted/32 p-3">
+      {preview.response.paragraphs.map((paragraph) => (
+        <div
+          className="grid gap-1 rounded-md bg-background p-3"
+          key={paragraph.index}
+        >
+          <Badge className="w-fit" variant="secondary">
+            {t("report.preview.paragraph", { index: paragraph.index })}
+          </Badge>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed">
+            {paragraph.text}
+          </p>
+        </div>
+      ))}
     </div>
   );
 }
