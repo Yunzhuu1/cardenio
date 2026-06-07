@@ -897,7 +897,7 @@ function ImportPreviewDialog({
             )}
             {previewChapters.map((chapter, index) => (
               <section
-                className="flex flex-col gap-4 border-border border-b pb-5 last:border-b-0 last:pb-0"
+                className="flex flex-col gap-4 border-border border-b pb-5 last:border-b-0"
                 key={`${index}-${chapter.title}`}
               >
                 <div className="flex items-center justify-between gap-3">
