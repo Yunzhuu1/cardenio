@@ -3,6 +3,7 @@ import {
   ApiError,
   type ArtifactEnvelope,
   type ArtifactState,
+  type Beat,
   type Chapter,
   type ChapterId,
   type CharactersData,
@@ -23,6 +24,8 @@ import {
   type Project,
   type ProjectId,
   type ProjectSummary,
+  type ReportData,
+  type ReportEntry,
   type ResolveResponse,
   type ScreenplayData,
   type ScreenplayScene,
@@ -47,6 +50,7 @@ const charactersStore = new Map<ProjectId, ArtifactEnvelope<CharactersData>>();
 const intentStore = new Map<ProjectId, ArtifactEnvelope<IntentConstraints>>();
 const outlineStore = new Map<ProjectId, ArtifactEnvelope<OutlineData>>();
 const screenplayStore = new Map<ProjectId, ArtifactEnvelope<ScreenplayData>>();
+const reportStore = new Map<ProjectId, ArtifactEnvelope<ReportData>>();
 let seeded = false;
 
 function ensureSeed(): void {
@@ -586,6 +590,12 @@ function getScreenplayEnvelope(
   return envelope;
 }
 
+function getReportEnvelope(projectId: ProjectId): ArtifactEnvelope<ReportData> {
+  const envelope = reportStore.get(projectId);
+  if (!envelope) throw notFound("Report not found");
+  return envelope;
+}
+
 function stateGateBlocked(
   artifact: string,
   requiredState: string,
@@ -644,6 +654,76 @@ function validateScreenplayTrustFields(data: ScreenplayData): void {
     retryable: false,
     details: { items },
   });
+}
+
+function beatReportItem(beat: Beat): string {
+  const item = beat.dialogue ?? beat.text ?? beat.type;
+  return item.length > 96 ? `${item.slice(0, 96)}...` : item;
+}
+
+function makeReportEntry(
+  sceneId: string,
+  sceneSourceRef: SourceRef,
+  beat: Beat,
+): ReportEntry {
+  return {
+    item: beatReportItem(beat),
+    source_ref: beat.source_ref ?? sceneSourceRef,
+    scene_id: sceneId,
+    flag: beat.flag,
+    desc: null,
+  };
+}
+
+function buildReportData(screenplay: ScreenplayData): ReportData {
+  const kept: ReportEntry[] = [];
+  const added: ReportEntry[] = [];
+  const keptForeshadowing: string[] = [];
+  const reviewRecommended: ReportData["review_recommended"] = [];
+  let fromSourceLines = 0;
+  let aiInferredLines = 0;
+
+  for (const scene of screenplay.scenes) {
+    keptForeshadowing.push(...scene.foreshadowing);
+    let shouldReviewScene = false;
+
+    for (const beat of scene.beats) {
+      if (beat.type === "todo") {
+        shouldReviewScene = true;
+        continue;
+      }
+
+      if (beat.flag === "from_source") {
+        fromSourceLines += 1;
+        kept.push(makeReportEntry(scene.id, scene.source_ref, beat));
+      }
+
+      if (beat.flag === "ai_inferred") {
+        aiInferredLines += 1;
+        added.push(makeReportEntry(scene.id, scene.source_ref, beat));
+        shouldReviewScene = true;
+      }
+    }
+
+    if (shouldReviewScene) {
+      reviewRecommended.push({
+        scene_id: scene.id,
+        reason: "本场含 AI 新增或待补充内容，建议复查",
+      });
+    }
+  }
+
+  return {
+    kept,
+    deleted: [],
+    merged: [],
+    added,
+    externalized: [],
+    from_source_lines: fromSourceLines,
+    ai_inferred_lines: aiInferredLines,
+    kept_foreshadowing: keptForeshadowing,
+    review_recommended: reviewRecommended,
+  };
 }
 
 function saveScreenplay(
@@ -1063,6 +1143,7 @@ export const mockClient: ApiClient = {
       sourceStore.delete(id);
       outlineStore.delete(id);
       screenplayStore.delete(id);
+      reportStore.delete(id);
     },
   },
   source: {
@@ -1814,6 +1895,26 @@ export const mockClient: ApiClient = {
           }),
       );
       return { items, count: items.length };
+    },
+  },
+  report: {
+    async get(projectId) {
+      getProjectOrThrow(projectId);
+      await delay();
+      return getReportEnvelope(projectId);
+    },
+    async generate(projectId) {
+      getProjectOrThrow(projectId);
+      await delay();
+      const screenplay = getScreenplayEnvelope(projectId);
+      const envelope = makeEnvelope(
+        "report",
+        "draft",
+        buildReportData(screenplay.data),
+        screenplay.version,
+      );
+      reportStore.set(projectId, envelope);
+      return envelope;
     },
   },
 };

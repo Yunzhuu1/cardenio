@@ -319,6 +319,42 @@ export type ScreenplayData = {
   shot_hints: ShotHints;
 };
 
+export type ReportEntry = {
+  item: string;
+  source_ref: SourceRef | null;
+  scene_id: string | null;
+  flag: Flag | null;
+  desc: string | null;
+};
+
+export type ReportMergedEntry = {
+  scene_ids: string[];
+  into: string;
+};
+
+export type ExternalizationEntry = {
+  scene_id: string;
+  from_type: string;
+  to_type: string;
+};
+
+export type ReviewRecommendation = {
+  scene_id: string;
+  reason: string;
+};
+
+export type ReportData = {
+  kept: ReportEntry[];
+  deleted: ReportEntry[];
+  merged: ReportMergedEntry[];
+  added: ReportEntry[];
+  externalized: ExternalizationEntry[];
+  from_source_lines: number;
+  ai_inferred_lines: number;
+  kept_foreshadowing: string[];
+  review_recommended: ReviewRecommendation[];
+};
+
 export type BeatsFilterItem = {
   scene_id: string;
   beat_index: number;

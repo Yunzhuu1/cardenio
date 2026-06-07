@@ -23,6 +23,7 @@ import type {
   Project,
   ProjectId,
   ProjectSummary,
+  ReportData,
   ResolveResponse,
   ResegmentInput,
   ScreenplayData,
@@ -166,6 +167,11 @@ export type ScreenplayApi = {
   ): Promise<BeatsFilterResponse>;
 };
 
+export type ReportApi = {
+  get(projectId: ProjectId): Promise<ArtifactEnvelope<ReportData>>;
+  generate(projectId: ProjectId): Promise<ArtifactEnvelope<ReportData>>;
+};
+
 export type ApiClient = {
   projects: ProjectsApi;
   source: SourceApi;
@@ -174,6 +180,7 @@ export type ApiClient = {
   intent: IntentApi;
   outline: OutlineApi;
   screenplay: ScreenplayApi;
+  report: ReportApi;
 };
 
 const mode = import.meta.env.VITE_API_MODE ?? "http";

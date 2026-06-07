@@ -328,4 +328,11 @@ export const httpClient: ApiClient = {
       );
     },
   },
+  report: {
+    get: (projectId) => request(`/projects/${projectId}/report`),
+    generate: (projectId) =>
+      request(`/projects/${projectId}/report:generate`, {
+        method: "POST",
+      }),
+  },
 };
