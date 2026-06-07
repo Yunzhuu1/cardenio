@@ -142,6 +142,7 @@ export default function AnalysisLayout({
                         : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                     )
                   }
+                  end
                   key={step.key}
                   to={analysisStepPath(project.id, step.key)}
                 >
