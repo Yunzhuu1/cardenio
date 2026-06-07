@@ -435,9 +435,31 @@ async def rewrite_scene(
 
 
 @router.get("/scenes/{scene_id}/versions")
-async def get_scene_versions(project_id: str, scene_id: str) -> dict:
+async def get_scene_versions(
+    project_id: str,
+    scene_id: str,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-22: List scene version history."""
-    raise NotImplementedError("Version history not yet implemented")
+    project = await store.get_project(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    versions = await store.list_artifact_versions(project_id, "screenplay")
+    if not versions:
+        raise HTTPException(status_code=404, detail="Screenplay not found")
+
+    items = []
+    for artifact in versions:
+        data = ScreenplayData.model_validate(artifact.data)
+        scene = _find_scene_or_none(data, scene_id)
+        if scene is None:
+            continue
+        items.append(_scene_version_item(artifact, scene))
+
+    if not items:
+        raise HTTPException(status_code=404, detail="Scene not found")
+    return {"items": items, "count": len(items)}
 
 
 @router.post("/scenes/{scene_id}/versions", status_code=201)
@@ -741,6 +763,15 @@ def _find_scene(data: ScreenplayData, scene_id: str) -> ScreenplayScene:
     raise HTTPException(status_code=404, detail="Scene not found")
 
 
+def _find_scene_or_none(
+    data: ScreenplayData, scene_id: str
+) -> ScreenplayScene | None:
+    for scene in data.scenes:
+        if scene.id == scene_id:
+            return scene
+    return None
+
+
 def _find_scene_index(data: ScreenplayData, scene_id: str) -> int:
     for index, scene in enumerate(data.scenes):
         if scene.id == scene_id:
@@ -771,6 +802,20 @@ def _scene_summary(scene: ScreenplayScene) -> dict[str, Any]:
         "mood": scene.mood,
         "characters": scene.characters,
         "ending_state": scene.ending_state,
+    }
+
+
+def _scene_version_item(
+    artifact: ArtifactEnvelope[Any],
+    scene: ScreenplayScene,
+) -> dict[str, Any]:
+    return {
+        "version": artifact.version,
+        "parent_version": artifact.parent_version,
+        "state": artifact.state.value,
+        "updated_at": artifact.updated_at,
+        "needs_recompute": artifact.needs_recompute,
+        "scene": scene.model_dump(mode="json"),
     }
 
 
