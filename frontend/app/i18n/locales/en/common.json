@@ -632,6 +632,22 @@
     "emptyScreenplay": "This screenplay has no scenes.",
     "chapterOrder": "Chapter {{order}}",
     "paragraphNumber": "Paragraph {{number}}",
+    "rewrite": {
+      "button": "Local rewrite",
+      "title": "Local rewrite: Scene {{number}} · {{location}}",
+      "description": "Describe the requested change in natural language. Only this scene will be rewritten; other scenes stay unchanged.",
+      "instructionLabel": "Rewrite instruction",
+      "instructionPlaceholder": "Example: This scene feels flat. Move the conflict earlier.",
+      "instructionDescription": "Mention pacing, conflict, dialogue style, or details that must stay intact.",
+      "emptyInstruction": "Enter a rewrite instruction.",
+      "cancel": "Cancel",
+      "submit": "Rewrite",
+      "successTitle": "Scene rewritten",
+      "successDescription": "Review the AI-inferred content in this scene.",
+      "failureTitle": "Rewrite failed",
+      "failureDescription": "Try again later.",
+      "reviewHint": "This scene was just rewritten. Review the AI-inferred content carefully."
+    },
     "states": {
       "empty": "Empty",
       "imported": "Imported",

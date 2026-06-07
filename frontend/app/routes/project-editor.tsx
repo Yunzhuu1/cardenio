@@ -3,10 +3,11 @@ import {
   CrosshairIcon,
   FileTextIcon,
   LinkIcon,
+  SparklesIcon,
 } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useMatches } from "react-router";
+import { Link, useMatches, useRevalidator } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/project-editor";
 import { Badge } from "~/components/ui/badge";
@@ -26,10 +27,27 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "~/components/ui/empty";
+import {
+  Dialog,
+  DialogClose,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogPanel,
+  DialogPopup,
+  DialogTitle,
+} from "~/components/ui/dialog";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "~/components/ui/field";
 import { Label } from "~/components/ui/label";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Separator } from "~/components/ui/separator";
 import { Switch } from "~/components/ui/switch";
+import { Textarea } from "~/components/ui/textarea";
 import { toastManager } from "~/components/ui/toast";
 import { BeatBadges, BeatBody } from "~/components/screenplay-beat-view";
 import { SceneHeader, SceneSummary } from "~/components/screenplay-scene-view";
@@ -160,6 +178,7 @@ export default function ProjectEditor(
 ): React.ReactElement {
   const { t } = useTranslation();
   const matches = useMatches();
+  const revalidator = useRevalidator();
   const { loaderData } = props;
   const { characters, projectId, screenplay, source } = loaderData;
   const project = matches.find((match) => hasProjectData(match.data))?.data as
@@ -171,6 +190,11 @@ export default function ProjectEditor(
     () => new Set(),
   );
   const [locatingSceneId, setLocatingSceneId] = useState<string | null>(null);
+  const [rewriteSceneId, setRewriteSceneId] = useState<string | null>(null);
+  const [rewriteInstruction, setRewriteInstruction] = useState("");
+  const [rewriteTouched, setRewriteTouched] = useState(false);
+  const [rewritingSceneId, setRewritingSceneId] = useState<string | null>(null);
+  const [rewrittenSceneId, setRewrittenSceneId] = useState<string | null>(null);
   const sourceScrollRef = useRef<HTMLDivElement>(null);
   const screenplayScrollRef = useRef<HTMLDivElement>(null);
   const syncingScrollRef = useRef(false);
@@ -188,6 +212,12 @@ export default function ProjectEditor(
     () => [...source.chapters].sort((a, b) => a.order - b.order),
     [source.chapters],
   );
+  const rewritingScene = scenes.find((scene) => scene.id === rewriteSceneId);
+  const rewritingSceneNumber = rewritingScene
+    ? scenes.findIndex((scene) => scene.id === rewritingScene.id) + 1
+    : null;
+  const rewriteInstructionTrimmed = rewriteInstruction.trim();
+  const showRewriteError = rewriteTouched && rewriteInstructionTrimmed === "";
 
   useEffect(() => {
     const sourceViewport = getScrollViewport(sourceScrollRef.current);
@@ -288,6 +318,54 @@ export default function ProjectEditor(
     }
   }
 
+  function setRewriteOpen(open: boolean): void {
+    if (!open) {
+      setRewriteSceneId(null);
+      setRewriteInstruction("");
+      setRewriteTouched(false);
+    }
+  }
+
+  function openRewriteDialog(sceneId: string): void {
+    setRewriteSceneId(sceneId);
+    setRewriteInstruction("");
+    setRewriteTouched(false);
+  }
+
+  async function submitRewrite(): Promise<void> {
+    if (!rewritingScene) return;
+    setRewriteTouched(true);
+    if (!rewriteInstructionTrimmed) return;
+
+    try {
+      setRewritingSceneId(rewritingScene.id);
+      await api.screenplay.rewriteScene(
+        projectId,
+        rewritingScene.id,
+        rewriteInstructionTrimmed,
+      );
+      setRewrittenSceneId(rewritingScene.id);
+      toastManager.add({
+        description: t("editor.rewrite.successDescription"),
+        title: t("editor.rewrite.successTitle"),
+        type: "success",
+      });
+      setRewriteOpen(false);
+      await revalidator.revalidate();
+    } catch (error) {
+      toastManager.add({
+        description:
+          error instanceof Error
+            ? error.message
+            : t("editor.rewrite.failureDescription"),
+        title: t("editor.rewrite.failureTitle"),
+        type: "error",
+      });
+    } finally {
+      setRewritingSceneId(null);
+    }
+  }
+
   if (!screenplay) {
     return (
       <section className="space-y-4">
@@ -373,7 +451,9 @@ export default function ProjectEditor(
                   characterNameById={characterNameById}
                   locatingSceneId={locatingSceneId}
                   onLocateScene={locateSceneSource}
+                  onRewriteScene={openRewriteDialog}
                   onSceneClick={highlightSceneSource}
+                  rewrittenSceneId={rewrittenSceneId}
                   scenes={scenes}
                 />
               </ScrollArea>
@@ -381,6 +461,62 @@ export default function ProjectEditor(
           </div>
         </CardPanel>
       </Card>
+
+      <Dialog
+        open={rewriteSceneId !== null}
+        onOpenChange={(open) => setRewriteOpen(open)}
+      >
+        <DialogPopup className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              {t("editor.rewrite.title", {
+                location: rewritingScene?.heading.location ?? "",
+                number: rewritingSceneNumber ?? "",
+              })}
+            </DialogTitle>
+            <DialogDescription>
+              {t("editor.rewrite.description")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogPanel>
+            <Field validationMode="onSubmit">
+              <FieldLabel htmlFor="editor-rewrite-instruction">
+                {t("editor.rewrite.instructionLabel")}
+              </FieldLabel>
+              <Textarea
+                aria-invalid={showRewriteError || undefined}
+                disabled={rewritingSceneId !== null}
+                id="editor-rewrite-instruction"
+                onBlur={() => setRewriteTouched(true)}
+                onChange={(event) =>
+                  setRewriteInstruction(event.currentTarget.value)
+                }
+                placeholder={t("editor.rewrite.instructionPlaceholder")}
+                value={rewriteInstruction}
+              />
+              <FieldDescription>
+                {t("editor.rewrite.instructionDescription")}
+              </FieldDescription>
+              {showRewriteError ? (
+                <FieldError>{t("editor.rewrite.emptyInstruction")}</FieldError>
+              ) : null}
+            </Field>
+          </DialogPanel>
+          <DialogFooter>
+            <DialogClose render={<Button variant="ghost" />}>
+              {t("editor.rewrite.cancel")}
+            </DialogClose>
+            <Button
+              disabled={!rewriteInstructionTrimmed}
+              loading={rewritingSceneId !== null}
+              onClick={() => void submitRewrite()}
+            >
+              <SparklesIcon />
+              {t("editor.rewrite.submit")}
+            </Button>
+          </DialogFooter>
+        </DialogPopup>
+      </Dialog>
     </section>
   );
 }
@@ -544,7 +680,9 @@ function ScreenplayPane({
   characterNameById,
   locatingSceneId,
   onLocateScene,
+  onRewriteScene,
   onSceneClick,
+  rewrittenSceneId,
   scenes,
 }: {
   activeSceneIds: Set<string>;
@@ -552,7 +690,9 @@ function ScreenplayPane({
   characterNameById: Map<string, string>;
   locatingSceneId: string | null;
   onLocateScene: (scene: ScreenplayScene) => Promise<void>;
+  onRewriteScene: (sceneId: string) => void;
   onSceneClick: (scene: ScreenplayScene) => void;
+  rewrittenSceneId: string | null;
   scenes: ScreenplayScene[];
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -592,23 +732,41 @@ function ScreenplayPane({
             />
             <CardPanel className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <Button
-                  loading={locatingSceneId === scene.id}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    void onLocateScene(scene);
-                  }}
-                  size="sm"
-                  variant="outline"
-                >
-                  <CrosshairIcon />
-                  {t("editor.locateSource")}
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    loading={locatingSceneId === scene.id}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void onLocateScene(scene);
+                    }}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <CrosshairIcon />
+                    {t("editor.locateSource")}
+                  </Button>
+                  <Button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onRewriteScene(scene.id);
+                    }}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <SparklesIcon />
+                    {t("editor.rewrite.button")}
+                  </Button>
+                </div>
                 <Badge variant="secondary">
                   <LinkIcon className="mr-1 inline size-3" aria-hidden />
                   {scene.source_ref.paragraphs.join(", ")}
                 </Badge>
               </div>
+              {rewrittenSceneId === scene.id ? (
+                <div className="rounded-lg border border-primary/24 bg-primary/8 px-3 py-2 text-primary text-sm">
+                  {t("editor.rewrite.reviewHint")}
+                </div>
+              ) : null}
               <SceneSummary scene={scene} />
               <div className="grid gap-3">
                 {scene.beats.map((beat, beatIndex) => {
