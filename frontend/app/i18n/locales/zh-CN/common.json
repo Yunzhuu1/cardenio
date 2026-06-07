@@ -701,6 +701,22 @@
         "todo": "待补"
       }
     },
+    "source": {
+      "wysiwygTab": "所见即所得",
+      "yamlTab": "源码 (YAML)",
+      "title": "剧本源码",
+      "description": "直接编辑整稿结构，应用后会覆盖整份剧本；非 TODO 节拍必须保留 source_ref 与 flag（来源/AI 标记），否则无法保存。",
+      "loadCurrent": "从当前剧本载入",
+      "apply": "应用更改",
+      "reset": "重置",
+      "syntaxError": "YAML 语法错误：{{message}}",
+      "invalidShape": "YAML 必须是包含 scenes 的剧本对象。",
+      "missingTrustFields": "有节拍缺少来源或 AI 标记，请补全后再保存。",
+      "successTitle": "已应用源码更改",
+      "successDescription": "整份剧本已更新。",
+      "failureTitle": "应用失败",
+      "failureDescription": "请稍后重试。"
+    },
     "states": {
       "empty": "空项目",
       "imported": "已导入",

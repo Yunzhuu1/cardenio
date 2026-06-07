@@ -1,4 +1,5 @@
 import {
+  AlertCircleIcon,
   ArrowDownIcon,
   ArrowUpIcon,
   ClapperboardIcon,
@@ -15,7 +16,9 @@ import type * as React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useMatches, useRevalidator } from "react-router";
 import { useTranslation } from "react-i18next";
+import YAML from "yaml";
 import type { Route } from "./+types/project-editor";
+import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -77,6 +80,7 @@ import {
   ToggleGroupItem,
   ToggleGroupSeparator,
 } from "~/components/ui/toggle-group";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "~/components/ui/tabs";
 import { toastManager } from "~/components/ui/toast";
 import { BeatBadges, BeatBody } from "~/components/screenplay-beat-view";
 import { SceneHeader, SceneSummary } from "~/components/screenplay-scene-view";
@@ -93,6 +97,7 @@ import {
   type IntExt,
   type Project,
   type ProjectId,
+  type ScreenplayData,
   type ScreenplayScene,
   type SourceRef,
   type TimeOfDay,
@@ -118,6 +123,11 @@ type SelectOption<T extends string> = {
 type PendingEditAction =
   | { type: "edit"; scene: ScreenplayScene }
   | { type: "rewrite"; sceneId: string };
+
+type EditorTab = "wysiwyg" | "yaml";
+type ScreenplayYamlObject = Partial<ScreenplayData> & {
+  scenes: ScreenplayScene[];
+};
 
 const INT_EXT_VALUES: IntExt[] = ["INT", "EXT"];
 const TIME_VALUES: TimeOfDay[] = ["DAY", "NIGHT", "DAWN", "DUSK"];
@@ -302,6 +312,34 @@ function isMissingTrustError(error: unknown): boolean {
   );
 }
 
+function screenplayToYaml(data: ScreenplayData): string {
+  return YAML.stringify(data);
+}
+
+function isScreenplayYamlObject(value: unknown): value is ScreenplayYamlObject {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Array.isArray((value as Partial<ScreenplayData>).scenes)
+  );
+}
+
+function parseScreenplayYaml(
+  text: string,
+  fallbackShotHints: ScreenplayData["shot_hints"],
+): ScreenplayData {
+  const parsed: unknown = YAML.parse(text);
+  if (!isScreenplayYamlObject(parsed)) {
+    throw new Error("invalid_shape");
+  }
+
+  return {
+    ...parsed,
+    scenes: parsed.scenes,
+    shot_hints: parsed.shot_hints ?? fallbackShotHints,
+  };
+}
+
 export default function ProjectEditor(
   props: Route.ComponentProps,
 ): React.ReactElement {
@@ -330,6 +368,12 @@ export default function ProjectEditor(
   const [editError, setEditError] = useState<string | null>(null);
   const [pendingEditAction, setPendingEditAction] =
     useState<PendingEditAction | null>(null);
+  const [editorTab, setEditorTab] = useState<EditorTab>("wysiwyg");
+  const [yamlText, setYamlText] = useState(() =>
+    screenplay ? screenplayToYaml(screenplay.data) : "",
+  );
+  const [sourceError, setSourceError] = useState<string | null>(null);
+  const [applyingSource, setApplyingSource] = useState(false);
   const sourceScrollRef = useRef<HTMLDivElement>(null);
   const screenplayScrollRef = useRef<HTMLDivElement>(null);
   const syncingScrollRef = useRef(false);
@@ -545,6 +589,64 @@ export default function ProjectEditor(
     }
   }
 
+  function resetYamlSource(): void {
+    if (!screenplay) return;
+    setYamlText(screenplayToYaml(screenplay.data));
+    setSourceError(null);
+  }
+
+  function handleEditorTabChange(value: string | number | null): void {
+    const nextTab = value === "yaml" ? "yaml" : "wysiwyg";
+    setEditorTab(nextTab);
+    if (nextTab === "yaml") {
+      resetYamlSource();
+    }
+  }
+
+  async function applyYamlSource(): Promise<void> {
+    if (!screenplay) return;
+    setSourceError(null);
+    let parsed: ScreenplayData;
+    try {
+      parsed = parseScreenplayYaml(yamlText, screenplay.data.shot_hints);
+    } catch (error) {
+      setSourceError(
+        error instanceof Error && error.message === "invalid_shape"
+          ? t("editor.source.invalidShape")
+          : t("editor.source.syntaxError", {
+              message: error instanceof Error ? error.message : String(error),
+            }),
+      );
+      return;
+    }
+
+    try {
+      setApplyingSource(true);
+      await api.screenplay.updateScreenplay(projectId, parsed);
+      toastManager.add({
+        description: t("editor.source.successDescription"),
+        title: t("editor.source.successTitle"),
+        type: "success",
+      });
+      setEditorTab("wysiwyg");
+      await revalidator.revalidate();
+    } catch (error) {
+      const message = isMissingTrustError(error)
+        ? t("editor.source.missingTrustFields")
+        : error instanceof Error
+          ? error.message
+          : t("editor.source.failureDescription");
+      setSourceError(message);
+      toastManager.add({
+        description: message,
+        title: t("editor.source.failureTitle"),
+        type: "error",
+      });
+    } finally {
+      setApplyingSource(false);
+    }
+  }
+
   async function submitRewrite(): Promise<void> {
     if (!rewritingScene) return;
     setRewriteTouched(true);
@@ -608,80 +710,104 @@ export default function ProjectEditor(
     <section className="space-y-4">
       <EditorHeader projectState={project?.project.state} showStatus />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("editor.dualPaneTitle")}</CardTitle>
-          <CardDescription>{t("editor.dualPaneDescription")}</CardDescription>
-        </CardHeader>
-        <CardPanel className="space-y-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <LinkedSwitch
-              checked={scrollSync}
-              description={t("editor.scrollSyncDescription")}
-              id="editor-scroll-sync"
-              label={t("editor.scrollSyncLabel")}
-              onCheckedChange={setScrollSync}
-            />
-            <Button onClick={clearHighlights} size="sm" variant="outline">
-              {t("editor.clearHighlights")}
-            </Button>
-          </div>
-          <Separator />
-          <div className="grid gap-4 md:grid-cols-2">
-            <section className="min-w-0">
-              <PaneTitle
-                icon={<FileTextIcon />}
-                title={t("editor.sourcePane")}
-              />
-              <ScrollArea
-                className="mt-3 h-[calc(100vh-16rem)] min-h-[28rem] rounded-xl border bg-background"
-                ref={sourceScrollRef}
-                scrollbarGutter
-              >
-                <SourcePane
-                  activeSceneIds={activeSceneIds}
-                  activeSource={activeSource}
-                  chapters={sortedChapters}
-                  onParagraphClick={highlightSourceParagraph}
-                  scenes={scenes}
+      <Tabs onValueChange={handleEditorTabChange} value={editorTab}>
+        <TabsList>
+          <TabsTab value="wysiwyg">{t("editor.source.wysiwygTab")}</TabsTab>
+          <TabsTab value="yaml">{t("editor.source.yamlTab")}</TabsTab>
+        </TabsList>
+        <TabsPanel value="wysiwyg">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("editor.dualPaneTitle")}</CardTitle>
+              <CardDescription>
+                {t("editor.dualPaneDescription")}
+              </CardDescription>
+            </CardHeader>
+            <CardPanel className="space-y-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <LinkedSwitch
+                  checked={scrollSync}
+                  description={t("editor.scrollSyncDescription")}
+                  id="editor-scroll-sync"
+                  label={t("editor.scrollSyncLabel")}
+                  onCheckedChange={setScrollSync}
                 />
-              </ScrollArea>
-            </section>
+                <Button onClick={clearHighlights} size="sm" variant="outline">
+                  {t("editor.clearHighlights")}
+                </Button>
+              </div>
+              <Separator />
+              <div className="grid gap-4 md:grid-cols-2">
+                <section className="min-w-0">
+                  <PaneTitle
+                    icon={<FileTextIcon />}
+                    title={t("editor.sourcePane")}
+                  />
+                  <ScrollArea
+                    className="mt-3 h-[calc(100vh-16rem)] min-h-[28rem] rounded-xl border bg-background"
+                    ref={sourceScrollRef}
+                    scrollbarGutter
+                  >
+                    <SourcePane
+                      activeSceneIds={activeSceneIds}
+                      activeSource={activeSource}
+                      chapters={sortedChapters}
+                      onParagraphClick={highlightSourceParagraph}
+                      scenes={scenes}
+                    />
+                  </ScrollArea>
+                </section>
 
-            <section className="min-w-0">
-              <PaneTitle
-                icon={<ClapperboardIcon />}
-                title={t("editor.screenplayPane")}
-              />
-              <ScrollArea
-                className="mt-3 h-[calc(100vh-16rem)] min-h-[28rem] rounded-xl border bg-background"
-                ref={screenplayScrollRef}
-                scrollbarGutter
-              >
-                <ScreenplayPane
-                  activeSceneIds={activeSceneIds}
-                  activeSource={activeSource}
-                  characterNameById={characterNameById}
-                  draftScene={draftScene}
-                  editError={editError}
-                  editingSceneId={editingSceneId}
-                  locatingSceneId={locatingSceneId}
-                  onCancelEdit={cancelEditing}
-                  onDraftSceneChange={updateDraftScene}
-                  onEditScene={startEditingScene}
-                  onLocateScene={locateSceneSource}
-                  onRewriteScene={openRewriteDialog}
-                  onSaveDraft={() => void saveDraftScene()}
-                  onSceneClick={highlightSceneSource}
-                  rewrittenSceneId={rewrittenSceneId}
-                  savingSceneId={savingSceneId}
-                  scenes={scenes}
-                />
-              </ScrollArea>
-            </section>
-          </div>
-        </CardPanel>
-      </Card>
+                <section className="min-w-0">
+                  <PaneTitle
+                    icon={<ClapperboardIcon />}
+                    title={t("editor.screenplayPane")}
+                  />
+                  <ScrollArea
+                    className="mt-3 h-[calc(100vh-16rem)] min-h-[28rem] rounded-xl border bg-background"
+                    ref={screenplayScrollRef}
+                    scrollbarGutter
+                  >
+                    <ScreenplayPane
+                      activeSceneIds={activeSceneIds}
+                      activeSource={activeSource}
+                      characterNameById={characterNameById}
+                      draftScene={draftScene}
+                      editError={editError}
+                      editingSceneId={editingSceneId}
+                      locatingSceneId={locatingSceneId}
+                      onCancelEdit={cancelEditing}
+                      onDraftSceneChange={updateDraftScene}
+                      onEditScene={startEditingScene}
+                      onLocateScene={locateSceneSource}
+                      onRewriteScene={openRewriteDialog}
+                      onSaveDraft={() => void saveDraftScene()}
+                      onSceneClick={highlightSceneSource}
+                      rewrittenSceneId={rewrittenSceneId}
+                      savingSceneId={savingSceneId}
+                      scenes={scenes}
+                    />
+                  </ScrollArea>
+                </section>
+              </div>
+            </CardPanel>
+          </Card>
+        </TabsPanel>
+        <TabsPanel value="yaml">
+          <YamlSourcePane
+            applying={applyingSource}
+            error={sourceError}
+            onApply={() => void applyYamlSource()}
+            onLoadCurrent={resetYamlSource}
+            onReset={resetYamlSource}
+            onTextChange={(text) => {
+              setYamlText(text);
+              setSourceError(null);
+            }}
+            text={yamlText}
+          />
+        </TabsPanel>
+      </Tabs>
 
       <Dialog
         open={rewriteSceneId !== null}
@@ -823,6 +949,67 @@ function LinkedSwitch({
       </div>
       <Switch checked={checked} id={id} onCheckedChange={onCheckedChange} />
     </div>
+  );
+}
+
+function YamlSourcePane({
+  applying,
+  error,
+  onApply,
+  onLoadCurrent,
+  onReset,
+  onTextChange,
+  text,
+}: {
+  applying: boolean;
+  error: string | null;
+  onApply: () => void;
+  onLoadCurrent: () => void;
+  onReset: () => void;
+  onTextChange: (text: string) => void;
+  text: string;
+}): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("editor.source.title")}</CardTitle>
+        <CardDescription>{t("editor.source.yamlTab")}</CardDescription>
+      </CardHeader>
+      <CardPanel className="space-y-4">
+        <Alert variant="info">
+          <AlertCircleIcon />
+          <AlertDescription>{t("editor.source.description")}</AlertDescription>
+        </Alert>
+        {error ? (
+          <Alert variant="error">
+            <AlertCircleIcon />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+        <Textarea
+          className="min-h-[calc(100vh-18rem)] resize-y whitespace-pre font-mono text-sm"
+          onChange={(event) => onTextChange(event.currentTarget.value)}
+          spellCheck={false}
+          value={text}
+        />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <Button onClick={onLoadCurrent} type="button" variant="outline">
+            {t("editor.source.loadCurrent")}
+          </Button>
+          <div className="flex flex-wrap gap-2 sm:justify-end">
+            <Button onClick={onReset} type="button" variant="ghost">
+              {t("editor.source.reset")}
+            </Button>
+            <Button loading={applying} onClick={onApply} type="button">
+              <SaveIcon />
+              {t("editor.source.apply")}
+            </Button>
+          </div>
+        </div>
+      </CardPanel>
+    </Card>
   );
 }
 
