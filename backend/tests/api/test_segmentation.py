@@ -48,6 +48,40 @@ class TestChapterEdit:
         assert len(data["paragraphs"]) == 2
         assert data["paragraphs"][1]["text"] == "新段二。"
 
+    async def test_single_newline_paragraphs_are_split(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        """Single-newline prose is indexed as one paragraph per non-empty line."""
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/source/chapters",
+            json={
+                "title": "第一章",
+                "text": "段A。\n段B。\n段C。 ",
+                "order": 1,
+            },
+        )
+
+        assert resp.status_code == 201
+        paragraphs = resp.json()["paragraphs"]
+        assert [p["text"] for p in paragraphs] == ["段A。", "段B。", "段C。"]
+
+    async def test_blank_line_paragraphs_still_split_by_blocks(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        """Blank-line prose still treats multi-line blocks as one paragraph."""
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/source/chapters",
+            json={
+                "title": "第一章",
+                "text": "段A第一行。\n段A第二行。\n\n段B。",
+                "order": 1,
+            },
+        )
+
+        assert resp.status_code == 201
+        paragraphs = resp.json()["paragraphs"]
+        assert [p["text"] for p in paragraphs] == ["段A第一行。\n段A第二行。", "段B。"]
+
 
 class TestChapterDelete:
     """API-6: DELETE /chapters/{id} — remove a chapter."""

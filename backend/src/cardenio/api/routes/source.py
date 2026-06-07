@@ -32,10 +32,10 @@ ALLOWED_MIMES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
 }
 
+_CHAPTER_NUMBER = r"[一二三四五六七八九十百千零两壹贰叁肆伍陆柒捌玖拾佰仟\d]+"
 _CHAPTER_PATTERNS = [
-    r"第[一二三四五六七八九十百千零\d]+[章节]",
+    rf"第{_CHAPTER_NUMBER}[章节回卷]",
     r"chapter\s*\d+",
-    r"第[一二三四五六七八九十百千零\d]+卷",
 ]
 _CHAPTER_RE = re.compile("|".join(_CHAPTER_PATTERNS), re.IGNORECASE)
 
@@ -571,7 +571,11 @@ def _normalize_fullwidth_ascii(text: str) -> str:
 
 
 def _split_paragraphs(text: str) -> list[str]:
-    blocks = text.strip().split("\n\n")
+    stripped = text.strip()
+    if not stripped:
+        return []
+    separator = "\n\n" if "\n\n" in stripped else "\n"
+    blocks = stripped.split(separator)
     return [b.strip() for b in blocks if b.strip()]
 
 
