@@ -236,6 +236,7 @@ export default function ProjectImport({
   const [editingChapter, setEditingChapter] = React.useState<Chapter | null>(
     null,
   );
+  const [editingText, setEditingText] = React.useState("");
   const [splittingChapter, setSplittingChapter] =
     React.useState<Chapter | null>(null);
   const [splitAt, setSplitAt] = React.useState<number | null>(2);
@@ -530,7 +531,10 @@ export default function ProjectImport({
                 chapter={chapter}
                 deleting={deletingChapterId === chapter.id}
                 key={chapter.id}
-                onEdit={() => setEditingChapter(chapter)}
+                onEdit={() => {
+                  setEditingText(paragraphsToText(chapter));
+                  setEditingChapter(chapter);
+                }}
                 onSelect={(checked) =>
                   toggleChapterSelection(chapter.id, checked)
                 }
@@ -563,19 +567,18 @@ export default function ProjectImport({
         warnings={previewWarnings}
       />
 
-      {editingChapter && (
-        <EditChapterDialog
-          chapter={editingChapter}
-          key={editingChapter.id}
-          onOpenChange={(open) => {
-            if (!open) setEditingChapter(null);
-          }}
-          onSave={(text) => {
-            void updateChapter(editingChapter, text);
-          }}
-          saving={working}
-        />
-      )}
+      <EditChapterDialog
+        chapter={editingChapter}
+        onOpenChange={(open) => {
+          if (!open) setEditingChapter(null);
+        }}
+        onSave={(text) => {
+          if (editingChapter) void updateChapter(editingChapter, text);
+        }}
+        saving={working}
+        setText={setEditingText}
+        text={editingText}
+      />
 
       <SplitChapterDialog
         chapter={splittingChapter}
@@ -1032,17 +1035,20 @@ function EditChapterDialog({
   onOpenChange,
   onSave,
   saving,
+  setText,
+  text,
 }: {
-  chapter: Chapter;
+  chapter: Chapter | null;
   onOpenChange: (open: boolean) => void;
   onSave: (text: string) => void;
   saving: boolean;
+  setText: (text: string) => void;
+  text: string;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const [text, setText] = React.useState(() => paragraphsToText(chapter));
 
   return (
-    <Dialog onOpenChange={onOpenChange} open>
+    <Dialog onOpenChange={onOpenChange} open={Boolean(chapter)}>
       <DialogPopup className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t("import.editTitle")}</DialogTitle>
