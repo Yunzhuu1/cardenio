@@ -71,6 +71,7 @@ export function Sidebar({
 
   return (
     <aside
+      data-state={open ? "open" : "closed"}
       data-variant={variant}
       data-slot="sidebar"
       className={cn(
@@ -241,7 +242,7 @@ export function SidebarInset({
       data-slot="sidebar-inset"
       className={cn(
         "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-sidebar dark:bg-background",
-        "md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:overflow-hidden md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm",
+        "md:peer-data-[variant=inset]:m-2 md:peer-data-[state=open]:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:overflow-hidden md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm",
         className,
       )}
       {...props}
