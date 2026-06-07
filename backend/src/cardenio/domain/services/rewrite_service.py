@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import HTTPException
+from pydantic import BaseModel
 
-from cardenio.domain.agents.rewrite import RewriteAgent
 from cardenio.domain.context_assembler import ContextAssembler
 from cardenio.domain.models.base import (
     ArtifactEnvelope,
@@ -22,9 +22,12 @@ from cardenio.domain.services.generation_service import (
     annotate_subtext_and_mood,
     backfill_dialogue_source_refs,
 )
+from cardenio.domain.tools import RewriteSceneTool, RewriteSceneToolInput, ToolRegistry
 from cardenio.gateway.protocol import LlmGateway
 from cardenio.orchestrator.trust_enforcer import enforce_pipeline_trust
 from cardenio.storage.sqlite_store import SqliteArtifactStore
+
+REWRITE_SCENE_TOOL = "rewrite.scene"
 
 
 class RewriteService:
@@ -36,10 +39,14 @@ class RewriteService:
         gateway: LlmGateway,
         store: SqliteArtifactStore,
         runtime: AgentRuntime | None = None,
+        tools: ToolRegistry | None = None,
     ) -> None:
         self.gateway = gateway
         self.store = store
         self.runtime = runtime or AgentRuntime()
+        self.tools = tools or ToolRegistry(
+            [RewriteSceneTool(gateway=self.gateway, runtime=self.runtime)]
+        )
 
     async def rewrite_scene(self, project_id: str, scene_id: str, instruction: str) -> dict:
         """Locally rewrite a single scene without touching sibling scenes."""
@@ -49,13 +56,13 @@ class RewriteService:
             instruction,
         )
 
-        result = await self.runtime.run(
-            agent=RewriteAgent(self.gateway),
-            context=bundle.context,
+        result = await self.tools.get(REWRITE_SCENE_TOOL).run(
+            RewriteSceneToolInput(context=bundle.context)
         )
+        output = _tool_output_data(result)
 
         rewritten_scene = _coerce_rewrite_result(
-            result.data,
+            output,
             bundle.target_scene,
             instruction,
         )
@@ -98,6 +105,13 @@ class RewriteService:
         project = await self.store.get_project(project_id)
         if project is not None and project["state"] != ProjectState.EDITING:
             await self.store.update_project_state(project_id, ProjectState.EDITING)
+
+
+def _tool_output_data(result: BaseModel) -> dict[str, Any]:
+    data = result.model_dump(mode="json").get("data")
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=500, detail="Rewrite tool returned invalid data")
+    return data
 
 
 

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from cardenio.domain.agents.base import AgentContext, AgentProtocol
 from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, ProjectState
-from cardenio.domain.runtime import AgentRuntimeResult
 from cardenio.domain.services.rewrite_service import RewriteService
+from cardenio.domain.tools import ToolRegistry
+from cardenio.domain.tools.rewrite import RewriteSceneToolInput, RewriteSceneToolOutput
 from cardenio.gateway.protocol import GenerateRequest, GenerateResult
 
 
@@ -76,20 +76,20 @@ class FakeGateway:
         raise AssertionError("Runtime test should not call the gateway directly")
 
 
-class RecordingRuntime:
-    def __init__(self) -> None:
-        self.agent_task: str | None = None
-        self.context: AgentContext | None = None
+class RecordingRewriteTool:
+    name = "rewrite.scene"
+    input_model = RewriteSceneToolInput
+    output_model = RewriteSceneToolOutput
 
-    async def run(
-        self,
-        *,
-        agent: AgentProtocol,
-        context: AgentContext,
-    ) -> AgentRuntimeResult:
-        self.agent_task = agent.task_name
-        self.context = context
-        return AgentRuntimeResult(
+    def __init__(self) -> None:
+        self.context_scene_id: str | None = None
+        self.request_scene_id: str | None = None
+
+    async def run(self, input_data: RewriteSceneToolInput) -> RewriteSceneToolOutput:
+        context = input_data.context
+        self.context_scene_id = context.upstream_artifacts["target_scene"]["id"]
+        self.request_scene_id = context.source_chunks[0]["data"]["scene_id"]
+        return RewriteSceneToolOutput(
             data={
                 **context.upstream_artifacts["target_scene"],
                 "synopsis": "The confrontation starts earlier.",
@@ -108,11 +108,11 @@ class RecordingRuntime:
 
 async def test_rewrite_service_runs_agent_through_runtime() -> None:
     store = FakeStore()
-    runtime = RecordingRuntime()
+    tool = RecordingRewriteTool()
     service = RewriteService(
         gateway=FakeGateway(),
         store=store,
-        runtime=runtime,
+        tools=ToolRegistry([tool]),
     )
 
     saved = await service.rewrite_scene(
@@ -121,16 +121,8 @@ async def test_rewrite_service_runs_agent_through_runtime() -> None:
         "Bring the conflict forward.",
     )
 
-    assert runtime.agent_task == "rewrite"
-    assert runtime.context is not None
-    assert runtime.context.source_chunks[0] == {
-        "type": "rewrite_request",
-        "data": {
-            "instruction": "Bring the conflict forward.",
-            "scene_id": "sc_001",
-        },
-    }
-    assert runtime.context.upstream_artifacts["target_scene"]["id"] == "sc_001"
+    assert tool.context_scene_id == "sc_001"
+    assert tool.request_scene_id == "sc_001"
     assert store.saved is not None
     assert store.saved.parent_version == "v_screenplay"
     assert store.updated_state == ProjectState.EDITING
