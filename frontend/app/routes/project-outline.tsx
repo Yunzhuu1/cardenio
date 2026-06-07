@@ -37,7 +37,6 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
   Card,
-  CardAction,
   CardDescription,
   CardHeader,
   CardPanel,
@@ -436,123 +435,114 @@ export default function ProjectOutline({
 
       {outline ? (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("outline.cardTitle")}</CardTitle>
-              <CardDescription>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 space-y-1">
+              <h1 className="app-heading text-xl">{t("outline.cardTitle")}</h1>
+              <p className="text-muted-foreground text-sm">
                 {t("outline.cardDescription", { count: scenes.length })}
-              </CardDescription>
-              <CardAction className="flex flex-wrap gap-2">
-                <Dialog
-                  onOpenChange={(open) => {
-                    if (!open) setSceneForm(null);
-                  }}
-                  open={Boolean(sceneForm)}
-                >
-                  <DialogTrigger
-                    render={
-                      <Button
-                        disabled={working}
-                        onClick={openCreateScene}
-                        size="sm"
-                        variant="outline"
-                      />
-                    }
-                  >
-                    <PlusIcon aria-hidden />
-                    {t("outline.edit.addScene")}
-                  </DialogTrigger>
-                  {sceneForm ? (
-                    <SceneDialog
-                      characters={characterList}
-                      form={sceneForm}
-                      onFormChange={setSceneForm}
-                      onSave={saveScene}
-                      source={source}
-                      working={working}
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <Dialog
+                onOpenChange={(open) => {
+                  if (!open) setSceneForm(null);
+                }}
+                open={Boolean(sceneForm)}
+              >
+                <DialogTrigger
+                  render={
+                    <Button
+                      disabled={working}
+                      onClick={openCreateScene}
+                      size="sm"
+                      variant="outline"
                     />
-                  ) : null}
-                </Dialog>
-                <AlertDialog>
-                  <AlertDialogTrigger
-                    render={
-                      <Button disabled={working} size="sm" variant="outline" />
-                    }
-                  >
-                    <RefreshCwIcon />
-                    {t("outline.regenerate")}
-                  </AlertDialogTrigger>
-                  <AlertDialogPopup>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        {t("outline.regenerateTitle")}
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {t("outline.regenerateDescription")}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogClose render={<Button variant="ghost" />}>
-                        {t("outline.cancel")}
-                      </AlertDialogClose>
-                      <AlertDialogClose
-                        render={
-                          <Button
-                            loading={working}
-                            onClick={generateOutline}
-                            variant="destructive"
-                          />
-                        }
-                      >
-                        {t("outline.regenerateConfirm")}
-                      </AlertDialogClose>
-                    </AlertDialogFooter>
-                  </AlertDialogPopup>
-                </AlertDialog>
-                {outline.state === "draft" ? (
-                  <Button loading={working} onClick={confirmOutline} size="sm">
-                    <CheckCircleIcon />
-                    {t("outline.confirm")}
-                  </Button>
-                ) : (
-                  <Button
-                    render={<Link to={stagePath(projectId, "script")} />}
-                    size="sm"
-                  >
-                    {t("outline.scriptCta")}
-                  </Button>
-                )}
-              </CardAction>
-            </CardHeader>
-            <CardPanel>
-              {outline.state === "draft" ? (
-                <Alert className="mb-4" variant="info">
-                  <AlertTitle>{t("outline.needsConfirmTitle")}</AlertTitle>
-                  <AlertDescription>
-                    {t("outline.needsConfirmDescription")}
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-              <div className="grid gap-4">
-                {scenes.map((scene, scenePosition) => (
-                  <OutlineSceneCard
-                    characterNameById={characterNameById}
-                    canMoveDown={scenePosition < scenes.length - 1}
-                    canMoveUp={scenePosition > 0}
-                    index={scenePosition}
-                    key={scene.id}
-                    onDelete={setDeleteTarget}
-                    onEdit={openEditScene}
-                    onMoveDown={() => moveScene(scenePosition, 1)}
-                    onMoveUp={() => moveScene(scenePosition, -1)}
-                    scene={scene}
+                  }
+                >
+                  <PlusIcon aria-hidden />
+                  {t("outline.edit.addScene")}
+                </DialogTrigger>
+                {sceneForm ? (
+                  <SceneDialog
+                    characters={characterList}
+                    form={sceneForm}
+                    onFormChange={setSceneForm}
+                    onSave={saveScene}
                     source={source}
                     working={working}
                   />
-                ))}
-              </div>
-            </CardPanel>
-          </Card>
+                ) : null}
+              </Dialog>
+              <AlertDialog>
+                <AlertDialogTrigger
+                  render={
+                    <Button disabled={working} size="sm" variant="outline" />
+                  }
+                >
+                  <RefreshCwIcon />
+                  {t("outline.regenerate")}
+                </AlertDialogTrigger>
+                <AlertDialogPopup>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {t("outline.regenerateTitle")}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t("outline.regenerateDescription")}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogClose render={<Button variant="ghost" />}>
+                      {t("outline.cancel")}
+                    </AlertDialogClose>
+                    <AlertDialogClose
+                      render={
+                        <Button
+                          loading={working}
+                          onClick={generateOutline}
+                          variant="destructive"
+                        />
+                      }
+                    >
+                      {t("outline.regenerateConfirm")}
+                    </AlertDialogClose>
+                  </AlertDialogFooter>
+                </AlertDialogPopup>
+              </AlertDialog>
+              {outline.state === "draft" ? (
+                <Button loading={working} onClick={confirmOutline} size="sm">
+                  <CheckCircleIcon />
+                  {t("outline.confirm")}
+                </Button>
+              ) : (
+                <Button
+                  render={<Link to={stagePath(projectId, "script")} />}
+                  size="sm"
+                >
+                  {t("outline.scriptCta")}
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid gap-4">
+            {scenes.map((scene, scenePosition) => (
+              <OutlineSceneCard
+                characterNameById={characterNameById}
+                canMoveDown={scenePosition < scenes.length - 1}
+                canMoveUp={scenePosition > 0}
+                index={scenePosition}
+                key={scene.id}
+                onDelete={setDeleteTarget}
+                onEdit={openEditScene}
+                onMoveDown={() => moveScene(scenePosition, 1)}
+                onMoveUp={() => moveScene(scenePosition, -1)}
+                scene={scene}
+                source={source}
+                working={working}
+              />
+            ))}
+          </div>
 
           <Card>
             <CardHeader>
@@ -637,23 +627,6 @@ export default function ProjectOutline({
               )}
             </CardPanel>
           </Card>
-
-          {outline.state === "confirmed" ? (
-            <Alert variant="success">
-              <AlertTitle>{t("outline.confirmedTitle")}</AlertTitle>
-              <AlertDescription>
-                {t("outline.confirmedDescription")}
-              </AlertDescription>
-              <AlertAction>
-                <Button
-                  render={<Link to={stagePath(projectId, "script")} />}
-                  size="sm"
-                >
-                  {t("outline.scriptCta")}
-                </Button>
-              </AlertAction>
-            </Alert>
-          ) : null}
         </>
       ) : null}
 
