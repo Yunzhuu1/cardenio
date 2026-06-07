@@ -1,6 +1,14 @@
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
-import { createContext, useContext, useMemo, useState } from "react";
+import { gsap } from "gsap";
+import {
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { cn } from "~/lib/utils";
 
 type SidebarContextValue = {
@@ -68,9 +76,55 @@ export function Sidebar({
   variant?: SidebarVariant;
 }): React.ReactElement {
   const { open } = useSidebar();
+  const sidebarRef = useRef<HTMLElement>(null);
+  const hasMountedRef = useRef(false);
+
+  useLayoutEffect(() => {
+    const sidebar = sidebarRef.current;
+    if (!sidebar) return;
+
+    const sidebarWidth = getComputedStyle(sidebar).width;
+    const isDesktop = window.matchMedia("(min-width: 768px)").matches;
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    const closedMargin = isDesktop ? `-${sidebarWidth}` : "0rem";
+    const finalVars = {
+      marginRight: open ? "0rem" : closedMargin,
+      xPercent: open ? 0 : -100,
+    };
+
+    const context = gsap.context(() => {
+      gsap.killTweensOf(sidebar);
+
+      if (!hasMountedRef.current || reduceMotion) {
+        gsap.set(sidebar, finalVars);
+        hasMountedRef.current = true;
+        return;
+      }
+
+      gsap.fromTo(
+        sidebar,
+        {
+          marginRight: open ? closedMargin : "0rem",
+          xPercent: open ? -100 : 0,
+        },
+        {
+          ...finalVars,
+          clearProps: "marginRight",
+          duration: 0.18,
+          ease: "power2.out",
+          overwrite: "auto",
+        },
+      );
+    }, sidebar);
+
+    return () => context.revert();
+  }, [open]);
 
   return (
     <aside
+      ref={sidebarRef}
       data-state={open ? "open" : "closed"}
       data-variant={variant}
       data-slot="sidebar"
@@ -78,8 +132,8 @@ export function Sidebar({
       className={cn(
         "peer fixed inset-y-0 left-0 z-20 flex w-[var(--sidebar-width)] shrink-0 flex-col gap-2 border-r border-sidebar-border bg-background p-2 text-sidebar-foreground dark:bg-sidebar md:static md:z-auto",
         open
-          ? "translate-x-0 md:basis-[var(--sidebar-width)]"
-          : "-translate-x-full pointer-events-none md:basis-0",
+          ? "translate-x-0 md:mr-0"
+          : "-translate-x-full pointer-events-none md:-mr-[var(--sidebar-width)]",
         variant === "inset" && "border-r-0",
         className,
       )}
