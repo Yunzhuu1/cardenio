@@ -609,6 +609,13 @@
       "aiInferredDiff": "AI inferred: report {{reported}} / screenplay {{actual}}",
       "regenerate": "Regenerate report"
     },
+    "preview": {
+      "show": "View source",
+      "hide": "Collapse",
+      "loading": "Loading source…",
+      "missing": "This reference could not be located in the source",
+      "paragraph": "Paragraph {{index}}"
+    },
     "sections": {
       "kept": "Kept from source",
       "added": "AI added/adapted",
