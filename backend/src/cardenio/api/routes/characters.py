@@ -2,36 +2,18 @@
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse
 
 from cardenio.api.deps import get_artifact_store, get_gateway
 from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, ProjectState
 from cardenio.domain.models.characters import Character, CharactersData
-from cardenio.gateway.protocol import GenerateRequest, LlmGateway, SystemConstraints
+from cardenio.domain.services.analysis_service import AnalysisService
+from cardenio.gateway.protocol import LlmGateway
 from cardenio.storage.sqlite_store import SqliteArtifactStore
 
 router = APIRouter(prefix="/projects/{project_id}/characters")
-_STOP_NAMES = {
-    "A",
-    "An",
-    "And",
-    "But",
-    "Chapter",
-    "He",
-    "Her",
-    "His",
-    "I",
-    "It",
-    "She",
-    "The",
-    "They",
-    "This",
-    "We",
-}
 
 
 @router.post(":generate", status_code=202)
@@ -41,40 +23,8 @@ async def generate_characters(
     gateway: LlmGateway = Depends(get_gateway),
 ) -> dict:
     """API-9: Generate character profiles after understanding is confirmed."""
-    project = await store.get_project(project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    understanding = await store.get_artifact(project_id, "understanding")
-    if understanding is None or understanding.state != ArtifactState.CONFIRMED:
-        return _understanding_gate_error(understanding.state if understanding else None)
-
-    chapters = await store.list_chapters(project_id)
-    result = await gateway.generate(
-        GenerateRequest(
-            task="profile",
-            system_constraints=SystemConstraints(
-                style_fingerprint=project["style_fingerprint"]
-            ),
-            context=[
-                {"type": "understanding", "data": understanding.data},
-                *[_chapter_context(chapter) for chapter in chapters],
-            ],
-            output_schema=CharactersData.model_json_schema(),
-        )
-    )
-    data = CharactersData.model_validate(
-        _with_profile_defaults(result.data, chapters, understanding.data)
-    )
-    previous = await store.get_artifact(project_id, "characters")
-    envelope = ArtifactEnvelope[CharactersData](
-        type="characters",
-        state=ArtifactState.DRAFT,
-        parent_version=previous.version if previous else None,
-        data=data,
-    )
-    saved = await store.save_artifact(project_id, envelope)
-    return saved.model_dump(mode="json")
+    service = AnalysisService(gateway=gateway, store=store)
+    return await service.generate_profiles(project_id)
 
 
 @router.get("")
@@ -181,24 +131,6 @@ async def confirm_characters(
     return saved.model_dump(mode="json")
 
 
-def _understanding_gate_error(current_state: ArtifactState | None) -> JSONResponse:
-    return JSONResponse(
-        status_code=409,
-        content={
-            "error": {
-                "code": "state_gate_blocked",
-                "message": "Understanding must be confirmed before generating characters",
-                "retryable": False,
-                "details": {
-                    "artifact": "understanding",
-                    "required_state": ArtifactState.CONFIRMED.value,
-                    "current_state": current_state.value if current_state else "empty",
-                },
-            }
-        },
-    )
-
-
 async def _save_characters(
     store: SqliteArtifactStore,
     project_id: str,
@@ -221,139 +153,3 @@ def _characters_from_artifact(
         return []
     data = CharactersData.model_validate(artifact.data)
     return list(data.characters)
-
-
-def _chapter_context(chapter: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "chapter_id": chapter["id"],
-        "order": chapter["order"],
-        "title": chapter["title"],
-        "paragraphs": chapter["paragraphs"],
-    }
-
-
-def _with_profile_defaults(
-    generated: dict[str, Any],
-    chapters: list[dict[str, Any]],
-    understanding: dict[str, Any],
-) -> dict[str, Any]:
-    if generated.get("characters"):
-        return generated
-    return {"characters": _extract_character_profiles(chapters, understanding)}
-
-
-def _extract_character_profiles(
-    chapters: list[dict[str, Any]],
-    understanding: dict[str, Any],
-) -> list[dict[str, Any]]:
-    name_counts = _extract_character_name_counts(chapters)
-    names = list(name_counts)
-    if not names:
-        names = ["Protagonist"]
-        name_counts = {"Protagonist": 1}
-    relations_by_name = _infer_relations_by_name(chapters, names)
-
-    characters: list[dict[str, Any]] = []
-    for index, name in enumerate(names):
-        characters.append(
-            {
-                "id": _character_id(name),
-                "name": name,
-                "role": _role_for(index, name_counts.get(name, 1)),
-                "voice": _voice_for(name, understanding),
-                "desire": _understanding_field(
-                    understanding,
-                    "protagonist_goal",
-                    "Pursue the central story objective.",
-                ),
-                "fear": _understanding_field(
-                    understanding,
-                    "protagonist_fear",
-                    "Lose the relationship or secret that anchors the story.",
-                ),
-                "arc": _arc_for(index),
-                "relations": relations_by_name.get(name, []),
-                "hard_rules": [
-                    f"{name} must keep a consistent motivation across generated scenes."
-                ],
-            }
-        )
-    return characters
-
-
-def _extract_character_name_counts(chapters: list[dict[str, Any]]) -> dict[str, int]:
-    counts: dict[str, int] = {}
-    for chapter in chapters:
-        for paragraph in chapter["paragraphs"]:
-            text = paragraph["text"]
-            for name in _names_in_text(text):
-                if name in _STOP_NAMES or name.split()[0] in _STOP_NAMES:
-                    continue
-                counts[name] = counts.get(name, 0) + 1
-    return dict(sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:8])
-
-
-def _names_in_text(text: str) -> list[str]:
-    return re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}\b", text)
-
-
-def _infer_relations_by_name(
-    chapters: list[dict[str, Any]],
-    names: list[str],
-) -> dict[str, list[dict[str, str]]]:
-    relations: dict[str, dict[str, dict[str, str]]] = {name: {} for name in names}
-    known_names = set(names)
-    for chapter in chapters:
-        for paragraph in chapter["paragraphs"]:
-            present = [name for name in _names_in_text(paragraph["text"]) if name in known_names]
-            for source in present:
-                for target in present:
-                    if source == target:
-                        continue
-                    relations[source][_character_id(target)] = {
-                        "to": _character_id(target),
-                        "type": "co_occurs",
-                        "change": (
-                            "Appears together in the source and should stay "
-                            "relationally consistent."
-                        ),
-                    }
-    return {
-        name: list(by_target.values())
-        for name, by_target in relations.items()
-    }
-
-
-def _role_for(index: int, count: int) -> str:
-    if index == 0:
-        return "protagonist"
-    if count <= 1:
-        return "mentioned"
-    return "supporting"
-
-
-def _character_id(name: str) -> str:
-    normalized = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
-    return normalized or "character"
-
-
-def _voice_for(name: str, understanding: dict[str, Any]) -> str:
-    style = understanding.get("style_fingerprint") or "source-grounded"
-    return f"{name} speaks with a {style} voice."
-
-
-def _understanding_field(
-    understanding: dict[str, Any],
-    field: str,
-    fallback: str,
-) -> str:
-    value = understanding.get(field)
-    if isinstance(value, str) and value.strip():
-        return value
-    return fallback
-
-
-def _arc_for(index: int) -> str:
-    if index == 0:
-        return "Moves from uncertainty toward action."
-    return "Pressure-tests the protagonist's choices."

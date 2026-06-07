@@ -3,6 +3,8 @@
 import pytest
 from httpx import AsyncClient
 
+from cardenio.gateway.providers.stub import StubLlmGateway
+
 
 @pytest.fixture
 async def project_id(app_client: AsyncClient) -> str:
@@ -64,7 +66,10 @@ class TestCharacterProfiles:
         assert error["details"]["artifact"] == "understanding"
 
     async def test_generate_and_get_character_profiles(
-        self, app_client: AsyncClient, project_id: str
+        self,
+        app_client: AsyncClient,
+        project_id: str,
+        stub_gateway: StubLlmGateway,
     ) -> None:
         await generate_confirmed_understanding(app_client, project_id)
 
@@ -91,6 +96,20 @@ class TestCharacterProfiles:
             relation["to"] == "chen_mo" and relation["type"] == "co_occurs"
             for relation in lin_wan["relations"]
         )
+        assert stub_gateway.call_log[-1].task == "profile"
+        assert stub_gateway.call_log[-1].output_schema is not None
+        project_resp = await app_client.get(f"/api/v1/projects/{project_id}")
+        assert project_resp.status_code == 200
+        assert (
+            stub_gateway.call_log[-1].system_constraints.style_fingerprint
+            == project_resp.json()["style_fingerprint"]
+        )
+        context = stub_gateway.call_log[-1].context
+        assert context[0]["chapter_id"]
+        assert context[-3]["type"] == "upstream_artifacts"
+        assert "understanding" in context[-3]["data"]
+        assert context[-2]["type"] == "repair_issues"
+        assert context[-1]["type"] == "previous_output"
 
         get_resp = await app_client.get(f"/api/v1/projects/{project_id}/characters")
         assert get_resp.status_code == 200
