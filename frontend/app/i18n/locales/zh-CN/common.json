@@ -609,6 +609,13 @@
       "aiInferredDiff": "AI 新增：报告 {{reported}} / 剧本 {{actual}}",
       "regenerate": "重新生成报告"
     },
+    "preview": {
+      "show": "查看原文",
+      "hide": "收起",
+      "loading": "加载原文…",
+      "missing": "该引用无法定位到原文",
+      "paragraph": "第 {{index}} 段"
+    },
     "sections": {
       "kept": "保留自原文",
       "added": "AI 新增/改编",
