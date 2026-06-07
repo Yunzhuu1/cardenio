@@ -543,9 +543,10 @@ stages. `ControlledAgent` calls the configured LLM gateway, validates the
 structured response with the stage output schema, records structured
 `AgentIssue` diagnostics, retries with repair context, and falls back to a
 `needs_attention` payload when bounded attempts are exhausted. This is a local
-workflow primitive, not an autonomous ReAct agent and not an MCP server. Existing
-HTTP API responses are unchanged until individual stages are migrated from route
-handlers into services and agents.
+workflow primitive, not an autonomous ReAct agent and not an MCP server. The
+understanding generation route now delegates through
+`AnalysisService -> UnderstandAgent -> ControlledAgent -> LLM gateway`, while
+preserving the existing HTTP API response shape.
 
 ### Git hooks
 
