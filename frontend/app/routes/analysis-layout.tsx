@@ -83,7 +83,7 @@ export default function AnalysisLayout({
 
   return (
     <div className="space-y-6">
-      <div className="sticky top-0 z-10 -mx-5 border-b bg-background/95 px-5 py-3 backdrop-blur sm:-mx-8 sm:px-8">
+      <div className="sticky top-0 z-10 -mx-5 -mt-8 border-b bg-background/95 px-5 py-3 backdrop-blur sm:-mx-8 sm:px-8">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <nav
             aria-label={t("analysis.navLabel")}
