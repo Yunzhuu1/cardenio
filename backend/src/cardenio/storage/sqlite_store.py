@@ -25,6 +25,7 @@ class SqliteArtifactStore:
     def __init__(self, session: AsyncSession) -> None:
         self._projects = ProjectRepository(session)
         self._artifacts = ArtifactRepository(session)
+        self._jobs = JobRepository(session)
 
     # -- Project ---------------------------------------------------------------
 
@@ -52,6 +53,37 @@ class SqliteArtifactStore:
             adaptation_direction=meta.get("adaptation_direction"),
         )
         return proj.id
+
+    async def update_project_meta(
+        self,
+        project_id: str,
+        meta: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        updates = {
+            key: value
+            for key, value in meta.items()
+            if key
+            in {
+                "title",
+                "ui_language",
+                "source_language",
+                "output_language",
+                "adaptation_direction",
+            }
+        }
+        project = await self._projects.update_meta(project_id, **updates)
+        if project is None:
+            return None
+        return await self.get_project(project_id)
+
+    async def delete_project(self, project_id: str) -> bool:
+        deleted = await self._projects.soft_delete(project_id)
+        if not deleted:
+            return False
+        await self._artifacts.delete_all_artifacts(project_id)
+        await self._artifacts.delete_all_paragraphs(project_id)
+        await self._jobs.delete_project_jobs(project_id)
+        return True
 
     async def update_project_state(self, project_id: str, state: ProjectState) -> None:
         await self._projects.update_state(project_id, state.value)

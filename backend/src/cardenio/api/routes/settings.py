@@ -90,6 +90,14 @@ async def update_settings(
 
     previous = await store.get_artifact(project_id, "settings")
     data = _normalize_settings(body)
+    await store.update_project_meta(
+        project_id,
+        {
+            "ui_language": data.ui_language,
+            "source_language": data.source_language,
+            "output_language": data.output_language,
+        },
+    )
     envelope = ArtifactEnvelope[ProjectSettings](
         type="settings",
         state=ArtifactState.CONFIRMED,
