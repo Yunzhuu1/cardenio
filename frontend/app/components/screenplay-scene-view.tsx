@@ -1,7 +1,6 @@
 import type * as React from "react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "~/components/ui/badge";
-import { CardDescription, CardHeader, CardTitle } from "~/components/ui/card";
 import type { ScreenplayScene } from "~/lib/api/types";
 import { charactersLabel, sourceRefLabel } from "~/lib/screenplay-format";
 
@@ -23,8 +22,8 @@ export function SceneHeader({
   );
 
   return (
-    <CardHeader className="border-b">
-      <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+    <header className="space-y-2">
+      <h2 className="flex flex-wrap items-center gap-2 font-medium text-base">
         <span>{t("script.sceneNumber", { number: sceneNumber })}</span>
         <Badge variant="outline">
           {t(`script.int_ext.${scene.heading.int_ext}`)}
@@ -33,13 +32,13 @@ export function SceneHeader({
         <Badge variant="outline">
           {t(`script.time.${scene.heading.time}`)}
         </Badge>
-      </CardTitle>
-      <CardDescription className="flex flex-wrap gap-2">
+      </h2>
+      <div className="flex flex-wrap gap-2">
         <Badge variant="secondary">{sourceRefLabel(t, scene.source_ref)}</Badge>
         {scene.mood ? <Badge variant="secondary">{scene.mood}</Badge> : null}
         {cast ? <Badge variant="secondary">{cast}</Badge> : null}
-      </CardDescription>
-    </CardHeader>
+      </div>
+    </header>
   );
 }
 

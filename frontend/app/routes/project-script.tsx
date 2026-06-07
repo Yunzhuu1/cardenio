@@ -330,7 +330,7 @@ export default function ProjectScript({
           <Separator />
           <BeatFilterControl filter={filter} onFilterChange={setFilter} />
           <Separator />
-          <div className="grid gap-4">
+          <div className="divide-y">
             {scenes.map((scene, index) => (
               <ScreenplaySceneCard
                 characterNameById={characterNameById}
@@ -446,9 +446,9 @@ function ScreenplaySceneCard({
       : scene.beats.filter((beat) => beat.flag === filter).length;
 
   return (
-    <Card
+    <article
       className={cn(
-        "rounded-xl shadow-none transition-opacity",
+        "py-6 first:pt-0 last:pb-0 transition-opacity",
         filter !== "all" && matchingBeatCount === 0 ? "opacity-70" : null,
       )}
       id={`scene-${scene.id}`}
@@ -458,7 +458,7 @@ function ScreenplaySceneCard({
         scene={scene}
         sceneNumber={sceneNumber}
       />
-      <CardPanel className="space-y-4">
+      <div className="mt-4 space-y-4">
         <SceneSummary scene={scene} />
         <div className="grid gap-3">
           {scene.beats.map((beat, index) => (
@@ -477,8 +477,8 @@ function ScreenplaySceneCard({
             {t("script.filter.noSceneMatches")}
           </p>
         ) : null}
-      </CardPanel>
-    </Card>
+      </div>
+    </article>
   );
 }
 
