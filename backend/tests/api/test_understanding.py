@@ -3,6 +3,8 @@
 import pytest
 from httpx import AsyncClient
 
+from cardenio.gateway.providers.stub import StubLlmGateway
+
 
 @pytest.fixture
 async def project_id(app_client: AsyncClient) -> str:
@@ -92,7 +94,10 @@ class TestUnderstandingGeneration:
         assert error["details"]["current_chapters"] == 0
 
     async def test_generate_and_get_understanding(
-        self, app_client: AsyncClient, project_id: str
+        self,
+        app_client: AsyncClient,
+        project_id: str,
+        stub_gateway: StubLlmGateway,
     ) -> None:
         await add_three_chapters(app_client, project_id)
 
@@ -106,6 +111,12 @@ class TestUnderstandingGeneration:
         assert generated["data"]["logline"]
         assert generated["data"]["synopsis"]
         assert "narrative" in generated["data"]
+        assert stub_gateway.call_log[-1].task == "understand"
+        assert stub_gateway.call_log[-1].output_schema is not None
+        context = stub_gateway.call_log[-1].context
+        assert context[0]["chapter_id"]
+        assert context[-2]["type"] == "repair_issues"
+        assert context[-1]["type"] == "previous_output"
 
         get_resp = await app_client.get(
             f"/api/v1/projects/{project_id}/understanding"
