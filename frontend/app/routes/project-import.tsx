@@ -248,6 +248,7 @@ export default function ProjectImport({
       ? String(navigation.formData?.get("chapterId") || "")
       : null;
   const currentChapters = source.stats.chapter_count;
+  const hasChapters = currentChapters > 0;
   const minimumChapters = source.threshold.min_chapters;
   const neededChapters = Math.max(0, minimumChapters - currentChapters);
   const validSelectedChapterIds = selectedChapterIds.filter((id) =>
@@ -419,7 +420,14 @@ export default function ProjectImport({
 
   return (
     <div className="flex flex-col gap-8">
-      <section className="flex min-h-[calc(100dvh-11rem)] items-center justify-center">
+      <section
+        className={cn(
+          "flex justify-center",
+          hasChapters
+            ? "items-start"
+            : "min-h-[calc(100dvh-11rem)] items-center",
+        )}
+      >
         {entryMode === "upload" ? (
           <div className="flex w-full max-w-3xl flex-col items-center gap-4">
             <FileUploadCard
