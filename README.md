@@ -452,6 +452,11 @@ pnpm preview
 前端默认通过真实 HTTP API 运行。联调时先在 `backend/` 目录按后端自身工具启动 dev 服务，默认监听 `http://localhost:8000`；再在仓库根目录执行：
 
 ```bash
+cd backend
+uv run uvicorn cardenio.api.app:create_app --factory --reload --host 127.0.0.1 --port 8000
+```
+
+```bash
 pnpm dev
 ```
 
@@ -459,6 +464,16 @@ Vite dev server 会把前端相对路径 `/api` 代理到后端服务，不改�
 
 - `VITE_API_MODE`：默认 `http`。设为 `mock` 时使用前端内存 mock，适合离线开发。
 - `VITE_BACKEND_URL`：默认 `http://localhost:8000`。后端运行在其他地址时可覆盖代理目标。
+
+后端默认使用本地 `StubLlmGateway`，适合无外部服务的开发和测试。需要接入 DeepSeek V4 Flash 进行真实 LLM 联调时，在启动后端前配置：
+
+- `CARDENIO_LLM_PROVIDER=deepseek`
+- `DEEPSEEK_API_KEY`：DeepSeek API key。
+- `DEEPSEEK_MODEL`：默认 `deepseek-v4-flash`。
+- `DEEPSEEK_BASE_URL`：默认 `https://api.deepseek.com`。
+- `DEEPSEEK_TIMEOUT_SECONDS`：默认 `60`。
+- `DEEPSEEK_MAX_TOKENS`：默认 `8192`，用于控制结构化 JSON 输出长度。
+- `CARDENIO_DATABASE_URL`：默认 `sqlite+aiosqlite:///./cardenio.db`。
 
 当前生产构建仍是静态 SPA；上述 `/api` 代理只作用于 Vite dev server。
 
@@ -480,6 +495,7 @@ Vite dev server 会把前端相对路径 `/api` 代理到后端服务，不改�
 - `@ibm/plex-sans-sc`：IBM Plex Sans SC 中文字体包，许可证为 OFL-1.1，用作中文 UI 字体栈；本项目在应用 CSS 中导入包内 `ibm-plex-sans-sc-all.css`，并使用随 npm 包分发的本地 woff/woff2 字体文件。该 npm 包包含 IBM Telemetry postinstall 逻辑；本项目安装时可使用 `--ignore-scripts` 跳过安装期遥测脚本，不影响运行时字体加载。
 - ZeoSeven Fonts 的 `LXGW WenKai`（霞鹜文楷）CSS：侧边栏品牌中文和应用标题中文使用 400 normal，运行时从 `https://fontsapi.zeoseven.com/292/main/result.css` 加载。CJK 正文字体当前使用 `IBM Plex Sans SC`，并保留 `Noto Sans SC` / `Noto Serif SC` 作为系统或后续子集化 fallback。
 - lefthook：本地 Git hooks 管理。
+- DeepSeek API：后端可选的外部 LLM 服务，通过 OpenAI-compatible HTTP chat completions 接口接入 DeepSeek V4 Flash。未配置 `CARDENIO_LLM_PROVIDER=deepseek` 和 `DEEPSEEK_API_KEY` 时，后端继续使用本地 stub gateway，不会调用外部模型。
 
 当前 `frontend/` 中的产品文案、设计令牌、主题实现、i18n 资源和演示首页为本项目原创实现。第三方 CLI 生成的 coss/shadcn 基座仅作为通用 UI 基础设施，不代表产品原创业务功能；导入页的手动录入、文件导入预览/确认、章节列表、删除、拆分、合并、编辑和门槛逻辑，analysis 阶段的录入、编辑、门控与信任信号展示逻辑，以及剧本阶段的生成、只读查看、加戏筛选、信任标记展示、双栏对照、局部重生成、行内节拍编辑、YAML 源码视图和留白清单交互与数据流为本项目业务实现。`yaml` 仅作为剧本源码视图的文本序列化基座；本地侧边栏 primitive 按 coss Sidebar 文档的组件结构与命名约定实现，用于应用外壳导航组合，不包含 Cardenio 的业务逻辑。
 
