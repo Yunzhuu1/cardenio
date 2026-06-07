@@ -81,7 +81,6 @@ import {
   NumberFieldInput,
 } from "~/components/ui/number-field";
 import { Separator } from "~/components/ui/separator";
-import { Tabs, TabsList, TabsPanel, TabsTab } from "~/components/ui/tabs";
 import { Textarea } from "~/components/ui/textarea";
 import { toastManager } from "~/components/ui/toast";
 import {
@@ -94,6 +93,7 @@ import {
 import { api } from "~/lib/api/client";
 import { i18next } from "~/i18n/config";
 import { stagePath } from "~/lib/stages";
+import { cn } from "~/lib/utils";
 
 type ActionResult = {
   ok: boolean;
@@ -255,12 +255,7 @@ export default function ProjectImport({
     await revalidator.revalidate();
   }
 
-  async function handleFileChange(
-    event: React.ChangeEvent<HTMLInputElement>,
-  ): Promise<void> {
-    const file = event.currentTarget.files?.[0];
-    event.currentTarget.value = "";
-
+  async function handleFileSelect(file: File | undefined): Promise<void> {
     if (!file) return;
 
     try {
@@ -278,6 +273,14 @@ export default function ProjectImport({
     } finally {
       setUploading(false);
     }
+  }
+
+  async function handleFileChange(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ): Promise<void> {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    await handleFileSelect(file);
   }
 
   async function confirmImport(): Promise<void> {
@@ -407,21 +410,23 @@ export default function ProjectImport({
 
   return (
     <div className="flex flex-col gap-8">
-      <Tabs defaultValue="manual">
-        <TabsList variant="underline">
-          <TabsTab value="manual">{t("import.manualTab")}</TabsTab>
-          <TabsTab value="upload">{t("import.uploadTab")}</TabsTab>
-        </TabsList>
-        <TabsPanel className="pt-5" value="manual">
-          <ChapterEntryForm addingChapter={addingChapter} />
-        </TabsPanel>
-        <TabsPanel className="pt-5" value="upload">
-          <FileUploadPanel
-            uploading={uploading}
-            onFileChange={handleFileChange}
-          />
-        </TabsPanel>
-      </Tabs>
+      <section className="flex max-w-3xl flex-col items-center gap-4">
+        <FileUploadCard
+          onFileChange={handleFileChange}
+          onFileSelect={(file) => void handleFileSelect(file)}
+          uploading={uploading}
+        />
+        <a
+          className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          href="#manual-chapter-entry"
+        >
+          {t("import.manualEntryPrompt")}
+        </a>
+      </section>
+
+      <section id="manual-chapter-entry">
+        <ChapterEntryForm addingChapter={addingChapter} />
+      </section>
 
       <Separator />
 
@@ -597,36 +602,69 @@ function ChapterEntryForm({
   );
 }
 
-function FileUploadPanel({
+function FileUploadCard({
   onFileChange,
+  onFileSelect,
   uploading,
 }: {
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onFileSelect: (file: File | undefined) => void;
   uploading: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const [dragging, setDragging] = React.useState(false);
+
+  function handleDragOver(event: React.DragEvent<HTMLDivElement>): void {
+    event.preventDefault();
+    if (!uploading) setDragging(true);
+  }
+
+  function handleDrop(event: React.DragEvent<HTMLDivElement>): void {
+    event.preventDefault();
+    setDragging(false);
+    if (uploading) return;
+    onFileSelect(event.dataTransfer.files[0]);
+  }
 
   return (
-    <div className="flex max-w-3xl flex-col gap-5">
-      <Field>
-        <FieldLabel htmlFor="source-file">{t("import.uploadLabel")}</FieldLabel>
+    <Card
+      className={cn(
+        "w-full border-dashed transition-colors",
+        dragging && "border-primary bg-primary/5",
+      )}
+      onDragLeave={() => setDragging(false)}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      <CardPanel className="flex flex-col items-center gap-4 px-6 py-10 text-center">
+        <div className="flex size-11 items-center justify-center rounded-lg border bg-background text-muted-foreground">
+          <UploadIcon aria-hidden className="size-5" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <div className="font-medium text-foreground">
+            {t("import.uploadDropTitle")}
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {t("import.uploadDropDescription")}
+          </div>
+        </div>
         <Input
           accept=".txt,.docx"
+          className="sr-only"
           disabled={uploading}
           id="source-file"
           name="file"
           onChange={onFileChange}
           type="file"
         />
-        <FieldDescription>{t("import.uploadHint")}</FieldDescription>
-      </Field>
-      <div>
         <Button loading={uploading} render={<label htmlFor="source-file" />}>
-          <UploadIcon aria-hidden data-icon="inline-start" />
           {t("import.uploadButton")}
         </Button>
-      </div>
-    </div>
+        <div className="text-xs text-muted-foreground">
+          {t("import.uploadHint")}
+        </div>
+      </CardPanel>
+    </Card>
   );
 }
 
