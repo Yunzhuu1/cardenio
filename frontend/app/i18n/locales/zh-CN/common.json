@@ -600,6 +600,15 @@
       "aiInferred": "AI 新增 {{count}} 条",
       "artifact": "报告工件"
     },
+    "consistency": {
+      "consistentTitle": "报告统计与剧本标记一致",
+      "consistentDescription": "原文 {{fromSource}} 条 / AI 新增 {{aiInferred}} 条，与当前剧本标记一致。",
+      "staleTitle": "报告可能已过时",
+      "staleDescription": "当前剧本标记与已存报告统计不一致，请重新生成报告后再复查。",
+      "fromSourceDiff": "原文：报告 {{reported}} / 剧本 {{actual}}",
+      "aiInferredDiff": "AI 新增：报告 {{reported}} / 剧本 {{actual}}",
+      "regenerate": "重新生成报告"
+    },
     "sections": {
       "kept": "保留自原文",
       "added": "AI 新增/改编",

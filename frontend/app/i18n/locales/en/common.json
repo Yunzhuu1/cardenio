@@ -600,6 +600,15 @@
       "aiInferred": "{{count}} AI inferred lines",
       "artifact": "Report artifact"
     },
+    "consistency": {
+      "consistentTitle": "Report statistics match screenplay flags",
+      "consistentDescription": "Source {{fromSource}} / AI inferred {{aiInferred}} match the current screenplay flags.",
+      "staleTitle": "Report may be stale",
+      "staleDescription": "The current screenplay flags do not match the stored report statistics. Regenerate the report before reviewing.",
+      "fromSourceDiff": "Source: report {{reported}} / screenplay {{actual}}",
+      "aiInferredDiff": "AI inferred: report {{reported}} / screenplay {{actual}}",
+      "regenerate": "Regenerate report"
+    },
     "sections": {
       "kept": "Kept from source",
       "added": "AI added/adapted",

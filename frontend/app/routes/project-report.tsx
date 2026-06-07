@@ -1,5 +1,7 @@
 import {
+  AlertTriangleIcon,
   BotIcon,
+  CheckCircle2Icon,
   FileTextIcon,
   GitMergeIcon,
   ListChecksIcon,
@@ -16,6 +18,12 @@ import { Link, useRevalidator } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import type { Route } from "./+types/project-report";
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "~/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogClose,
@@ -147,6 +155,23 @@ function sceneLabel(
     : t("report.sections.unknownScene", { id: sceneId });
 }
 
+function countFlags(screenplay: ScreenplayData): {
+  ai_inferred: number;
+  from_source: number;
+} {
+  return screenplay.scenes.reduce(
+    (counts, scene) => {
+      for (const beat of scene.beats) {
+        if (beat.type === "todo") continue;
+        if (beat.flag === "from_source") counts.from_source += 1;
+        if (beat.flag === "ai_inferred") counts.ai_inferred += 1;
+      }
+      return counts;
+    },
+    { ai_inferred: 0, from_source: 0 },
+  );
+}
+
 export default function ProjectReport({
   loaderData,
 }: Route.ComponentProps): React.ReactElement {
@@ -248,6 +273,12 @@ export default function ProjectReport({
             report={report}
             working={working}
           />
+          <ReportConsistencyAlert
+            onRegenerate={generateReport}
+            report={report.data}
+            screenplay={screenplay.data}
+            working={working}
+          />
           <ReportSections
             report={report.data}
             sceneById={sceneById}
@@ -256,6 +287,72 @@ export default function ProjectReport({
         </>
       ) : null}
     </section>
+  );
+}
+
+function ReportConsistencyAlert({
+  onRegenerate,
+  report,
+  screenplay,
+  working,
+}: {
+  onRegenerate: () => Promise<void>;
+  report: ReportData;
+  screenplay: ScreenplayData;
+  working: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const recomputed = countFlags(screenplay);
+  const consistent =
+    recomputed.from_source === report.from_source_lines &&
+    recomputed.ai_inferred === report.ai_inferred_lines;
+
+  if (consistent) {
+    return (
+      <Alert variant="success">
+        <CheckCircle2Icon />
+        <AlertTitle>{t("report.consistency.consistentTitle")}</AlertTitle>
+        <AlertDescription>
+          {t("report.consistency.consistentDescription", {
+            aiInferred: recomputed.ai_inferred,
+            fromSource: recomputed.from_source,
+          })}
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <Alert variant="warning">
+      <AlertTriangleIcon />
+      <AlertTitle>{t("report.consistency.staleTitle")}</AlertTitle>
+      <AlertDescription>
+        <span>{t("report.consistency.staleDescription")}</span>
+        <span>
+          {t("report.consistency.fromSourceDiff", {
+            actual: recomputed.from_source,
+            reported: report.from_source_lines,
+          })}
+        </span>
+        <span>
+          {t("report.consistency.aiInferredDiff", {
+            actual: recomputed.ai_inferred,
+            reported: report.ai_inferred_lines,
+          })}
+        </span>
+      </AlertDescription>
+      <AlertAction>
+        <Button
+          disabled={working}
+          loading={working}
+          onClick={onRegenerate}
+          size="sm"
+        >
+          <RefreshCwIcon />
+          {t("report.consistency.regenerate")}
+        </Button>
+      </AlertAction>
+    </Alert>
   );
 }
 
