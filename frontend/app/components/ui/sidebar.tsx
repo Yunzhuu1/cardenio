@@ -39,7 +39,7 @@ export function SidebarProvider({
         data-sidebar-open={open}
         data-slot="sidebar-provider"
         className={cn(
-          "flex h-dvh min-h-0 overflow-hidden bg-background text-foreground dark:bg-sidebar",
+          "flex h-dvh min-h-0 overflow-hidden bg-background text-foreground [--sidebar-width:16rem] dark:bg-sidebar",
           className,
         )}
         {...props}
@@ -74,9 +74,12 @@ export function Sidebar({
       data-state={open ? "open" : "closed"}
       data-variant={variant}
       data-slot="sidebar"
+      aria-hidden={!open}
       className={cn(
-        "peer fixed inset-y-0 left-0 z-20 w-64 shrink-0 flex-col gap-2 border-r border-sidebar-border bg-background p-2 text-sidebar-foreground dark:bg-sidebar md:static md:z-auto",
-        open ? "flex" : "hidden",
+        "peer fixed inset-y-0 left-0 z-20 flex w-[var(--sidebar-width)] shrink-0 flex-col gap-2 border-r border-sidebar-border bg-background p-2 text-sidebar-foreground dark:bg-sidebar md:static md:z-auto",
+        open
+          ? "translate-x-0 md:basis-[var(--sidebar-width)]"
+          : "-translate-x-full pointer-events-none md:basis-0",
         variant === "inset" && "border-r-0",
         className,
       )}
