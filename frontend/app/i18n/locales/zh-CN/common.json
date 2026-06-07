@@ -230,6 +230,7 @@
       "noCharacters": "这一组暂无人物。",
       "idConflict": "人物 id 已存在，请调整名称后重试。",
       "menuLabel": "人物操作",
+      "graphLabel": "人物关系图",
       "roles": {
         "protagonist": "主角",
         "supporting": "配角",
