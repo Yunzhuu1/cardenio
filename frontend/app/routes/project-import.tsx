@@ -1,9 +1,7 @@
 import * as React from "react";
 import {
-  CheckCircleIcon,
   ChevronDownIcon,
   FileTextIcon,
-  InfoIcon,
   MoreHorizontalIcon,
   PencilIcon,
   PlusIcon,
@@ -12,15 +10,16 @@ import {
   TriangleAlertIcon,
   UploadIcon,
 } from "lucide-react";
-import { Form, Link, useNavigation, useRevalidator } from "react-router";
+import { Form, useNavigation, useRevalidator } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/project-import";
 import {
-  Alert,
-  AlertAction,
-  AlertDescription,
-  AlertTitle,
-} from "~/components/ui/alert";
+  Accordion,
+  AccordionItem,
+  AccordionPanel,
+  AccordionTrigger,
+} from "~/components/ui/accordion";
+import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogClose,
@@ -33,20 +32,8 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardHeader,
-  CardPanel,
-  CardTitle,
-} from "~/components/ui/card";
+import { Card, CardPanel } from "~/components/ui/card";
 import { Checkbox } from "~/components/ui/checkbox";
-import {
-  Collapsible,
-  CollapsiblePanel,
-  CollapsibleTrigger,
-} from "~/components/ui/collapsible";
 import {
   Dialog,
   DialogClose,
@@ -82,7 +69,6 @@ import {
   NumberFieldInput,
 } from "~/components/ui/number-field";
 import { Separator } from "~/components/ui/separator";
-import { Tabs, TabsList, TabsPanel, TabsTab } from "~/components/ui/tabs";
 import { Textarea } from "~/components/ui/textarea";
 import { toastManager } from "~/components/ui/toast";
 import {
@@ -94,7 +80,7 @@ import {
 } from "~/lib/api/types";
 import { api } from "~/lib/api/client";
 import { i18next } from "~/i18n/config";
-import { stagePath } from "~/lib/stages";
+import { cn } from "~/lib/utils";
 
 type ActionResult = {
   ok: boolean;
@@ -140,6 +126,12 @@ function countChars(paragraphs: SourceParagraph[]): number {
     (total, paragraph) => total + paragraph.text.length,
     0,
   );
+}
+
+function previewParagraph(text: string, maxLength = 180): string {
+  return text.length > maxLength
+    ? `${text.slice(0, maxLength).trim()}...`
+    : text;
 }
 
 function toPreviewDraft(chapter: ImportChapterPreview): PreviewChapterDraft {
@@ -227,6 +219,9 @@ export default function ProjectImport({
   >([]);
   const [previewWarnings, setPreviewWarnings] = React.useState<string[]>([]);
   const [uploading, setUploading] = React.useState(false);
+  const [entryMode, setEntryMode] = React.useState<"upload" | "manual">(
+    "upload",
+  );
   const [confirmingImport, setConfirmingImport] = React.useState(false);
   const [selectedChapterIds, setSelectedChapterIds] = React.useState<string[]>(
     [],
@@ -234,6 +229,7 @@ export default function ProjectImport({
   const [editingChapter, setEditingChapter] = React.useState<Chapter | null>(
     null,
   );
+  const [editingText, setEditingText] = React.useState("");
   const [splittingChapter, setSplittingChapter] =
     React.useState<Chapter | null>(null);
   const [splitAt, setSplitAt] = React.useState<number | null>(2);
@@ -246,22 +242,22 @@ export default function ProjectImport({
       ? String(navigation.formData?.get("chapterId") || "")
       : null;
   const currentChapters = source.stats.chapter_count;
-  const minimumChapters = source.threshold.min_chapters;
-  const neededChapters = Math.max(0, minimumChapters - currentChapters);
+  const hasChapters = currentChapters > 0;
   const validSelectedChapterIds = selectedChapterIds.filter((id) =>
     source.chapters.some((chapter) => chapter.id === id),
   );
+
+  React.useEffect(() => {
+    document
+      .querySelector('[data-slot="scroll-area-viewport"]')
+      ?.scrollTo({ top: 0 });
+  }, [entryMode]);
 
   async function refreshSource(): Promise<void> {
     await revalidator.revalidate();
   }
 
-  async function handleFileChange(
-    event: React.ChangeEvent<HTMLInputElement>,
-  ): Promise<void> {
-    const file = event.currentTarget.files?.[0];
-    event.currentTarget.value = "";
-
+  async function handleFileSelect(file: File | undefined): Promise<void> {
     if (!file) return;
 
     try {
@@ -279,6 +275,14 @@ export default function ProjectImport({
     } finally {
       setUploading(false);
     }
+  }
+
+  async function handleFileChange(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ): Promise<void> {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    await handleFileSelect(file);
   }
 
   async function confirmImport(): Promise<void> {
@@ -408,27 +412,43 @@ export default function ProjectImport({
 
   return (
     <div className="flex flex-col gap-8">
-      <Alert variant="info">
-        <InfoIcon />
-        <AlertTitle>{t("import.titleNotPersistedHint")}</AlertTitle>
-        <AlertDescription>{t("import.paragraphSpacingHint")}</AlertDescription>
-      </Alert>
-
-      <Tabs defaultValue="manual">
-        <TabsList variant="underline">
-          <TabsTab value="manual">{t("import.manualTab")}</TabsTab>
-          <TabsTab value="upload">{t("import.uploadTab")}</TabsTab>
-        </TabsList>
-        <TabsPanel className="pt-5" value="manual">
-          <ChapterEntryForm addingChapter={addingChapter} />
-        </TabsPanel>
-        <TabsPanel className="pt-5" value="upload">
-          <FileUploadPanel
-            uploading={uploading}
-            onFileChange={handleFileChange}
-          />
-        </TabsPanel>
-      </Tabs>
+      <section
+        className={cn(
+          "flex items-center justify-center overflow-hidden transition-[min-height] duration-300 ease-out motion-reduce:transition-none",
+          hasChapters ? "min-h-0" : "min-h-[calc(100dvh-11rem)]",
+        )}
+      >
+        {entryMode === "upload" ? (
+          <div className="flex w-full max-w-3xl flex-col items-center gap-4">
+            <FileUploadCard
+              onFileChange={handleFileChange}
+              onFileSelect={(file) => void handleFileSelect(file)}
+              uploading={uploading}
+            />
+            <button
+              className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              onClick={() => setEntryMode("manual")}
+              type="button"
+            >
+              {t("import.manualEntryPrompt")}
+            </button>
+          </div>
+        ) : (
+          <div className="flex w-full max-w-3xl flex-col items-center gap-4">
+            <ChapterEntryForm
+              addingChapter={addingChapter}
+              chapterCount={currentChapters}
+            />
+            <button
+              className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              onClick={() => setEntryMode("upload")}
+              type="button"
+            >
+              {t("import.uploadEntryPrompt")}
+            </button>
+          </div>
+        )}
+      </section>
 
       <Separator />
 
@@ -494,13 +514,16 @@ export default function ProjectImport({
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="grid gap-4">
+          <Accordion multiple>
             {source.chapters.map((chapter) => (
-              <ChapterCard
+              <ChapterAccordionItem
                 chapter={chapter}
                 deleting={deletingChapterId === chapter.id}
                 key={chapter.id}
-                onEdit={() => setEditingChapter(chapter)}
+                onEdit={() => {
+                  setEditingText(paragraphsToText(chapter));
+                  setEditingChapter(chapter);
+                }}
                 onSelect={(checked) =>
                   toggleChapterSelection(chapter.id, checked)
                 }
@@ -511,17 +534,9 @@ export default function ProjectImport({
                 selected={validSelectedChapterIds.includes(chapter.id)}
               />
             ))}
-          </div>
+          </Accordion>
         )}
       </section>
-
-      <ThresholdGate
-        currentChapters={currentChapters}
-        minimumChapters={minimumChapters}
-        neededChapters={neededChapters}
-        passed={source.threshold.passed}
-        projectId={projectId}
-      />
 
       <ImportPreviewDialog
         confirming={confirmingImport}
@@ -533,19 +548,18 @@ export default function ProjectImport({
         warnings={previewWarnings}
       />
 
-      {editingChapter && (
-        <EditChapterDialog
-          chapter={editingChapter}
-          key={editingChapter.id}
-          onOpenChange={(open) => {
-            if (!open) setEditingChapter(null);
-          }}
-          onSave={(text) => {
-            void updateChapter(editingChapter, text);
-          }}
-          saving={working}
-        />
-      )}
+      <EditChapterDialog
+        chapter={editingChapter}
+        onOpenChange={(open) => {
+          if (!open) setEditingChapter(null);
+        }}
+        onSave={(text) => {
+          if (editingChapter) void updateChapter(editingChapter, text);
+        }}
+        saving={working}
+        setText={setEditingText}
+        text={editingText}
+      />
 
       <SplitChapterDialog
         chapter={splittingChapter}
@@ -563,13 +577,26 @@ export default function ProjectImport({
 
 function ChapterEntryForm({
   addingChapter,
+  chapterCount,
 }: {
   addingChapter: boolean;
+  chapterCount: number;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const [title, setTitle] = React.useState("");
+  const [text, setText] = React.useState("");
+  const previousChapterCount = React.useRef(chapterCount);
+
+  React.useEffect(() => {
+    if (chapterCount > previousChapterCount.current) {
+      setTitle("");
+      setText("");
+    }
+    previousChapterCount.current = chapterCount;
+  }, [chapterCount]);
 
   return (
-    <Form className="flex max-w-3xl flex-col gap-5" method="post">
+    <Form className="flex w-full flex-col gap-5" method="post">
       <input name="intent" type="hidden" value="add-chapter" />
       <Field>
         <FieldLabel htmlFor="chapter-title">
@@ -578,8 +605,10 @@ function ChapterEntryForm({
         <Input
           id="chapter-title"
           name="title"
+          onChange={(event) => setTitle(event.target.value)}
           placeholder={t("import.titlePlaceholder")}
           type="text"
+          value={title}
         />
       </Field>
       <Field>
@@ -587,10 +616,12 @@ function ChapterEntryForm({
         <Textarea
           id="chapter-text"
           name="text"
+          onChange={(event) => setText(event.target.value)}
           placeholder={t("import.textPlaceholder")}
           required
           rows={12}
           size="lg"
+          value={text}
         />
         <FieldDescription>{t("import.paragraphSpacingHint")}</FieldDescription>
       </Field>
@@ -604,40 +635,73 @@ function ChapterEntryForm({
   );
 }
 
-function FileUploadPanel({
+function FileUploadCard({
   onFileChange,
+  onFileSelect,
   uploading,
 }: {
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onFileSelect: (file: File | undefined) => void;
   uploading: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const [dragging, setDragging] = React.useState(false);
+
+  function handleDragOver(event: React.DragEvent<HTMLDivElement>): void {
+    event.preventDefault();
+    if (!uploading) setDragging(true);
+  }
+
+  function handleDrop(event: React.DragEvent<HTMLDivElement>): void {
+    event.preventDefault();
+    setDragging(false);
+    if (uploading) return;
+    onFileSelect(event.dataTransfer.files[0]);
+  }
 
   return (
-    <div className="flex max-w-3xl flex-col gap-5">
-      <Field>
-        <FieldLabel htmlFor="source-file">{t("import.uploadLabel")}</FieldLabel>
+    <Card
+      className={cn(
+        "w-full border-dashed transition-colors",
+        dragging && "border-primary bg-primary/5",
+      )}
+      onDragLeave={() => setDragging(false)}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      <CardPanel className="flex flex-col items-center gap-4 px-6 py-10 text-center">
+        <div className="flex size-11 items-center justify-center rounded-lg border bg-background text-muted-foreground">
+          <UploadIcon aria-hidden className="size-5" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <div className="font-medium text-foreground">
+            {t("import.uploadDropTitle")}
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {t("import.uploadDropDescription")}
+          </div>
+        </div>
         <Input
           accept=".txt,.docx"
+          className="sr-only"
           disabled={uploading}
           id="source-file"
           name="file"
           onChange={onFileChange}
           type="file"
         />
-        <FieldDescription>{t("import.uploadHint")}</FieldDescription>
-      </Field>
-      <div>
         <Button loading={uploading} render={<label htmlFor="source-file" />}>
-          <UploadIcon aria-hidden data-icon="inline-start" />
           {t("import.uploadButton")}
         </Button>
-      </div>
-    </div>
+        <div className="text-xs text-muted-foreground">
+          {t("import.uploadHint")}
+        </div>
+      </CardPanel>
+    </Card>
   );
 }
 
-function ChapterCard({
+function ChapterAccordionItem({
   chapter,
   deleting,
   onEdit,
@@ -659,19 +723,21 @@ function ChapterCard({
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <div className="flex items-start gap-3">
+      <AccordionItem value={chapter.id}>
+        <div className="flex items-center gap-3 py-4">
+          <div className="flex shrink-0 items-center">
             <Checkbox
               aria-label={`${t("import.selectChapter")} ${chapter.order}`}
               checked={selected}
               onCheckedChange={(checked) => onSelect(checked === true)}
             />
-            <div className="min-w-0">
-              <CardTitle>
+          </div>
+          <AccordionTrigger className="group gap-3 self-stretch">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <div className="shrink-0 text-sm font-normal leading-none text-foreground">
                 {t("import.chapterLabel", { n: chapter.order })}
-              </CardTitle>
-              <CardDescription className="mt-2 flex flex-wrap gap-2">
+              </div>
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Badge variant="secondary">
                   {t("import.charCount", { count: chapter.char_count })}
                 </Badge>
@@ -680,73 +746,61 @@ function ChapterCard({
                     count: chapter.paragraphs.length,
                   })}
                 </Badge>
-              </CardDescription>
-            </div>
-          </div>
-          <CardAction>
-            <Menu>
-              <MenuTrigger
-                render={
-                  <Button
-                    aria-label={t("import.chapterActions")}
-                    size="icon"
-                    variant="ghost"
-                  />
-                }
-              >
-                <MoreHorizontalIcon aria-hidden />
-              </MenuTrigger>
-              <MenuPopup align="end">
-                <MenuGroup>
-                  <MenuItem onClick={onEdit}>
-                    <PencilIcon aria-hidden />
-                    {t("import.edit")}
-                  </MenuItem>
-                  <MenuItem disabled={!canSplit} onClick={onSplit}>
-                    <ScissorsIcon aria-hidden />
-                    {canSplit
-                      ? t("import.split")
-                      : t("import.splitUnavailable")}
-                  </MenuItem>
-                </MenuGroup>
-                <MenuSeparator />
-                <MenuItem
-                  onClick={() => setDeleteOpen(true)}
-                  variant="destructive"
-                >
-                  <Trash2Icon aria-hidden />
-                  {t("import.delete")}
-                </MenuItem>
-              </MenuPopup>
-            </Menu>
-          </CardAction>
-        </CardHeader>
-        <CardPanel>
-          <Collapsible>
-            <CollapsibleTrigger className="inline-flex items-center gap-2 text-sm font-medium text-foreground hover:text-primary">
-              {t("import.previewToggle")}
-              <ChevronDownIcon aria-hidden data-icon="inline-end" />
-            </CollapsibleTrigger>
-            <CollapsiblePanel>
-              <div className="mt-4 flex flex-col gap-3 rounded-lg border border-border bg-muted/40 p-4">
-                <div className="text-sm font-medium text-foreground">
-                  {t("import.sourcePreview")}
-                </div>
-                <div className="flex flex-col gap-4">
-                  {chapter.paragraphs.map((paragraph) => (
-                    <p
-                      className="whitespace-pre-wrap text-sm leading-7 text-foreground"
-                      key={paragraph.index}
-                    >
-                      {paragraph.text}
-                    </p>
-                  ))}
-                </div>
               </div>
-            </CollapsiblePanel>
-          </Collapsible>
-        </CardPanel>
-      </Card>
+            </div>
+            <ChevronDownIcon
+              aria-hidden
+              className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[panel-open]:rotate-180"
+            />
+          </AccordionTrigger>
+          <Menu>
+            <MenuTrigger
+              render={
+                <Button
+                  aria-label={t("import.chapterActions")}
+                  className="shrink-0"
+                  size="icon"
+                  variant="ghost"
+                />
+              }
+            >
+              <MoreHorizontalIcon aria-hidden />
+            </MenuTrigger>
+            <MenuPopup align="end">
+              <MenuGroup>
+                <MenuItem onClick={onEdit}>
+                  <PencilIcon aria-hidden />
+                  {t("import.edit")}
+                </MenuItem>
+                <MenuItem disabled={!canSplit} onClick={onSplit}>
+                  <ScissorsIcon aria-hidden />
+                  {canSplit ? t("import.split") : t("import.splitUnavailable")}
+                </MenuItem>
+              </MenuGroup>
+              <MenuSeparator />
+              <MenuItem
+                onClick={() => setDeleteOpen(true)}
+                variant="destructive"
+              >
+                <Trash2Icon aria-hidden />
+                {t("import.delete")}
+              </MenuItem>
+            </MenuPopup>
+          </Menu>
+        </div>
+        <AccordionPanel>
+          <div className="flex flex-col gap-4 pb-5 pl-9 pr-3">
+            {chapter.paragraphs.map((paragraph) => (
+              <p
+                className="whitespace-pre-wrap text-sm leading-7 text-foreground"
+                key={paragraph.index}
+              >
+                {paragraph.text}
+              </p>
+            ))}
+          </div>
+        </AccordionPanel>
+      </AccordionItem>
       <AlertDialog onOpenChange={setDeleteOpen} open={deleteOpen}>
         <AlertDialogPopup>
           <AlertDialogHeader>
@@ -842,62 +896,61 @@ function ImportPreviewDialog({
               </Alert>
             )}
             {previewChapters.map((chapter, index) => (
-              <Card key={`${index}-${chapter.title}`}>
-                <CardHeader>
-                  <CardTitle>
+              <section
+                className="flex flex-col gap-4 border-border border-b pb-5 last:border-b-0"
+                key={`${index}-${chapter.title}`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-medium text-foreground">
                     {t("import.chapterLabel", { n: index + 1 })}
-                  </CardTitle>
-                  <CardAction>
-                    <Button
-                      aria-label={t("import.previewRemove")}
-                      onClick={() =>
-                        onPreviewChange((current) =>
-                          current.filter(
-                            (_, chapterIndex) => chapterIndex !== index,
-                          ),
-                        )
-                      }
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <Trash2Icon aria-hidden />
-                    </Button>
-                  </CardAction>
-                </CardHeader>
-                <CardPanel className="flex flex-col gap-4">
-                  <Field>
-                    <FieldLabel htmlFor={`preview-title-${index}`}>
-                      {t("import.titleLabel")}
-                    </FieldLabel>
-                    <Input
-                      id={`preview-title-${index}`}
-                      onChange={(event) =>
-                        updatePreviewChapter(index, "title", event.target.value)
-                      }
-                      type="text"
-                      value={chapter.title}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor={`preview-text-${index}`}>
-                      {t("import.textLabel")}
-                    </FieldLabel>
-                    <Textarea
-                      id={`preview-text-${index}`}
-                      onChange={(event) =>
-                        updatePreviewChapter(index, "text", event.target.value)
-                      }
-                      rows={10}
-                      size="lg"
-                      value={chapter.text}
-                    />
-                    <FieldDescription>
-                      {t("import.paragraphSpacingHint")}
-                    </FieldDescription>
-                  </Field>
-                </CardPanel>
-              </Card>
+                  </div>
+                  <Button
+                    aria-label={t("import.previewRemove")}
+                    onClick={() =>
+                      onPreviewChange((current) =>
+                        current.filter(
+                          (_, chapterIndex) => chapterIndex !== index,
+                        ),
+                      )
+                    }
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Trash2Icon aria-hidden />
+                  </Button>
+                </div>
+                <Field>
+                  <FieldLabel htmlFor={`preview-title-${index}`}>
+                    {t("import.titleLabel")}
+                  </FieldLabel>
+                  <Input
+                    id={`preview-title-${index}`}
+                    onChange={(event) =>
+                      updatePreviewChapter(index, "title", event.target.value)
+                    }
+                    type="text"
+                    value={chapter.title}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor={`preview-text-${index}`}>
+                    {t("import.textLabel")}
+                  </FieldLabel>
+                  <Textarea
+                    id={`preview-text-${index}`}
+                    onChange={(event) =>
+                      updatePreviewChapter(index, "text", event.target.value)
+                    }
+                    rows={10}
+                    size="lg"
+                    value={chapter.text}
+                  />
+                  <FieldDescription>
+                    {t("import.paragraphSpacingHint")}
+                  </FieldDescription>
+                </Field>
+              </section>
             ))}
           </DialogPanel>
           <DialogFooter>
@@ -952,17 +1005,20 @@ function EditChapterDialog({
   onOpenChange,
   onSave,
   saving,
+  setText,
+  text,
 }: {
-  chapter: Chapter;
+  chapter: Chapter | null;
   onOpenChange: (open: boolean) => void;
   onSave: (text: string) => void;
   saving: boolean;
+  setText: (text: string) => void;
+  text: string;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const [text, setText] = React.useState(() => paragraphsToText(chapter));
 
   return (
-    <Dialog onOpenChange={onOpenChange} open>
+    <Dialog onOpenChange={onOpenChange} open={Boolean(chapter)}>
       <DialogPopup className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t("import.editTitle")}</DialogTitle>
@@ -1023,12 +1079,12 @@ function SplitChapterDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={Boolean(chapter)}>
-      <DialogPopup>
+      <DialogPopup className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t("import.splitTitle")}</DialogTitle>
           <DialogDescription>{t("import.splitDescription")}</DialogDescription>
         </DialogHeader>
-        <DialogPanel>
+        <DialogPanel className="flex max-h-[65dvh] flex-col gap-5">
           <Field>
             <FieldLabel>{t("import.splitAt")}</FieldLabel>
             <NumberField
@@ -1047,6 +1103,7 @@ function SplitChapterDialog({
               {t("import.splitAtDescription")}
             </FieldDescription>
           </Field>
+          <SplitPreview chapter={chapter} splitAt={splitAt} />
         </DialogPanel>
         <DialogFooter>
           <DialogClose render={<Button type="button" variant="ghost" />}>
@@ -1066,53 +1123,89 @@ function SplitChapterDialog({
   );
 }
 
-function ThresholdGate({
-  currentChapters,
-  minimumChapters,
-  neededChapters,
-  passed,
-  projectId,
+function SplitPreview({
+  chapter,
+  splitAt,
 }: {
-  currentChapters: number;
-  minimumChapters: number;
-  neededChapters: number;
-  passed: boolean;
-  projectId: ProjectId;
+  chapter: Chapter | null;
+  splitAt: number | null;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+
+  if (
+    !chapter ||
+    !splitAt ||
+    splitAt < 2 ||
+    splitAt > chapter.paragraphs.length
+  ) {
+    return null;
+  }
+
+  const beforeParagraphs = chapter.paragraphs.slice(
+    Math.max(0, splitAt - 3),
+    splitAt - 1,
+  );
+  const afterParagraphs = chapter.paragraphs.slice(
+    splitAt - 1,
+    Math.min(chapter.paragraphs.length, splitAt + 1),
+  );
+
+  return (
+    <section
+      aria-label={t("import.splitPreview")}
+      className="flex flex-col gap-4 border-border border-y py-4"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-medium text-foreground">
+          {t("import.splitPreview")}
+        </div>
+      </div>
+      <div className="flex flex-col gap-4">
+        <SplitPreviewSection
+          label={t("import.splitBefore")}
+          paragraphs={beforeParagraphs}
+        />
+        <div className="flex items-center gap-3 text-destructive">
+          <div className="h-px flex-1 bg-destructive/36" />
+          <div className="flex shrink-0 items-center gap-2 text-xs font-medium">
+            <ScissorsIcon aria-hidden className="size-4" />
+            {t("import.splitMarker", { n: splitAt })}
+          </div>
+          <div className="h-px flex-1 bg-destructive/36" />
+        </div>
+        <SplitPreviewSection
+          label={t("import.splitAfter")}
+          paragraphs={afterParagraphs}
+        />
+      </div>
+    </section>
+  );
+}
+
+function SplitPreviewSection({
+  label,
+  paragraphs,
+}: {
+  label: string;
+  paragraphs: SourceParagraph[];
 }): React.ReactElement {
   const { t } = useTranslation();
 
-  if (passed) {
-    return (
-      <Alert variant="success">
-        <CheckCircleIcon />
-        <AlertTitle>
-          {t("import.thresholdMet", { min: minimumChapters })}
-        </AlertTitle>
-        <AlertDescription>{t("pages.analysis.description")}</AlertDescription>
-        <AlertAction>
-          <Button render={<Link to={stagePath(projectId, "analysis")} />}>
-            {t("import.nextStep")}
-          </Button>
-        </AlertAction>
-      </Alert>
-    );
-  }
-
   return (
-    <Alert variant="warning">
-      <TriangleAlertIcon />
-      <AlertTitle>
-        {t("import.thresholdUnmet", {
-          current: currentChapters,
-          need: neededChapters,
-        })}
-      </AlertTitle>
-      <AlertDescription>{t("pages.import.description")}</AlertDescription>
-      <AlertAction>
-        <Button disabled type="button">
-          {t("import.nextStep")}
-        </Button>
-      </AlertAction>
-    </Alert>
+    <div className="flex min-w-0 flex-col gap-3">
+      <div className="text-muted-foreground text-xs font-medium">{label}</div>
+      <div className="flex flex-col gap-3">
+        {paragraphs.map((paragraph) => (
+          <div className="text-sm" key={paragraph.index}>
+            <div className="mb-1 text-muted-foreground text-xs tabular-nums">
+              {t("import.paragraphLabel", { n: paragraph.index })}
+            </div>
+            <p className="leading-6 text-foreground">
+              {previewParagraph(paragraph.text)}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
