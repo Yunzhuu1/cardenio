@@ -103,11 +103,20 @@ class TestReportGeneration:
         assert data["kept"]
         assert all(item["scene_id"] or item["source_ref"] for item in data["kept"])
         assert stub_gateway.call_log[-1].task == "report"
-        context = {item["type"]: item["data"] for item in stub_gateway.call_log[-1].context}
-        assert context["flag_statistics"] == {
+        assert stub_gateway.call_log[-1].output_schema is not None
+        assert stub_gateway.call_log[-1].system_constraints.style_fingerprint
+        context = stub_gateway.call_log[-1].context
+        assert context[-3]["type"] == "upstream_artifacts"
+        upstream = context[-3]["data"]
+        assert upstream["screenplay"]["scenes"]
+        assert upstream["flag_statistics"] == {
             "from_source_lines": data["from_source_lines"],
             "ai_inferred_lines": data["ai_inferred_lines"],
         }
+        assert "outline" in upstream
+        assert "understanding" in upstream
+        assert context[-2]["type"] == "repair_issues"
+        assert context[-1]["type"] == "previous_output"
 
         get_resp = await app_client.get(f"/api/v1/projects/{project_id}/report")
         assert get_resp.status_code == 200
