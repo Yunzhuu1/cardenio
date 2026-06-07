@@ -632,6 +632,22 @@
     "emptyScreenplay": "当前剧本没有场景。",
     "chapterOrder": "第 {{order}} 章",
     "paragraphNumber": "第 {{number}} 段",
+    "rewrite": {
+      "button": "局部重生成",
+      "title": "局部重生成：第 {{number}} 场 · {{location}}",
+      "description": "用自然语言描述想要的改动，只会重写本场，其他场不变。",
+      "instructionLabel": "重生成指令",
+      "instructionPlaceholder": "例如：这场太平淡，把冲突往前提",
+      "instructionDescription": "可描述节奏、冲突、对白风格或需要保留的重点。",
+      "emptyInstruction": "请输入重生成指令。",
+      "cancel": "取消",
+      "submit": "重生成",
+      "successTitle": "已重生成本场",
+      "successDescription": "请重点复查本场的 AI 新增内容。",
+      "failureTitle": "重生成失败",
+      "failureDescription": "请稍后重试。",
+      "reviewHint": "本场刚被重生成，请重点复查 AI 新增内容。"
+    },
     "states": {
       "empty": "空项目",
       "imported": "已导入",
