@@ -551,6 +551,9 @@ preserving the existing HTTP API response shape.
 An internal `ToolRegistry` standardizes backend tool lookup for future
 deterministic orchestration. It is not a public API, not an MCP server, and is
 not selected by an autonomous LLM planner.
+An internal `ContextAssembler` centralizes artifact-memory and source-slice
+assembly for local scene rewrite without adding chat memory, planner steps, or
+new public API routes.
 An internal `AgentRuntime` provides a single execution boundary for stateless
 stage agents and records compact run metadata for backend diagnostics. It does
 not choose workflow steps and does not change the public API surface.
