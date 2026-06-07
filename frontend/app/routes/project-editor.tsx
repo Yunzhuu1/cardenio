@@ -8,6 +8,7 @@ import {
   LinkIcon,
   PencilIcon,
   PlusIcon,
+  RotateCwIcon,
   SaveIcon,
   SparklesIcon,
   Trash2Icon,
@@ -101,14 +102,26 @@ import {
   type ScreenplayScene,
   type SourceRef,
   type TimeOfDay,
+  type TodoItem,
+  type TodosResponse,
 } from "~/lib/api/types";
-import { beatToneClass, sourceRefLabel } from "~/lib/screenplay-format";
+import {
+  beatSummary,
+  beatToneClass,
+  sceneTitle,
+  sourceRefLabel,
+} from "~/lib/screenplay-format";
 import { stagePath } from "~/lib/stages";
 import { cn } from "~/lib/utils";
 
 type ActiveSource = {
   chapter: number;
   paragraphs: number[];
+};
+
+type ActiveTodoBeat = {
+  sceneId: string;
+  beatIndex: number;
 };
 
 type ProjectLayoutData = {
@@ -159,10 +172,11 @@ async function getOrNull<T>(request: Promise<T>): Promise<T | null> {
 
 export async function clientLoader(args: Route.ClientLoaderArgs) {
   const projectId = args.params.projectId as ProjectId;
-  const [screenplay, source, characters] = await Promise.all([
+  const [screenplay, source, characters, todos] = await Promise.all([
     getOrNull(loaderApi.screenplay.get(projectId)),
     loaderApi.source.get(projectId),
     getOrNull(loaderApi.characters.get(projectId)),
+    getOrNull(loaderApi.screenplay.getTodos(projectId)),
   ]);
 
   return {
@@ -170,6 +184,7 @@ export async function clientLoader(args: Route.ClientLoaderArgs) {
     projectId,
     screenplay,
     source,
+    todos,
   };
 }
 
@@ -347,12 +362,15 @@ export default function ProjectEditor(
   const matches = useMatches();
   const revalidator = useRevalidator();
   const { loaderData } = props;
-  const { characters, projectId, screenplay, source } = loaderData;
+  const { characters, projectId, screenplay, source, todos } = loaderData;
   const project = matches.find((match) => hasProjectData(match.data))?.data as
     | ProjectLayoutData
     | undefined;
   const [scrollSync, setScrollSync] = useState(true);
   const [activeSource, setActiveSource] = useState<ActiveSource | null>(null);
+  const [activeTodoBeat, setActiveTodoBeat] = useState<ActiveTodoBeat | null>(
+    null,
+  );
   const [activeSceneIds, setActiveSceneIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -379,6 +397,10 @@ export default function ProjectEditor(
   const syncingScrollRef = useRef(false);
 
   const scenes = screenplay?.data.scenes ?? [];
+  const sceneById = useMemo(
+    () => new Map(scenes.map((scene) => [scene.id, scene] as const)),
+    [scenes],
+  );
   const characterNameById = useMemo(() => {
     const entries =
       characters?.data.characters.map(
@@ -443,6 +465,7 @@ export default function ProjectEditor(
 
   function clearHighlights(): void {
     setActiveSource(null);
+    setActiveTodoBeat(null);
     setActiveSceneIds(new Set());
   }
 
@@ -456,6 +479,7 @@ export default function ProjectEditor(
       paragraphs: targetRef.paragraphs,
     });
     setActiveSceneIds(new Set([scene.id]));
+    setActiveTodoBeat(null);
     const firstParagraph = targetRef.paragraphs[0];
     if (firstParagraph) {
       scrollElementIntoView(sourceElementId(targetRef.chapter, firstParagraph));
@@ -468,9 +492,27 @@ export default function ProjectEditor(
     );
     setActiveSource({ chapter, paragraphs: [paragraph] });
     setActiveSceneIds(new Set(matches.map((scene) => scene.id)));
+    setActiveTodoBeat(null);
     if (matches[0]) {
       scrollElementIntoView(sceneElementId(matches[0].id));
     }
+  }
+
+  function locateTodo(todo: TodoItem): void {
+    setActiveTodoBeat({
+      beatIndex: todo.beat_index,
+      sceneId: todo.scene_id,
+    });
+    setActiveSceneIds(new Set([todo.scene_id]));
+    setActiveSource(
+      todo.source_ref
+        ? {
+            chapter: todo.source_ref.chapter,
+            paragraphs: todo.source_ref.paragraphs,
+          }
+        : null,
+    );
+    scrollElementIntoView(beatElementId(todo.scene_id, todo.beat_index));
   }
 
   async function locateSceneSource(scene: ScreenplayScene): Promise<void> {
@@ -716,82 +758,93 @@ export default function ProjectEditor(
           <TabsTab value="yaml">{t("editor.source.yamlTab")}</TabsTab>
         </TabsList>
         <TabsPanel value="wysiwyg">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("editor.dualPaneTitle")}</CardTitle>
-              <CardDescription>
-                {t("editor.dualPaneDescription")}
-              </CardDescription>
-            </CardHeader>
-            <CardPanel className="space-y-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <LinkedSwitch
-                  checked={scrollSync}
-                  description={t("editor.scrollSyncDescription")}
-                  id="editor-scroll-sync"
-                  label={t("editor.scrollSyncLabel")}
-                  onCheckedChange={setScrollSync}
-                />
-                <Button onClick={clearHighlights} size="sm" variant="outline">
-                  {t("editor.clearHighlights")}
-                </Button>
-              </div>
-              <Separator />
-              <div className="grid gap-4 md:grid-cols-2">
-                <section className="min-w-0">
-                  <PaneTitle
-                    icon={<FileTextIcon />}
-                    title={t("editor.sourcePane")}
+          <div className="space-y-4">
+            <TodoMarkersCard
+              activeTodoBeat={activeTodoBeat}
+              onLocate={locateTodo}
+              onRefresh={() => void revalidator.revalidate()}
+              refreshing={revalidator.state !== "idle"}
+              sceneById={sceneById}
+              todos={todos}
+            />
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("editor.dualPaneTitle")}</CardTitle>
+                <CardDescription>
+                  {t("editor.dualPaneDescription")}
+                </CardDescription>
+              </CardHeader>
+              <CardPanel className="space-y-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <LinkedSwitch
+                    checked={scrollSync}
+                    description={t("editor.scrollSyncDescription")}
+                    id="editor-scroll-sync"
+                    label={t("editor.scrollSyncLabel")}
+                    onCheckedChange={setScrollSync}
                   />
-                  <ScrollArea
-                    className="mt-3 h-[calc(100vh-16rem)] min-h-[28rem] rounded-xl border bg-background"
-                    ref={sourceScrollRef}
-                    scrollbarGutter
-                  >
-                    <SourcePane
-                      activeSceneIds={activeSceneIds}
-                      activeSource={activeSource}
-                      chapters={sortedChapters}
-                      onParagraphClick={highlightSourceParagraph}
-                      scenes={scenes}
+                  <Button onClick={clearHighlights} size="sm" variant="outline">
+                    {t("editor.clearHighlights")}
+                  </Button>
+                </div>
+                <Separator />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <section className="min-w-0">
+                    <PaneTitle
+                      icon={<FileTextIcon />}
+                      title={t("editor.sourcePane")}
                     />
-                  </ScrollArea>
-                </section>
+                    <ScrollArea
+                      className="mt-3 h-[calc(100vh-16rem)] min-h-[28rem] rounded-xl border bg-background"
+                      ref={sourceScrollRef}
+                      scrollbarGutter
+                    >
+                      <SourcePane
+                        activeSceneIds={activeSceneIds}
+                        activeSource={activeSource}
+                        chapters={sortedChapters}
+                        onParagraphClick={highlightSourceParagraph}
+                        scenes={scenes}
+                      />
+                    </ScrollArea>
+                  </section>
 
-                <section className="min-w-0">
-                  <PaneTitle
-                    icon={<ClapperboardIcon />}
-                    title={t("editor.screenplayPane")}
-                  />
-                  <ScrollArea
-                    className="mt-3 h-[calc(100vh-16rem)] min-h-[28rem] rounded-xl border bg-background"
-                    ref={screenplayScrollRef}
-                    scrollbarGutter
-                  >
-                    <ScreenplayPane
-                      activeSceneIds={activeSceneIds}
-                      activeSource={activeSource}
-                      characterNameById={characterNameById}
-                      draftScene={draftScene}
-                      editError={editError}
-                      editingSceneId={editingSceneId}
-                      locatingSceneId={locatingSceneId}
-                      onCancelEdit={cancelEditing}
-                      onDraftSceneChange={updateDraftScene}
-                      onEditScene={startEditingScene}
-                      onLocateScene={locateSceneSource}
-                      onRewriteScene={openRewriteDialog}
-                      onSaveDraft={() => void saveDraftScene()}
-                      onSceneClick={highlightSceneSource}
-                      rewrittenSceneId={rewrittenSceneId}
-                      savingSceneId={savingSceneId}
-                      scenes={scenes}
+                  <section className="min-w-0">
+                    <PaneTitle
+                      icon={<ClapperboardIcon />}
+                      title={t("editor.screenplayPane")}
                     />
-                  </ScrollArea>
-                </section>
-              </div>
-            </CardPanel>
-          </Card>
+                    <ScrollArea
+                      className="mt-3 h-[calc(100vh-16rem)] min-h-[28rem] rounded-xl border bg-background"
+                      ref={screenplayScrollRef}
+                      scrollbarGutter
+                    >
+                      <ScreenplayPane
+                        activeSceneIds={activeSceneIds}
+                        activeSource={activeSource}
+                        activeTodoBeat={activeTodoBeat}
+                        characterNameById={characterNameById}
+                        draftScene={draftScene}
+                        editError={editError}
+                        editingSceneId={editingSceneId}
+                        locatingSceneId={locatingSceneId}
+                        onCancelEdit={cancelEditing}
+                        onDraftSceneChange={updateDraftScene}
+                        onEditScene={startEditingScene}
+                        onLocateScene={locateSceneSource}
+                        onRewriteScene={openRewriteDialog}
+                        onSaveDraft={() => void saveDraftScene()}
+                        onSceneClick={highlightSceneSource}
+                        rewrittenSceneId={rewrittenSceneId}
+                        savingSceneId={savingSceneId}
+                        scenes={scenes}
+                      />
+                    </ScrollArea>
+                  </section>
+                </div>
+              </CardPanel>
+            </Card>
+          </div>
         </TabsPanel>
         <TabsPanel value="yaml">
           <YamlSourcePane
@@ -952,6 +1005,117 @@ function LinkedSwitch({
   );
 }
 
+function TodoMarkersCard({
+  activeTodoBeat,
+  onLocate,
+  onRefresh,
+  refreshing,
+  sceneById,
+  todos,
+}: {
+  activeTodoBeat: ActiveTodoBeat | null;
+  onLocate: (todo: TodoItem) => void;
+  onRefresh: () => void;
+  refreshing: boolean;
+  sceneById: Map<string, ScreenplayScene>;
+  todos: TodosResponse | null;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const items = todos?.items ?? [];
+  const count = todos?.count ?? 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <CardTitle>{t("editor.todo.title")}</CardTitle>
+              <Badge variant="warning">
+                {t("editor.todo.count", { count })}
+              </Badge>
+            </div>
+            <CardDescription>{t("editor.todo.description")}</CardDescription>
+          </div>
+          <Button
+            loading={refreshing}
+            onClick={onRefresh}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <RotateCwIcon />
+            {t("editor.todo.refresh")}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardPanel>
+        {items.length === 0 ? (
+          <Empty className="rounded-lg border bg-background">
+            <EmptyHeader>
+              <EmptyTitle>{t("editor.todo.emptyTitle")}</EmptyTitle>
+              <EmptyDescription>
+                {t("editor.todo.emptyDescription")}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <ScrollArea className="max-h-72" scrollbarGutter>
+            <div className="grid gap-2 pr-3">
+              {items.map((todo) => {
+                const scene = sceneById.get(todo.scene_id);
+                const isActive =
+                  activeTodoBeat?.sceneId === todo.scene_id &&
+                  activeTodoBeat.beatIndex === todo.beat_index;
+
+                return (
+                  <div
+                    className={cn(
+                      "grid gap-3 rounded-lg border bg-background p-3 transition-[box-shadow,background-color] sm:grid-cols-[1fr_auto] sm:items-start",
+                      isActive ? "ring-2 ring-warning/40" : null,
+                    )}
+                    key={`${todo.scene_id}-${todo.beat_index}`}
+                  >
+                    <div className="min-w-0 space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-sm">
+                          {scene ? sceneTitle(scene) : todo.scene_id}
+                        </span>
+                        <Badge variant="warning">
+                          {t("editor.todo.beatNumber", {
+                            number: todo.beat_index + 1,
+                          })}
+                        </Badge>
+                        <Badge variant="outline">
+                          {todo.source_ref
+                            ? sourceRefLabel(t, todo.source_ref)
+                            : t("editor.todo.noSource")}
+                        </Badge>
+                      </div>
+                      <p className="line-clamp-2 text-muted-foreground text-sm">
+                        {beatSummary(todo.beat)}
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => onLocate(todo)}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <CrosshairIcon />
+                      {t("editor.todo.locate")}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        )}
+      </CardPanel>
+    </Card>
+  );
+}
+
 function YamlSourcePane({
   applying,
   error,
@@ -1109,6 +1273,7 @@ function SourcePane({
 function ScreenplayPane({
   activeSceneIds,
   activeSource,
+  activeTodoBeat,
   characterNameById,
   draftScene,
   editError,
@@ -1127,6 +1292,7 @@ function ScreenplayPane({
 }: {
   activeSceneIds: Set<string>;
   activeSource: ActiveSource | null;
+  activeTodoBeat: ActiveTodoBeat | null;
   characterNameById: Map<string, string>;
   draftScene: ScreenplayScene | null;
   editError: string | null;
@@ -1250,6 +1416,9 @@ function ScreenplayPane({
                             ),
                           )
                         : false;
+                      const todoActive =
+                        activeTodoBeat?.sceneId === scene.id &&
+                        activeTodoBeat.beatIndex === beatIndex;
 
                       return (
                         <div
@@ -1257,6 +1426,7 @@ function ScreenplayPane({
                             "rounded-lg border p-4 transition-[box-shadow,opacity]",
                             beatToneClass(beat),
                             beatActive ? "ring-2 ring-primary/32" : null,
+                            todoActive ? "ring-2 ring-warning/40" : null,
                           )}
                           id={beatElementId(scene.id, beatIndex)}
                           key={`${scene.id}-${beatIndex}`}
