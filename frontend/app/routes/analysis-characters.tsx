@@ -437,18 +437,7 @@ export default function AnalysisCharacters({
           </AlertAction>
         </Alert>
       ) : characters ? (
-        <div className="space-y-4">
-          {status !== "confirmed" ? (
-            <Alert variant="info">
-              <AlertTitle>
-                {t("analysis.characters.needsReconfirmTitle")}
-              </AlertTitle>
-              <AlertDescription>
-                {t("analysis.characters.needsReconfirmDescription")}
-              </AlertDescription>
-            </Alert>
-          ) : null}
-
+        <div>
           <CharacterGraph
             characters={characterList}
             onNodeClick={openEditDrawer}
