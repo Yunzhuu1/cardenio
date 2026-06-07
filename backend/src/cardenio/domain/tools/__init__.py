@@ -7,9 +7,17 @@ from cardenio.domain.tools.registry import (
     ToolRegistry,
     ToolRegistryError,
 )
+from cardenio.domain.tools.rewrite import (
+    RewriteSceneTool,
+    RewriteSceneToolInput,
+    RewriteSceneToolOutput,
+)
 
 __all__ = [
     "Tool",
+    "RewriteSceneTool",
+    "RewriteSceneToolInput",
+    "RewriteSceneToolOutput",
     "ToolAlreadyRegisteredError",
     "ToolNotFoundError",
     "ToolRegistry",
