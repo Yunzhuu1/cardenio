@@ -500,6 +500,20 @@ Vite dev server 会把前端相对路径 `/api` 代理到后端服务，不改�
 
 当前 `frontend/` 中的产品文案、设计令牌、主题实现、i18n 资源和演示首页为本项目原创实现。第三方 CLI 生成的 coss/shadcn 基座仅作为通用 UI 基础设施，不代表产品原创业务功能；导入页的手动录入、文件导入预览/确认、章节列表、删除、拆分、合并、编辑和门槛逻辑，analysis 阶段的录入、编辑、门控与信任信号展示逻辑，以及剧本阶段的生成、只读查看、加戏筛选、信任标记展示、双栏对照、局部重生成、行内节拍编辑、YAML 源码视图和留白清单交互与数据流为本项目业务实现。`yaml` 仅作为剧本源码视图的文本序列化基座；本地侧边栏 primitive 按 coss Sidebar 文档的组件结构与命名约定实现，用于应用外壳导航组合，不包含 Cardenio 的业务逻辑。
 
+### Backend authentication
+
+The backend exposes first-party login endpoints under `/api/v1/auth`.
+Authors can register with `/api/v1/auth/register`, log in with
+`/api/v1/auth/login`, inspect the current account with `/api/v1/auth/me`, and
+revoke the current session with `/api/v1/auth/logout`. Register and login
+return an opaque bearer `access_token`; clients must send it as
+`Authorization: Bearer <access_token>` when calling protected auth endpoints.
+The token is stored server-side as a hash and can be revoked by logout.
+
+Project ownership enforcement is implemented separately from the login
+endpoints. Until that access-control layer is enabled, existing project APIs
+remain callable by the current MVP clients.
+
 ### Backend privacy settings
 
 The backend exposes API-29 at `/api/v1/projects/{project_id}/settings`.

@@ -14,6 +14,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import (
@@ -27,6 +28,47 @@ class Base(DeclarativeBase):
     """SQLAlchemy declarative base."""
 
     pass
+
+
+class UserModel(Base):
+    """Application users for first-party login."""
+
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: f"usr_{uuid4().hex[:8]}"
+    )
+    email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    display_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="active")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), onupdate=func.now()
+    )
+
+
+class AuthSessionModel(Base):
+    """Server-side session record backing opaque bearer tokens."""
+
+    __tablename__ = "auth_sessions"
+    __table_args__ = (UniqueConstraint("token_hash"),)
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: f"sess_{uuid4().hex[:8]}"
+    )
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), onupdate=func.now()
+    )
 
 
 class ProjectModel(Base):
