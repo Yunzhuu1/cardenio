@@ -17,6 +17,7 @@ from cardenio.domain.models.base import (
 )
 from cardenio.domain.models.intent import IntentConstraints
 from cardenio.domain.models.screenplay import Beat, BeatType, ScreenplayData, ScreenplayScene
+from cardenio.domain.runtime import AgentRuntime
 from cardenio.domain.services.generation_service import (
     annotate_subtext_and_mood,
     backfill_dialogue_source_refs,
@@ -29,9 +30,16 @@ from cardenio.storage.sqlite_store import SqliteArtifactStore
 class RewriteService:
     """Orchestrates local rewrite of a single scene (FR-9.2)."""
 
-    def __init__(self, *, gateway: LlmGateway, store: SqliteArtifactStore) -> None:
+    def __init__(
+        self,
+        *,
+        gateway: LlmGateway,
+        store: SqliteArtifactStore,
+        runtime: AgentRuntime | None = None,
+    ) -> None:
         self.gateway = gateway
         self.store = store
+        self.runtime = runtime or AgentRuntime()
 
     async def rewrite_scene(self, project_id: str, scene_id: str, instruction: str) -> dict:
         """Locally rewrite a single scene without touching sibling scenes."""
@@ -41,7 +49,10 @@ class RewriteService:
             instruction,
         )
 
-        result = await RewriteAgent(self.gateway).run(bundle.context)
+        result = await self.runtime.run(
+            agent=RewriteAgent(self.gateway),
+            context=bundle.context,
+        )
 
         rewritten_scene = _coerce_rewrite_result(
             result.data,
