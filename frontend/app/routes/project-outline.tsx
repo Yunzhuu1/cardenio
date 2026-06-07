@@ -114,10 +114,10 @@ function outlineSceneTitle(scene: OutlineScene): string {
 
 function mergeStatusVariant(
   status: MergeSuggestion["status"],
-): "secondary" | "success" | "warning" {
+): "info" | "secondary" | "success" {
   if (status === "applied") return "success";
   if (status === "dismissed") return "secondary";
-  return "warning";
+  return "info";
 }
 
 export default function ProjectOutline({
