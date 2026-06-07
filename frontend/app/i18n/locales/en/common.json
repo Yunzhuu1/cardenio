@@ -717,6 +717,19 @@
       "failureTitle": "Apply failed",
       "failureDescription": "Try again later."
     },
+    "todo": {
+      "title": "Todo markers",
+      "description": "Review screenplay TODO beats that need author input or confirmation.",
+      "count": "{{count}} items",
+      "locate": "Locate",
+      "refresh": "Refresh list",
+      "emptyTitle": "No todo markers",
+      "emptyDescription": "This screenplay has no content waiting for author input.",
+      "onlyLabel": "Todo only",
+      "onlyDescription": "Highlight TODO beats and dim the rest of the screenplay.",
+      "noSource": "No source",
+      "beatNumber": "Beat {{number}}"
+    },
     "states": {
       "empty": "Empty",
       "imported": "Imported",
