@@ -506,6 +506,7 @@
     "shotHintsOn": "On",
     "shotHintsOff": "Off",
     "editorCta": "Continue to editing workbench",
+    "nextStepDisabledTooltip": "Generate the screenplay draft first.",
     "sceneNumber": "Scene {{number}}",
     "sourceRef": "Chapter {{chapter}} · Paragraphs {{paragraphs}}",
     "noSourceRef": "No source_ref",

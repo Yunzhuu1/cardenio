@@ -507,6 +507,7 @@
     "shotHintsOn": "开",
     "shotHintsOff": "关",
     "editorCta": "进入打磨工作台",
+    "nextStepDisabledTooltip": "请先生成剧本初稿。",
     "sceneNumber": "第 {{number}} 场",
     "sourceRef": "第 {{chapter}} 章 · 第 {{paragraphs}} 段",
     "noSourceRef": "无 source_ref",

@@ -133,10 +133,14 @@ function AppStageFooter({
   const outlineConfirmed =
     getOutlineConfirmedFromMatches(matches) ??
     isStageDone("outline", projectState);
+  const screenplayReady =
+    getScreenplayReadyFromMatches(matches) ??
+    isStageDone("script", projectState);
   const showImportNextAction =
     routeContext.stageSegment === "import" && importSource !== null;
   const showAnalysisNextAction = routeContext.stageSegment === "analysis";
   const showOutlineNextAction = routeContext.stageSegment === "outline";
+  const showScriptNextAction = routeContext.stageSegment === "script";
 
   return (
     <footer className="shrink-0 px-5 py-3 sm:px-8">
@@ -197,6 +201,12 @@ function AppStageFooter({
           <OutlineFooterNextAction
             confirmed={outlineConfirmed}
             projectId={routeContext.projectId}
+          />
+        ) : null}
+        {showScriptNextAction ? (
+          <ScriptFooterNextAction
+            projectId={routeContext.projectId}
+            ready={screenplayReady}
           />
         ) : null}
       </div>
@@ -329,6 +339,47 @@ function OutlineFooterNextAction({
   );
 }
 
+function ScriptFooterNextAction({
+  projectId,
+  ready,
+}: {
+  projectId: string;
+  ready: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+
+  if (ready) {
+    return (
+      <Button
+        className="shrink-0"
+        render={<Link to={stagePath(projectId, "editor")} />}
+      >
+        {t("script.editorCta")}
+      </Button>
+    );
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            aria-disabled
+            className="shrink-0 cursor-not-allowed opacity-64 hover:bg-primary"
+            onClick={(event) => event.preventDefault()}
+            type="button"
+          />
+        }
+      >
+        {t("script.editorCta")}
+      </TooltipTrigger>
+      <TooltipPopup align="end">
+        {t("script.nextStepDisabledTooltip")}
+      </TooltipPopup>
+    </Tooltip>
+  );
+}
+
 function getProjectRouteContext(
   pathname: string,
   projects: ProjectSummary[],
@@ -408,6 +459,19 @@ function getOutlineConfirmedFromMatches(
     const data = match.data;
     if (typeof data === "object" && data !== null && "outline" in data) {
       return isConfirmedArtifact((data as { outline: unknown }).outline);
+    }
+  }
+
+  return null;
+}
+
+function getScreenplayReadyFromMatches(
+  matches: ReturnType<typeof useMatches>,
+): boolean | null {
+  for (const match of matches) {
+    const data = match.data;
+    if (typeof data === "object" && data !== null && "screenplay" in data) {
+      return (data as { screenplay: unknown }).screenplay !== null;
     }
   }
 

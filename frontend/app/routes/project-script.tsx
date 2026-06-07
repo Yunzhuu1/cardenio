@@ -303,12 +303,6 @@ export default function ProjectScript({
                   </AlertDialogFooter>
                 </AlertDialogPopup>
               </AlertDialog>
-              <Button
-                render={<Link to={stagePath(projectId, "editor")} />}
-                size="sm"
-              >
-                {t("script.editorCta")}
-              </Button>
             </div>
           </div>
 
