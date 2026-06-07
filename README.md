@@ -493,7 +493,7 @@ Vite dev server 会把前端相对路径 `/api` 代理到后端服务，不改�
 - ESLint、typescript-eslint、eslint-plugin-react-hooks、eslint-plugin-react-refresh、eslint-config-prettier、Prettier：前端 lint、类型风格约束和格式化。
 - `@fontsource/ibm-plex-sans`、`@fontsource/courier-prime`、`@fontsource/cormorant-garamond`：轻量西文字体包。侧边栏品牌西文和应用标题西文使用 Cormorant Garamond 300 italic。
 - `@ibm/plex-sans-sc`：IBM Plex Sans SC 中文字体包，许可证为 OFL-1.1，用作中文 UI 字体栈；本项目在应用 CSS 中导入包内 `ibm-plex-sans-sc-all.css`，并使用随 npm 包分发的本地 woff/woff2 字体文件。该 npm 包包含 IBM Telemetry postinstall 逻辑；本项目安装时可使用 `--ignore-scripts` 跳过安装期遥测脚本，不影响运行时字体加载。
-- ZeoSeven Fonts 的 `LXGW WenKai`（霞鹜文楷）CSS：侧边栏品牌中文和应用标题中文使用 400 normal，运行时从 `https://fontsapi.zeoseven.com/292/main/result.css` 加载。CJK 正文字体当前使用 `IBM Plex Sans SC`，并保留 `Noto Sans SC` / `Noto Serif SC` 作为系统或后续子集化 fallback。
+- ZeoSeven Fonts 的 `Zhuque Fangsong (technical preview)`（朱雀仿宋 technical preview）CSS：侧边栏品牌中文、应用标题中文和中文衬线字体栈使用该字体，运行时从 `https://fontsapi.zeoseven.com/7/main/result.css` 加载。CJK 正文字体当前使用 `IBM Plex Sans SC`，并保留 `Noto Sans SC` / `Noto Serif SC` 作为系统或后续子集化 fallback。
 - lefthook：本地 Git hooks 管理。
 - DeepSeek API：后端可选的外部 LLM 服务，通过 OpenAI-compatible HTTP chat completions 接口接入 DeepSeek V4 Flash。未配置 `CARDENIO_LLM_PROVIDER=deepseek` 和 `DEEPSEEK_API_KEY` 时，后端继续使用本地 stub gateway，不会调用外部模型。
 
