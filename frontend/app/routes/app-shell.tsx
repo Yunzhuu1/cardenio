@@ -66,7 +66,7 @@ function AppTopbar({
     : t(getTopbarTitleKey(pathname));
 
   return (
-    <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-border p-3">
+    <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 p-3">
       <div className="flex min-w-0 items-center gap-3">
         <SidebarTrigger
           aria-label={open ? t("nav.collapseSidebar") : t("nav.expandSidebar")}
@@ -125,7 +125,7 @@ function AppStageFooter({
   const projectState = routeContext.project?.state ?? "empty";
 
   return (
-    <footer className="shrink-0 border-t border-border px-5 py-3 sm:px-8">
+    <footer className="shrink-0 px-5 py-3 sm:px-8">
       <nav
         aria-label={t("nav.stages")}
         className="mx-auto w-full max-w-6xl overflow-x-auto"
