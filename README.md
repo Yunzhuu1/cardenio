@@ -502,7 +502,10 @@ edits and rewrites can be inspected or recovered after interruption.
 Screenplay scene history is also exposed at
 `/api/v1/projects/{project_id}/screenplay/scenes/{scene_id}/versions`, which
 lists the target scene snapshot from each saved screenplay version that still
-contains that scene.
+contains that scene. A scene can be restored from a saved screenplay version
+with `/api/v1/projects/{project_id}/screenplay/scenes/{scene_id}:checkout`,
+which saves a new screenplay artifact version and does not mutate prior
+history.
 
 ### Git hooks
 
