@@ -566,6 +566,67 @@
       "ending_state": "Ending state"
     }
   },
+  "report": {
+    "status": {
+      "empty": "Not generated",
+      "draft": "Draft",
+      "confirmed": "Confirmed",
+      "needs_recompute": "Needs recompute"
+    },
+    "gate": {
+      "screenplayTitle": "Generate the screenplay draft first",
+      "screenplayDescription": "The adaptation report is aggregated from an existing screenplay artifact. Return to screenplay generation and create the draft first.",
+      "screenplayCta": "Go generate screenplay",
+      "emptyTitle": "No adaptation report generated",
+      "emptyDescription": "The report aggregates kept, added, deleted, merged, externalized, foreshadowing, and review-recommended material from the current screenplay.",
+      "generateCta": "Generate report"
+    },
+    "generate": {
+      "button": "Generate report",
+      "regenerate": "Regenerate",
+      "title": "Regenerate the adaptation report?",
+      "description": "Regeneration re-aggregates the report from the current screenplay and overwrites the existing report.",
+      "confirm": "Regenerate",
+      "cancel": "Cancel",
+      "success": "Adaptation report generated",
+      "error": "Report generation failed",
+      "missingScreenplay": "Generate the screenplay draft first.",
+      "flagMismatch": "The report does not match screenplay flags and cannot be generated. Review the screenplay markers first."
+    },
+    "summary": {
+      "title": "Statistics summary",
+      "description": "Report statistics come from non-TODO beats in the current screenplay.",
+      "fromSource": "{{count}} source lines",
+      "aiInferred": "{{count}} AI inferred lines",
+      "artifact": "Report artifact"
+    },
+    "sections": {
+      "kept": "Kept from source",
+      "added": "AI added/adapted",
+      "deleted": "Deleted material",
+      "merged": "Merged scenes",
+      "externalized": "Externalized psychology",
+      "foreshadowing": "Kept foreshadowing",
+      "review": "Recommended review",
+      "count": "{{count}} items",
+      "empty": "None",
+      "unknownScene": "Unknown scene {{id}}",
+      "scene": "Scene: {{title}}",
+      "source": "Source: {{source}}",
+      "mergedInto": "Merged into: {{into}}",
+      "mergedScenes": "Merged scenes: {{scenes}}",
+      "externalizedFromTo": "{{from}} → {{to}}",
+      "reviewReason": "Reason: {{reason}}",
+      "types": {
+        "non_visualizable_source": "Non-visualizable source",
+        "voice_over": "Voice-over",
+        "action": "Action",
+        "dialogue": "Dialogue",
+        "note": "Note",
+        "unknown": "Type"
+      }
+    }
+  },
   "pages": {
     "import": {
       "milestone": "M1",

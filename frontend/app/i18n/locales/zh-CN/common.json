@@ -566,6 +566,67 @@
       "ending_state": "结尾状态"
     }
   },
+  "report": {
+    "status": {
+      "empty": "未生成",
+      "draft": "草稿",
+      "confirmed": "已确认",
+      "needs_recompute": "需重新生成"
+    },
+    "gate": {
+      "screenplayTitle": "请先生成剧本初稿",
+      "screenplayDescription": "改编取舍报告需要从已生成的剧本工件聚合。请先回到剧本生成阶段生成初稿。",
+      "screenplayCta": "去生成剧本",
+      "emptyTitle": "尚未生成改编取舍报告",
+      "emptyDescription": "报告会从当前剧本聚合保留、新增、删除、合并、心理外化、伏笔和建议复查场景。",
+      "generateCta": "生成报告"
+    },
+    "generate": {
+      "button": "生成报告",
+      "regenerate": "重新生成",
+      "title": "重新生成改编取舍报告？",
+      "description": "重新生成会用当前剧本重新聚合报告，并覆盖已有报告内容。",
+      "confirm": "确认重新生成",
+      "cancel": "取消",
+      "success": "改编取舍报告已生成",
+      "error": "报告生成失败",
+      "missingScreenplay": "请先生成剧本初稿。",
+      "flagMismatch": "报告与剧本标记不一致，无法生成。请先复查剧本标记。"
+    },
+    "summary": {
+      "title": "统计摘要",
+      "description": "报告统计来自当前剧本中的非 TODO 节拍。",
+      "fromSource": "原文台词 {{count}} 条",
+      "aiInferred": "AI 新增 {{count}} 条",
+      "artifact": "报告工件"
+    },
+    "sections": {
+      "kept": "保留自原文",
+      "added": "AI 新增/改编",
+      "deleted": "删除内容",
+      "merged": "合并场景",
+      "externalized": "心理外化",
+      "foreshadowing": "保留伏笔",
+      "review": "建议重点复查",
+      "count": "{{count}} 条",
+      "empty": "无",
+      "unknownScene": "未知场景 {{id}}",
+      "scene": "场景：{{title}}",
+      "source": "来源：{{source}}",
+      "mergedInto": "合并到：{{into}}",
+      "mergedScenes": "被合并场景：{{scenes}}",
+      "externalizedFromTo": "{{from}} → {{to}}",
+      "reviewReason": "原因：{{reason}}",
+      "types": {
+        "non_visualizable_source": "不可直接视觉化的原文",
+        "voice_over": "旁白",
+        "action": "动作",
+        "dialogue": "对白",
+        "note": "注释",
+        "unknown": "类型"
+      }
+    }
+  },
   "pages": {
     "import": {
       "milestone": "M1",
