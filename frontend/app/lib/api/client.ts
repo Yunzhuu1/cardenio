@@ -22,6 +22,7 @@ import type {
   PatchProjectInput,
   Project,
   ProjectId,
+  ProjectSettingsData,
   ProjectSummary,
   ReportData,
   ResolveResponse,
@@ -172,6 +173,14 @@ export type ReportApi = {
   generate(projectId: ProjectId): Promise<ArtifactEnvelope<ReportData>>;
 };
 
+export type SettingsApi = {
+  get(projectId: ProjectId): Promise<ArtifactEnvelope<ProjectSettingsData>>;
+  update(
+    projectId: ProjectId,
+    data: ProjectSettingsData,
+  ): Promise<ArtifactEnvelope<ProjectSettingsData>>;
+};
+
 export type ApiClient = {
   projects: ProjectsApi;
   source: SourceApi;
@@ -181,6 +190,7 @@ export type ApiClient = {
   outline: OutlineApi;
   screenplay: ScreenplayApi;
   report: ReportApi;
+  settings: SettingsApi;
 };
 
 const mode = import.meta.env.VITE_API_MODE ?? "http";

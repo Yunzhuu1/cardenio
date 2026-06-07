@@ -23,6 +23,7 @@ import {
   type PatchProjectInput,
   type Project,
   type ProjectId,
+  type ProjectSettingsData,
   type ProjectSummary,
   type ReportData,
   type ReportEntry,
@@ -51,7 +52,18 @@ const intentStore = new Map<ProjectId, ArtifactEnvelope<IntentConstraints>>();
 const outlineStore = new Map<ProjectId, ArtifactEnvelope<OutlineData>>();
 const screenplayStore = new Map<ProjectId, ArtifactEnvelope<ScreenplayData>>();
 const reportStore = new Map<ProjectId, ArtifactEnvelope<ReportData>>();
+const settingsStore = new Map<
+  ProjectId,
+  ArtifactEnvelope<ProjectSettingsData>
+>();
 let seeded = false;
+
+const DATA_STORAGE_NOTICE =
+  "Project source text, generated artifacts, and settings are stored in the configured Cardenio SQLite database for this backend environment.";
+const TRAINING_NOTICE =
+  "Cardenio does not use project data for model training. The MVP keeps this setting locked off so unpublished manuscripts are not treated as training data.";
+const LOCAL_PROCESSING_NOTICE =
+  "The architecture keeps provider access behind the backend gateway and reserves a local/private processing path for deployments that require it.";
 
 function ensureSeed(): void {
   if (seeded) return;
@@ -594,6 +606,37 @@ function getReportEnvelope(projectId: ProjectId): ArtifactEnvelope<ReportData> {
   const envelope = reportStore.get(projectId);
   if (!envelope) throw notFound("Report not found");
   return envelope;
+}
+
+function defaultSettings(project: Project): ProjectSettingsData {
+  return {
+    ui_language: project.meta.ui_language,
+    source_language: project.meta.source_language,
+    output_language: project.meta.output_language,
+    data_storage_location: "configured_sqlite_database",
+    data_storage_notice: DATA_STORAGE_NOTICE,
+    allow_model_training: false,
+    training_notice: TRAINING_NOTICE,
+    local_processing_reserved: true,
+    local_processing_notice: LOCAL_PROCESSING_NOTICE,
+    shot_hints_enabled: false,
+  };
+}
+
+function normalizeSettingsData(
+  project: Project,
+  data: ProjectSettingsData,
+): ProjectSettingsData {
+  const defaults = defaultSettings(project);
+  return {
+    ...data,
+    data_storage_location: defaults.data_storage_location,
+    data_storage_notice: defaults.data_storage_notice,
+    allow_model_training: false,
+    training_notice: defaults.training_notice,
+    local_processing_reserved: defaults.local_processing_reserved,
+    local_processing_notice: defaults.local_processing_notice,
+  };
 }
 
 function stateGateBlocked(
@@ -1144,6 +1187,7 @@ export const mockClient: ApiClient = {
       outlineStore.delete(id);
       screenplayStore.delete(id);
       reportStore.delete(id);
+      settingsStore.delete(id);
     },
   },
   source: {
@@ -1914,6 +1958,36 @@ export const mockClient: ApiClient = {
         screenplay.version,
       );
       reportStore.set(projectId, envelope);
+      return envelope;
+    },
+  },
+  settings: {
+    async get(projectId) {
+      const project = getProjectOrThrow(projectId);
+      await delay();
+      return (
+        settingsStore.get(projectId) ??
+        makeEnvelope("settings", "confirmed", defaultSettings(project))
+      );
+    },
+    async update(projectId, data) {
+      const project = getProjectOrThrow(projectId);
+      await delay();
+      if (data.allow_model_training) {
+        throw new ApiError(422, {
+          code: "validation_error",
+          message: "Project data cannot be enabled for model training",
+          retryable: false,
+        });
+      }
+      const previous = settingsStore.get(projectId);
+      const envelope = makeEnvelope(
+        "settings",
+        "confirmed",
+        normalizeSettingsData(project, data),
+        previous?.version ?? null,
+      );
+      settingsStore.set(projectId, envelope);
       return envelope;
     },
   },
