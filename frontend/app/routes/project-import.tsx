@@ -141,6 +141,12 @@ function countChars(paragraphs: SourceParagraph[]): number {
   );
 }
 
+function previewParagraph(text: string, maxLength = 180): string {
+  return text.length > maxLength
+    ? `${text.slice(0, maxLength).trim()}...`
+    : text;
+}
+
 function toPreviewDraft(chapter: ImportChapterPreview): PreviewChapterDraft {
   return {
     char_count: chapter.char_count,
@@ -1097,12 +1103,12 @@ function SplitChapterDialog({
 
   return (
     <Dialog onOpenChange={onOpenChange} open={Boolean(chapter)}>
-      <DialogPopup>
+      <DialogPopup className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t("import.splitTitle")}</DialogTitle>
           <DialogDescription>{t("import.splitDescription")}</DialogDescription>
         </DialogHeader>
-        <DialogPanel>
+        <DialogPanel className="flex max-h-[65dvh] flex-col gap-5">
           <Field>
             <FieldLabel>{t("import.splitAt")}</FieldLabel>
             <NumberField
@@ -1121,6 +1127,7 @@ function SplitChapterDialog({
               {t("import.splitAtDescription")}
             </FieldDescription>
           </Field>
+          <SplitPreview chapter={chapter} splitAt={splitAt} />
         </DialogPanel>
         <DialogFooter>
           <DialogClose render={<Button type="button" variant="ghost" />}>
@@ -1137,6 +1144,100 @@ function SplitChapterDialog({
         </DialogFooter>
       </DialogPopup>
     </Dialog>
+  );
+}
+
+function SplitPreview({
+  chapter,
+  splitAt,
+}: {
+  chapter: Chapter | null;
+  splitAt: number | null;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+
+  if (
+    !chapter ||
+    !splitAt ||
+    splitAt < 2 ||
+    splitAt > chapter.paragraphs.length
+  ) {
+    return null;
+  }
+
+  const beforeParagraphs = chapter.paragraphs.slice(
+    Math.max(0, splitAt - 3),
+    splitAt - 1,
+  );
+  const afterParagraphs = chapter.paragraphs.slice(
+    splitAt - 1,
+    Math.min(chapter.paragraphs.length, splitAt + 1),
+  );
+
+  return (
+    <section
+      aria-label={t("import.splitPreview")}
+      className="flex flex-col gap-3 rounded-lg border bg-muted/32 p-3"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-medium text-foreground">
+          {t("import.splitPreview")}
+        </div>
+        <Badge variant="info">{t("import.splitMarker", { n: splitAt })}</Badge>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr]">
+        <SplitPreviewColumn
+          label={t("import.splitBefore")}
+          paragraphs={beforeParagraphs}
+        />
+        <div className="flex items-center justify-center">
+          <div className="hidden h-full w-px bg-destructive/36 sm:block" />
+          <div className="flex w-full items-center gap-2 sm:hidden">
+            <div className="h-px flex-1 bg-destructive/36" />
+            <ScissorsIcon
+              aria-hidden
+              className="size-4 shrink-0 text-destructive"
+            />
+            <div className="h-px flex-1 bg-destructive/36" />
+          </div>
+        </div>
+        <SplitPreviewColumn
+          label={t("import.splitAfter")}
+          paragraphs={afterParagraphs}
+        />
+      </div>
+    </section>
+  );
+}
+
+function SplitPreviewColumn({
+  label,
+  paragraphs,
+}: {
+  label: string;
+  paragraphs: SourceParagraph[];
+}): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <div className="text-muted-foreground text-xs font-medium">{label}</div>
+      <div className="flex flex-col gap-2">
+        {paragraphs.map((paragraph) => (
+          <div
+            className="rounded-md border bg-background/80 p-2 text-sm"
+            key={paragraph.index}
+          >
+            <div className="mb-1 text-muted-foreground text-xs">
+              {t("import.paragraphLabel", { n: paragraph.index })}
+            </div>
+            <p className="leading-6 text-foreground">
+              {previewParagraph(paragraph.text)}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
