@@ -84,7 +84,7 @@ export default function AnalysisLayout({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b bg-gradient-to-b from-background to-background/95 py-3">
+      <div className="shrink-0 py-3">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-5 sm:px-8 lg:flex-row lg:items-center lg:justify-between">
           <nav
             aria-label={t("analysis.navLabel")}
