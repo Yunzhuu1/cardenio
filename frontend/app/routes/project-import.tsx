@@ -437,7 +437,10 @@ export default function ProjectImport({
           </div>
         ) : (
           <div className="flex w-full max-w-3xl flex-col items-center gap-4">
-            <ChapterEntryForm addingChapter={addingChapter} />
+            <ChapterEntryForm
+              addingChapter={addingChapter}
+              chapterCount={currentChapters}
+            />
             <button
               className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
               onClick={() => setEntryMode("upload")}
@@ -582,10 +585,23 @@ export default function ProjectImport({
 
 function ChapterEntryForm({
   addingChapter,
+  chapterCount,
 }: {
   addingChapter: boolean;
+  chapterCount: number;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const [title, setTitle] = React.useState("");
+  const [text, setText] = React.useState("");
+  const previousChapterCount = React.useRef(chapterCount);
+
+  React.useEffect(() => {
+    if (chapterCount > previousChapterCount.current) {
+      setTitle("");
+      setText("");
+    }
+    previousChapterCount.current = chapterCount;
+  }, [chapterCount]);
 
   return (
     <Form className="flex w-full flex-col gap-5" method="post">
@@ -597,8 +613,10 @@ function ChapterEntryForm({
         <Input
           id="chapter-title"
           name="title"
+          onChange={(event) => setTitle(event.target.value)}
           placeholder={t("import.titlePlaceholder")}
           type="text"
+          value={title}
         />
       </Field>
       <Field>
@@ -606,10 +624,12 @@ function ChapterEntryForm({
         <Textarea
           id="chapter-text"
           name="text"
+          onChange={(event) => setText(event.target.value)}
           placeholder={t("import.textPlaceholder")}
           required
           rows={12}
           size="lg"
+          value={text}
         />
         <FieldDescription>{t("import.paragraphSpacingHint")}</FieldDescription>
       </Field>
