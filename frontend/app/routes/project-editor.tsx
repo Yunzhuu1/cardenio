@@ -3,6 +3,8 @@ import {
   CrosshairIcon,
   FileTextIcon,
   LinkIcon,
+  PencilIcon,
+  SaveIcon,
   SparklesIcon,
 } from "lucide-react";
 import type * as React from "react";
@@ -43,11 +45,24 @@ import {
   FieldError,
   FieldLabel,
 } from "~/components/ui/field";
+import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import {
+  Select,
+  SelectItem,
+  SelectPopup,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 import { Separator } from "~/components/ui/separator";
 import { Switch } from "~/components/ui/switch";
 import { Textarea } from "~/components/ui/textarea";
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+  ToggleGroupSeparator,
+} from "~/components/ui/toggle-group";
 import { toastManager } from "~/components/ui/toast";
 import { BeatBadges, BeatBody } from "~/components/screenplay-beat-view";
 import { SceneHeader, SceneSummary } from "~/components/screenplay-scene-view";
@@ -56,14 +71,18 @@ import { api } from "~/lib/api/client";
 import { api as loaderApi } from "~/lib/api/client";
 import {
   ApiError,
+  type Beat,
   type Chapter,
   type Character,
+  type Flag,
+  type IntExt,
   type Project,
   type ProjectId,
   type ScreenplayScene,
   type SourceRef,
+  type TimeOfDay,
 } from "~/lib/api/types";
-import { beatToneClass } from "~/lib/screenplay-format";
+import { beatToneClass, sourceRefLabel } from "~/lib/screenplay-format";
 import { stagePath } from "~/lib/stages";
 import { cn } from "~/lib/utils";
 
@@ -75,6 +94,15 @@ type ActiveSource = {
 type ProjectLayoutData = {
   project: Project;
 };
+
+type SelectOption<T extends string> = {
+  label: string;
+  value: T;
+};
+
+const INT_EXT_VALUES: IntExt[] = ["INT", "EXT"];
+const TIME_VALUES: TimeOfDay[] = ["DAY", "NIGHT", "DAWN", "DUSK"];
+const FLAG_VALUES: Flag[] = ["from_source", "ai_inferred"];
 
 async function getOrNull<T>(request: Promise<T>): Promise<T | null> {
   try {
@@ -173,6 +201,55 @@ function hasProjectData(data: unknown): data is ProjectLayoutData {
   return typeof data === "object" && data !== null && "project" in data;
 }
 
+function cloneScene(scene: ScreenplayScene): ScreenplayScene {
+  return {
+    ...scene,
+    beats: scene.beats.map((beat) => ({
+      ...beat,
+      options: beat.options ? beat.options.map((option) => ({ ...option })) : null,
+      source_ref: beat.source_ref
+        ? {
+            chapter: beat.source_ref.chapter,
+            paragraphs: [...beat.source_ref.paragraphs],
+          }
+        : null,
+    })),
+    characters: [...scene.characters],
+    foreshadowing: [...scene.foreshadowing],
+    heading: { ...scene.heading },
+    relation_changes: scene.relation_changes.map((change) => ({
+      ...change,
+      characters: [...change.characters],
+    })),
+    source_ref: {
+      chapter: scene.source_ref.chapter,
+      paragraphs: [...scene.source_ref.paragraphs],
+    },
+  };
+}
+
+function normalizeOptionalText(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function missingTrustFields(scene: ScreenplayScene): number[] {
+  return scene.beats
+    .map((beat, index) =>
+      beat.type !== "todo" && (!beat.source_ref || !beat.flag)
+        ? index
+        : null,
+    )
+    .filter((index): index is number => index !== null);
+}
+
+function isMissingTrustError(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    error.message.includes("missing_trust_fields")
+  );
+}
+
 export default function ProjectEditor(
   props: Route.ComponentProps,
 ): React.ReactElement {
@@ -195,6 +272,10 @@ export default function ProjectEditor(
   const [rewriteTouched, setRewriteTouched] = useState(false);
   const [rewritingSceneId, setRewritingSceneId] = useState<string | null>(null);
   const [rewrittenSceneId, setRewrittenSceneId] = useState<string | null>(null);
+  const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
+  const [draftScene, setDraftScene] = useState<ScreenplayScene | null>(null);
+  const [savingSceneId, setSavingSceneId] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
   const sourceScrollRef = useRef<HTMLDivElement>(null);
   const screenplayScrollRef = useRef<HTMLDivElement>(null);
   const syncingScrollRef = useRef(false);
@@ -332,6 +413,63 @@ export default function ProjectEditor(
     setRewriteTouched(false);
   }
 
+  function startEditingScene(scene: ScreenplayScene): void {
+    setEditingSceneId(scene.id);
+    setDraftScene(cloneScene(scene));
+    setEditError(null);
+    setRewrittenSceneId(null);
+  }
+
+  function cancelEditing(): void {
+    setEditingSceneId(null);
+    setDraftScene(null);
+    setEditError(null);
+  }
+
+  function updateDraftScene(nextScene: ScreenplayScene): void {
+    setDraftScene(nextScene);
+    setEditError(null);
+  }
+
+  async function saveDraftScene(): Promise<void> {
+    if (!draftScene || !editingSceneId) return;
+    const missingIndexes = missingTrustFields(draftScene);
+    if (missingIndexes.length > 0) {
+      setEditError(t("editor.edit.missingTrustFields"));
+      return;
+    }
+
+    try {
+      setSavingSceneId(editingSceneId);
+      await api.screenplay.updateScene(projectId, editingSceneId, draftScene);
+      toastManager.add({
+        description: t("editor.edit.successDescription"),
+        title: t("editor.edit.successTitle"),
+        type: "success",
+      });
+      cancelEditing();
+      await revalidator.revalidate();
+    } catch (error) {
+      setEditError(
+        isMissingTrustError(error)
+          ? t("editor.edit.missingTrustFields")
+          : error instanceof Error
+            ? error.message
+            : t("editor.edit.failureDescription"),
+      );
+      toastManager.add({
+        description:
+          isMissingTrustError(error) || !(error instanceof Error)
+            ? t("editor.edit.failureDescription")
+            : error.message,
+        title: t("editor.edit.failureTitle"),
+        type: "error",
+      });
+    } finally {
+      setSavingSceneId(null);
+    }
+  }
+
   async function submitRewrite(): Promise<void> {
     if (!rewritingScene) return;
     setRewriteTouched(true);
@@ -449,11 +587,19 @@ export default function ProjectEditor(
                   activeSceneIds={activeSceneIds}
                   activeSource={activeSource}
                   characterNameById={characterNameById}
+                  draftScene={draftScene}
+                  editError={editError}
+                  editingSceneId={editingSceneId}
                   locatingSceneId={locatingSceneId}
+                  onCancelEdit={cancelEditing}
+                  onDraftSceneChange={updateDraftScene}
+                  onEditScene={startEditingScene}
                   onLocateScene={locateSceneSource}
                   onRewriteScene={openRewriteDialog}
+                  onSaveDraft={() => void saveDraftScene()}
                   onSceneClick={highlightSceneSource}
                   rewrittenSceneId={rewrittenSceneId}
+                  savingSceneId={savingSceneId}
                   scenes={scenes}
                 />
               </ScrollArea>
@@ -678,21 +824,37 @@ function ScreenplayPane({
   activeSceneIds,
   activeSource,
   characterNameById,
+  draftScene,
+  editError,
+  editingSceneId,
   locatingSceneId,
+  onCancelEdit,
+  onDraftSceneChange,
+  onEditScene,
   onLocateScene,
   onRewriteScene,
+  onSaveDraft,
   onSceneClick,
   rewrittenSceneId,
+  savingSceneId,
   scenes,
 }: {
   activeSceneIds: Set<string>;
   activeSource: ActiveSource | null;
   characterNameById: Map<string, string>;
+  draftScene: ScreenplayScene | null;
+  editError: string | null;
+  editingSceneId: string | null;
   locatingSceneId: string | null;
+  onCancelEdit: () => void;
+  onDraftSceneChange: (scene: ScreenplayScene) => void;
+  onEditScene: (scene: ScreenplayScene) => void;
   onLocateScene: (scene: ScreenplayScene) => Promise<void>;
   onRewriteScene: (sceneId: string) => void;
+  onSaveDraft: () => void;
   onSceneClick: (scene: ScreenplayScene) => void;
   rewrittenSceneId: string | null;
+  savingSceneId: string | null;
   scenes: ScreenplayScene[];
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -734,6 +896,17 @@ function ScreenplayPane({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <Button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onEditScene(scene);
+                    }}
+                    size="sm"
+                    variant="outline"
+                  >
+                    <PencilIcon />
+                    {t("editor.edit.button")}
+                  </Button>
+                  <Button
                     loading={locatingSceneId === scene.id}
                     onClick={(event) => {
                       event.stopPropagation();
@@ -767,42 +940,379 @@ function ScreenplayPane({
                   {t("editor.rewrite.reviewHint")}
                 </div>
               ) : null}
-              <SceneSummary scene={scene} />
-              <div className="grid gap-3">
-                {scene.beats.map((beat, beatIndex) => {
-                  const beatActive = activeSource
-                    ? activeSource.paragraphs.some((paragraph) =>
-                        refIncludesParagraph(
-                          beat.source_ref,
-                          activeSource.chapter,
-                          paragraph,
-                        ),
-                      )
-                    : false;
+              {editingSceneId === scene.id && draftScene ? (
+                <SceneEditForm
+                  characterNameById={characterNameById}
+                  editError={editError}
+                  onCancel={onCancelEdit}
+                  onChange={onDraftSceneChange}
+                  onSave={onSaveDraft}
+                  saving={savingSceneId === scene.id}
+                  scene={draftScene}
+                />
+              ) : (
+                <>
+                  <SceneSummary scene={scene} />
+                  <div className="grid gap-3">
+                    {scene.beats.map((beat, beatIndex) => {
+                      const beatActive = activeSource
+                        ? activeSource.paragraphs.some((paragraph) =>
+                            refIncludesParagraph(
+                              beat.source_ref,
+                              activeSource.chapter,
+                              paragraph,
+                            ),
+                          )
+                        : false;
 
-                  return (
-                    <div
-                      className={cn(
-                        "rounded-lg border p-4 transition-[box-shadow,opacity]",
-                        beatToneClass(beat),
-                        beatActive ? "ring-2 ring-primary/32" : null,
-                      )}
-                      id={beatElementId(scene.id, beatIndex)}
-                      key={`${scene.id}-${beatIndex}`}
-                    >
-                      <BeatBadges beat={beat} index={beatIndex} />
-                      <BeatBody
-                        beat={beat}
-                        characterNameById={characterNameById}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
+                      return (
+                        <div
+                          className={cn(
+                            "rounded-lg border p-4 transition-[box-shadow,opacity]",
+                            beatToneClass(beat),
+                            beatActive ? "ring-2 ring-primary/32" : null,
+                          )}
+                          id={beatElementId(scene.id, beatIndex)}
+                          key={`${scene.id}-${beatIndex}`}
+                        >
+                          <BeatBadges beat={beat} index={beatIndex} />
+                          <BeatBody
+                            beat={beat}
+                            characterNameById={characterNameById}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </CardPanel>
           </Card>
         );
       })}
     </div>
+  );
+}
+
+function SceneEditForm({
+  characterNameById,
+  editError,
+  onCancel,
+  onChange,
+  onSave,
+  saving,
+  scene,
+}: {
+  characterNameById: Map<string, string>;
+  editError: string | null;
+  onCancel: () => void;
+  onChange: (scene: ScreenplayScene) => void;
+  onSave: () => void;
+  saving: boolean;
+  scene: ScreenplayScene;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const intExtItems = INT_EXT_VALUES.map((value) => ({
+    label: t(`editor.edit.intExt.${value}`),
+    value,
+  }));
+  const timeItems = TIME_VALUES.map((value) => ({
+    label: t(`editor.edit.time.${value}`),
+    value,
+  }));
+
+  function updateScene(patch: Partial<ScreenplayScene>): void {
+    onChange({ ...scene, ...patch });
+  }
+
+  function updateBeat(index: number, beat: Beat): void {
+    onChange({
+      ...scene,
+      beats: scene.beats.map((item, itemIndex) =>
+        itemIndex === index ? beat : item,
+      ),
+    });
+  }
+
+  return (
+    <div className="space-y-4 rounded-xl border bg-background/64 p-4">
+      {editError ? (
+        <div className="rounded-lg border border-destructive/32 bg-destructive/8 px-3 py-2 text-destructive-foreground text-sm">
+          {editError}
+        </div>
+      ) : null}
+      <div className="grid gap-3 lg:grid-cols-2">
+        <SelectField
+          items={intExtItems}
+          label={t("editor.edit.intExtLabel")}
+          onChange={(value) =>
+            updateScene({
+              heading: { ...scene.heading, int_ext: value },
+            })
+          }
+          value={scene.heading.int_ext}
+        />
+        <SelectField
+          items={timeItems}
+          label={t("editor.edit.timeLabel")}
+          onChange={(value) =>
+            updateScene({
+              heading: { ...scene.heading, time: value },
+            })
+          }
+          value={scene.heading.time}
+        />
+        <TextField
+          label={t("editor.edit.locationLabel")}
+          onChange={(value) =>
+            updateScene({
+              heading: { ...scene.heading, location: value },
+            })
+          }
+          value={scene.heading.location}
+        />
+        <TextField
+          label={t("editor.edit.moodLabel")}
+          onChange={(value) => updateScene({ mood: normalizeOptionalText(value) })}
+          value={scene.mood ?? ""}
+        />
+      </div>
+
+      <div className="grid gap-3">
+        {scene.beats.map((beat, index) => (
+          <BeatEditCard
+            beat={beat}
+            characterNameById={characterNameById}
+            index={index}
+            key={`${scene.id}-draft-${index}`}
+            onChange={(nextBeat) => updateBeat(index, nextBeat)}
+          />
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <div />
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button onClick={onCancel} variant="ghost">
+            {t("editor.edit.cancel")}
+          </Button>
+          <Button loading={saving} onClick={onSave}>
+            <SaveIcon />
+            {t("editor.edit.save")}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BeatEditCard({
+  beat,
+  characterNameById,
+  index,
+  onChange,
+}: {
+  beat: Beat;
+  characterNameById: Map<string, string>;
+  index: number;
+  onChange: (beat: Beat) => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+
+  function updateBeat(patch: Partial<Beat>): void {
+    onChange({ ...beat, ...patch });
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border bg-card p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <BeatBadges beat={beat} index={index} />
+      </div>
+
+      {beat.type === "dialogue" ||
+      beat.type === "voice_over" ||
+      beat.type === "off_screen" ? (
+        <div className="grid gap-3">
+          <CharacterSelect
+            characterNameById={characterNameById}
+            onChange={(value) => updateBeat({ character: value })}
+            value={beat.character}
+          />
+          <TextField
+            label={t("editor.edit.parentheticalLabel")}
+            onChange={(value) =>
+              updateBeat({ parenthetical: normalizeOptionalText(value) })
+            }
+            value={beat.parenthetical ?? ""}
+          />
+          <TextAreaField
+            label={t("editor.edit.dialogueLabel")}
+            onChange={(value) => updateBeat({ dialogue: value })}
+            value={beat.dialogue ?? ""}
+          />
+        </div>
+      ) : (
+        <TextAreaField
+          label={t("editor.edit.textLabel")}
+          onChange={(value) => updateBeat({ text: value })}
+          value={beat.text ?? ""}
+        />
+      )}
+
+      {beat.type === "note" && beat.options?.length ? (
+        <div className="rounded-lg border bg-background/64 p-3 text-sm">
+          <div className="mb-2 font-medium">{t("editor.edit.optionsReadonly")}</div>
+          <ul className="space-y-1 text-muted-foreground">
+            {beat.options.map((option, optionIndex) => (
+              <li key={`${option.kind}-${optionIndex}`}>
+                {option.kind}: {option.text}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {beat.type !== "todo" ? (
+        <>
+          <TextAreaField
+            label={t("editor.edit.subtextLabel")}
+            onChange={(value) =>
+              updateBeat({ subtext: normalizeOptionalText(value) })
+            }
+            value={beat.subtext ?? ""}
+          />
+          <Field className="gap-2">
+            <FieldLabel>{t("editor.edit.flagLabel")}</FieldLabel>
+            <ToggleGroup
+              aria-label={t("editor.edit.flagLabel")}
+              onValueChange={(value) => {
+                const nextValue = value[0];
+                if (nextValue === "from_source" || nextValue === "ai_inferred") {
+                  updateBeat({ flag: nextValue });
+                }
+              }}
+              value={beat.flag ? [beat.flag] : []}
+              variant="outline"
+            >
+              {FLAG_VALUES.map((flag, flagIndex) => (
+                <span className="contents" key={flag}>
+                  {flagIndex > 0 ? <ToggleGroupSeparator /> : null}
+                  <ToggleGroupItem value={flag}>
+                    {t(`editor.edit.flag.${flag}`)}
+                  </ToggleGroupItem>
+                </span>
+              ))}
+            </ToggleGroup>
+          </Field>
+          <div className="text-muted-foreground text-xs">
+            {beat.source_ref
+              ? sourceRefLabel(t, beat.source_ref)
+              : t("editor.edit.missingSourceRef")}
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function TextField({
+  label,
+  onChange,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}): React.ReactElement {
+  return (
+    <Field className="w-full">
+      <FieldLabel>{label}</FieldLabel>
+      <Input onChange={(event) => onChange(event.currentTarget.value)} value={value} />
+    </Field>
+  );
+}
+
+function TextAreaField({
+  label,
+  onChange,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}): React.ReactElement {
+  return (
+    <Field className="w-full">
+      <FieldLabel>{label}</FieldLabel>
+      <Textarea onChange={(event) => onChange(event.currentTarget.value)} value={value} />
+    </Field>
+  );
+}
+
+function SelectField<T extends string>({
+  items,
+  label,
+  onChange,
+  value,
+}: {
+  items: SelectOption<T>[];
+  label: string;
+  onChange: (value: T) => void;
+  value: T;
+}): React.ReactElement {
+  const selectedItem = items.find((item) => item.value === value) ?? items[0];
+
+  return (
+    <Field className="w-full">
+      <FieldLabel>{label}</FieldLabel>
+      <Select
+        itemToStringValue={(item) => item.value}
+        items={items}
+        onValueChange={(nextValue) => {
+          if (nextValue) onChange(nextValue.value);
+        }}
+        value={selectedItem}
+      >
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectPopup>
+          {items.map((item) => (
+            <SelectItem key={item.value} value={item}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectPopup>
+      </Select>
+    </Field>
+  );
+}
+
+function CharacterSelect({
+  characterNameById,
+  onChange,
+  value,
+}: {
+  characterNameById: Map<string, string>;
+  onChange: (value: string | null) => void;
+  value: string | null;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const items: SelectOption<string>[] = [
+    { label: t("editor.edit.noCharacter"), value: "__none__" },
+    ...Array.from(characterNameById.entries()).map(([id, name]) => ({
+      label: name,
+      value: id,
+    })),
+  ];
+  const selectedValue = value ?? "__none__";
+
+  return (
+    <SelectField
+      items={items}
+      label={t("editor.edit.characterLabel")}
+      onChange={(nextValue) => onChange(nextValue === "__none__" ? null : nextValue)}
+      value={selectedValue}
+    />
   );
 }
