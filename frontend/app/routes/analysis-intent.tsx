@@ -5,10 +5,16 @@ import {
   SlidersHorizontalIcon,
 } from "lucide-react";
 import type * as React from "react";
-import { useState } from "react";
-import { Link, useRevalidator } from "react-router";
+import { useCallback, useEffect, useState } from "react";
+import {
+  Link,
+  useNavigate,
+  useOutletContext,
+  useRevalidator,
+} from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/analysis-intent";
+import type { AnalysisLayoutContext } from "./analysis-layout";
 import { StringListEditor } from "~/components/string-list-editor";
 import {
   Alert,
@@ -19,7 +25,6 @@ import {
 import { Button } from "~/components/ui/button";
 import {
   Card,
-  CardAction,
   CardDescription,
   CardHeader,
   CardPanel,
@@ -100,7 +105,9 @@ export default function AnalysisIntent({
   loaderData,
 }: Route.ComponentProps): React.ReactElement {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const revalidator = useRevalidator();
+  const { setActions } = useOutletContext<AnalysisLayoutContext>();
   const { characters, intent, project, projectId } = loaderData;
   const initialDirection = isMvpDirection(project.meta.adaptation_direction)
     ? project.meta.adaptation_direction
@@ -138,17 +145,17 @@ export default function AnalysisIntent({
     setForm((current) => ({ ...current, [key]: value }));
   }
 
-  async function refresh(): Promise<void> {
+  const refresh = useCallback(async (): Promise<void> => {
     await revalidator.revalidate();
-  }
+  }, [revalidator]);
 
-  async function validateConflicts(): Promise<IntentConflict[]> {
+  const validateConflicts = useCallback(async (): Promise<IntentConflict[]> => {
     const response = await api.intent.validate(projectId);
     setConflicts(response.conflicts);
     return response.conflicts;
-  }
+  }, [projectId]);
 
-  async function saveIntent(): Promise<void> {
+  const saveIntent = useCallback(async (): Promise<void> => {
     try {
       setWorking(true);
       const payload: IntentConstraints = {
@@ -178,23 +185,28 @@ export default function AnalysisIntent({
     } finally {
       setWorking(false);
     }
-  }
+  }, [direction, form, projectId, refresh, t, validateConflicts]);
 
-  async function selectDirection(nextDirection: MvpDirection): Promise<void> {
+  const saveIntentAndContinue = useCallback(async (): Promise<void> => {
+    if (!direction) return;
+
     try {
       setWorking(true);
-      const response = await api.intent.setDirection(projectId, nextDirection);
-      setDirection(response.direction);
+      const payload: IntentConstraints = {
+        ...form,
+        mood_floor: form.mood_floor?.trim() || null,
+        target_type: direction,
+      };
+      const envelope = await api.intent.save(projectId, payload);
+      setForm(envelope.data);
+      setSavedIntent(envelope);
+      await validateConflicts();
       toastManager.add({
-        title: t("analysis.intent.selectDirectionSuccess"),
+        title: t("analysis.intent.saveSuccess"),
         type: "success",
       });
-      if (savedIntent) {
-        await validateConflicts();
-      } else {
-        setConflicts(null);
-      }
       await refresh();
+      await navigate(stagePath(projectId, "outline"));
     } catch (error) {
       toastManager.add({
         description: getErrorMessage(error),
@@ -204,9 +216,41 @@ export default function AnalysisIntent({
     } finally {
       setWorking(false);
     }
-  }
+  }, [direction, form, navigate, projectId, refresh, t, validateConflicts]);
 
-  async function runValidation(): Promise<void> {
+  const selectDirection = useCallback(
+    async (nextDirection: MvpDirection): Promise<void> => {
+      try {
+        setWorking(true);
+        const response = await api.intent.setDirection(
+          projectId,
+          nextDirection,
+        );
+        setDirection(response.direction);
+        toastManager.add({
+          title: t("analysis.intent.selectDirectionSuccess"),
+          type: "success",
+        });
+        if (savedIntent) {
+          await validateConflicts();
+        } else {
+          setConflicts(null);
+        }
+        await refresh();
+      } catch (error) {
+        toastManager.add({
+          description: getErrorMessage(error),
+          title: t("analysis.intent.actionError"),
+          type: "error",
+        });
+      } finally {
+        setWorking(false);
+      }
+    },
+    [projectId, savedIntent, t, validateConflicts, refresh],
+  );
+
+  const runValidation = useCallback(async (): Promise<void> => {
     if (!canValidate) return;
 
     try {
@@ -225,7 +269,56 @@ export default function AnalysisIntent({
     } finally {
       setWorking(false);
     }
-  }
+  }, [canValidate, t, validateConflicts]);
+
+  useEffect(() => {
+    if (locked) {
+      setActions(null);
+      return;
+    }
+
+    setActions(
+      <>
+        <Button loading={working} onClick={saveIntent} variant="secondary">
+          <CheckCircleIcon aria-hidden />
+          {t("analysis.intent.save")}
+        </Button>
+        <Button
+          disabled={!canValidate}
+          loading={working}
+          onClick={runValidation}
+          title={!canValidate ? t("analysis.intent.validateFirst") : undefined}
+          variant="outline"
+        >
+          <ClipboardCheckIcon aria-hidden />
+          {t("analysis.intent.validate")}
+        </Button>
+        <Button
+          disabled={!direction}
+          loading={working}
+          onClick={saveIntentAndContinue}
+          title={
+            !direction ? t("analysis.intent.chooseDirectionFirst") : undefined
+          }
+        >
+          <GitPullRequestArrowIcon aria-hidden />
+          {t("analysis.intent.saveAndContinue")}
+        </Button>
+      </>,
+    );
+
+    return () => setActions(null);
+  }, [
+    canValidate,
+    direction,
+    locked,
+    runValidation,
+    saveIntent,
+    saveIntentAndContinue,
+    setActions,
+    t,
+    working,
+  ]);
 
   return (
     <section className="space-y-4">
@@ -268,12 +361,6 @@ export default function AnalysisIntent({
               <CardDescription>
                 {t("analysis.intent.formDescription")}
               </CardDescription>
-              <CardAction>
-                <Button loading={working} onClick={saveIntent}>
-                  <CheckCircleIcon aria-hidden />
-                  {t("analysis.intent.save")}
-                </Button>
-              </CardAction>
             </CardHeader>
             <CardPanel className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
@@ -409,17 +496,6 @@ export default function AnalysisIntent({
               <CardDescription>
                 {t("analysis.intent.validationDescription")}
               </CardDescription>
-              <CardAction>
-                <Button
-                  disabled={!canValidate}
-                  loading={working}
-                  onClick={runValidation}
-                  variant="outline"
-                >
-                  <ClipboardCheckIcon aria-hidden />
-                  {t("analysis.intent.validate")}
-                </Button>
-              </CardAction>
             </CardHeader>
             <CardPanel className="space-y-3">
               {!canValidate ? (
@@ -466,25 +542,6 @@ export default function AnalysisIntent({
               ) : null}
             </CardPanel>
           </Card>
-
-          {savedIntent ? (
-            <Alert variant="success">
-              <AlertTitle>{t("analysis.intent.completeTitle")}</AlertTitle>
-              <AlertDescription>
-                {t("analysis.intent.completeDescription")}
-              </AlertDescription>
-              <AlertAction>
-                <Button
-                  render={<Link to={stagePath(projectId, "outline")} />}
-                  size="sm"
-                  variant="outline"
-                >
-                  <GitPullRequestArrowIcon aria-hidden />
-                  {t("analysis.intent.outlineCta")}
-                </Button>
-              </AlertAction>
-            </Alert>
-          ) : null}
         </div>
       )}
     </section>
