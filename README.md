@@ -544,8 +544,8 @@ structured response with the stage output schema, records structured
 `AgentIssue` diagnostics, retries with repair context, and falls back to a
 `needs_attention` payload when bounded attempts are exhausted. This is a local
 workflow primitive, not an autonomous ReAct agent and not an MCP server. The
-understanding, character profile, outline, screenplay, and report generation
-routes now delegate through
+understanding, character profile, outline, screenplay, report generation, and
+local scene rewrite routes now delegate through
 `domain service -> stage agent -> ControlledAgent -> LLM gateway`, while
 preserving the existing HTTP API response shape.
 

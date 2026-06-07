@@ -27,8 +27,9 @@ from cardenio.domain.models.screenplay import (
 )
 from cardenio.domain.models.understanding import NonVisualizableMark, UnderstandingData
 from cardenio.domain.services.generation_service import GenerationService
+from cardenio.domain.services.rewrite_service import RewriteService
 from cardenio.domain.validation.trust import enforce_must_keep_lines
-from cardenio.gateway.protocol import GenerateRequest, LlmGateway, SystemConstraints
+from cardenio.gateway.protocol import LlmGateway
 from cardenio.orchestrator.trust_enforcer import enforce_pipeline_trust
 from cardenio.storage.sqlite_store import SqliteArtifactStore
 
@@ -287,86 +288,8 @@ async def rewrite_scene(
     gateway: LlmGateway = Depends(get_gateway),
 ) -> dict:
     """API-21: Local rewrite of a single scene (FR-9.2 core interaction)."""
-    previous, data = await _get_screenplay_data(store, project_id)
-    project = await store.get_project(project_id)
-    target_index = _find_scene_index(data, scene_id)
-    target_scene = data.scenes[target_index]
-    characters = await _get_optional_artifact(
-        store, project_id, "characters", CharactersData
-    )
-    intent = await _get_optional_artifact(store, project_id, "intent", IntentConstraints)
-    understanding = await _get_optional_artifact(
-        store, project_id, "understanding", UnderstandingData
-    )
-    outline = await _get_optional_artifact(store, project_id, "outline", OutlineData)
-    character_voices = _character_voices(characters)
-    source_paragraphs = await _resolve_source_ref(
-        store, project_id, target_scene.source_ref
-    )
-
-    result = await gateway.generate(
-        GenerateRequest(
-            task="rewrite",
-            system_constraints=SystemConstraints(
-                style_fingerprint=project["style_fingerprint"] if project else None,
-                voice=character_voices,
-                author_intent=intent.model_dump(mode="json") if intent else None,
-                shot_hints_enabled=data.shot_hints.enabled,
-            ),
-            context=[
-                {
-                    "type": "rewrite_request",
-                    "data": {
-                        "instruction": body.instruction,
-                        "scene_id": scene_id,
-                    },
-                },
-                {
-                    "type": "target_scene",
-                    "data": target_scene.model_dump(mode="json"),
-                },
-                {
-                    "type": "adjacent_scenes",
-                    "data": _adjacent_scene_context(data.scenes, target_index),
-                },
-                {"type": "source_paragraphs", "data": source_paragraphs},
-                {"type": "character_voices", "data": character_voices},
-                {
-                    "type": "author_intent",
-                    "data": intent.model_dump(mode="json") if intent else {},
-                },
-                {
-                    "type": "understanding",
-                    "data": understanding.model_dump(mode="json")
-                    if understanding
-                    else {},
-                },
-            ],
-            output_schema=ScreenplayScene.model_json_schema(),
-        )
-    )
-
-    rewritten_scene = _coerce_rewrite_result(result.data, target_scene, body.instruction)
-    rewritten_scene = _enforce_rewrite_scene_trust(
-        rewritten_scene,
-        target_scene,
-        intent,
-    )
-    if outline is not None:
-        rewritten_scene = _annotate_subtext_and_mood(
-            [rewritten_scene],
-            outline,
-            intent,
-            understanding,
-        )[0]
-
-    scenes = [*data.scenes]
-    scenes[target_index] = rewritten_scene
-    updated = data.model_copy(update={"scenes": scenes})
-    _validate_edit_trust_fields(updated)
-    saved = await _save_screenplay(store, project_id, updated, previous)
-    await _mark_project_editing(store, project_id)
-    return saved.model_dump(mode="json")
+    service = RewriteService(gateway=gateway, store=store)
+    return await service.rewrite_scene(project_id, scene_id, body.instruction)
 
 
 @router.get("/scenes/{scene_id}/versions")
@@ -854,94 +777,6 @@ def _diff_scene_versions(
         if data_a.get(key) != data_b.get(key)
     ]
     return sorted(changes, key=lambda item: item["path"])
-
-
-def _coerce_rewrite_result(
-    generated: dict[str, Any],
-    target_scene: ScreenplayScene,
-    instruction: str,
-) -> ScreenplayScene:
-    candidate = _extract_rewrite_scene(generated, target_scene.id)
-    if candidate is None:
-        candidate = _fallback_rewrite_scene(target_scene, instruction)
-
-    target = target_scene.model_dump(mode="json")
-    target.update(candidate)
-    target["id"] = target_scene.id
-    target["source_ref"] = target_scene.source_ref.model_dump(mode="json")
-    if not target.get("beats"):
-        target["beats"] = target_scene.model_dump(mode="json")["beats"]
-    return ScreenplayScene.model_validate(target)
-
-
-def _extract_rewrite_scene(
-    generated: dict[str, Any],
-    scene_id: str,
-) -> dict[str, Any] | None:
-    if not generated or generated.get("stub") is True:
-        return None
-    if isinstance(generated.get("scene"), dict):
-        return generated["scene"]
-    scenes = generated.get("scenes")
-    if isinstance(scenes, list) and scenes:
-        for scene in scenes:
-            if isinstance(scene, dict) and scene.get("id") == scene_id:
-                return scene
-        first_scene = scenes[0]
-        if isinstance(first_scene, dict):
-            return first_scene
-    if "heading" in generated or "beats" in generated:
-        return generated
-    return None
-
-
-def _fallback_rewrite_scene(
-    target_scene: ScreenplayScene,
-    instruction: str,
-) -> dict[str, Any]:
-    data = target_scene.model_dump(mode="json")
-    beats = [*data["beats"]]
-    beats.append(
-        Beat(
-            type=BeatType.NOTE,
-            text=f"Rewrite instruction: {instruction}",
-            source_ref=target_scene.source_ref,
-            flag=Flag.AI_INFERRED,
-        ).model_dump(mode="json")
-    )
-    data["beats"] = beats
-    return data
-
-
-def _enforce_rewrite_scene_trust(
-    rewritten_scene: ScreenplayScene,
-    target_scene: ScreenplayScene,
-    intent: IntentConstraints | None,
-) -> ScreenplayScene:
-    beats = [
-        _backfill_rewrite_beat_trust(beat, target_scene.source_ref)
-        for beat in rewritten_scene.beats
-    ]
-    scene = rewritten_scene.model_copy(update={"beats": beats})
-    enforced = enforce_pipeline_trust(
-        [scene],
-        source_paragraph_indices=set(target_scene.source_ref.paragraphs),
-        intent=intent,
-    )[0]
-    return _backfill_dialogue_source_refs([enforced])[0]
-
-
-def _backfill_rewrite_beat_trust(beat: Beat, source_ref: SourceRef) -> Beat:
-    if beat.type == BeatType.TODO:
-        return beat
-    updates: dict[str, Any] = {}
-    if beat.source_ref is None:
-        updates["source_ref"] = source_ref
-    if beat.flag is None:
-        updates["flag"] = Flag.AI_INFERRED
-    if updates:
-        return beat.model_copy(update=updates)
-    return beat
 
 
 def _validate_edit_trust_fields(data: ScreenplayData) -> None:
