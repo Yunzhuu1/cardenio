@@ -4,11 +4,17 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from cardenio.api.deps import get_artifact_store, get_gateway
-from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, Flag, ProjectState
+from cardenio.domain.models.base import (
+    ArtifactEnvelope,
+    ArtifactState,
+    Flag,
+    ProjectState,
+    SourceRef,
+)
 from cardenio.domain.models.characters import CharactersData
 from cardenio.domain.models.intent import IntentConstraints
 from cardenio.domain.models.outline import OutlineData, OutlineScene
@@ -162,6 +168,41 @@ async def get_scene(
     raise HTTPException(status_code=404, detail="Scene not found")
 
 
+@router.get("/scenes/{scene_id}/trace")
+async def get_scene_trace(
+    project_id: str,
+    scene_id: str,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
+    """API-24: Resolve a screenplay scene to its source paragraphs."""
+    artifact = await store.get_artifact(project_id, "screenplay")
+    if artifact is None:
+        project = await store.get_project(project_id)
+        if project is None:
+            raise HTTPException(status_code=404, detail="Project not found")
+        raise HTTPException(status_code=404, detail="Screenplay not found")
+
+    data = ScreenplayData.model_validate(artifact.data)
+    scene = _find_scene(data, scene_id)
+    paragraphs = await _resolve_source_ref(store, project_id, scene.source_ref)
+    if not paragraphs:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "source_ref_not_found",
+                "scene_id": scene.id,
+                "source_ref": scene.source_ref.model_dump(mode="json"),
+            },
+        )
+
+    return {
+        "scene_id": scene.id,
+        "source_ref": scene.source_ref.model_dump(mode="json"),
+        "paragraphs": paragraphs,
+        "beats": _traceable_beats(scene),
+    }
+
+
 @router.put("")
 async def update_screenplay(project_id: str, body: dict) -> dict:
     """API-19: Rewrite full screenplay (YAML or JSON)."""
@@ -179,12 +220,20 @@ async def get_beats(
     project_id: str,
     *,
     flag: str | None = None,
+    source_chapter: int | None = Query(default=None, ge=1),
+    source_paragraph: int | None = Query(default=None, ge=1),
     store: SqliteArtifactStore = Depends(get_artifact_store),
 ) -> dict:
-    """API-20: Filter beats by flag (from_source/ai_inferred)."""
+    """API-20/API-24: Filter beats by trust markers or source reference."""
     project = await store.get_project(project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    if (source_chapter is None) != (source_paragraph is None):
+        raise HTTPException(
+            status_code=422,
+            detail="source_chapter and source_paragraph must be provided together",
+        )
 
     requested_flag = _parse_flag(flag)
     artifact = await store.get_artifact(project_id, "screenplay")
@@ -196,6 +245,8 @@ async def get_beats(
     for scene in data.scenes:
         for beat_index, beat in enumerate(scene.beats):
             if requested_flag is not None and beat.flag != requested_flag:
+                continue
+            if not _matches_source_ref(beat.source_ref, source_chapter, source_paragraph):
                 continue
             items.append(
                 {
@@ -439,6 +490,62 @@ def _parse_flag(flag: str | None) -> Flag | None:
             status_code=422,
             detail="flag must be one of: from_source, ai_inferred",
         ) from exc
+
+
+def _matches_source_ref(
+    source_ref: SourceRef | None,
+    source_chapter: int | None,
+    source_paragraph: int | None,
+) -> bool:
+    if source_chapter is None and source_paragraph is None:
+        return True
+    if source_ref is None:
+        return False
+    return (
+        source_ref.chapter == source_chapter
+        and source_paragraph in source_ref.paragraphs
+    )
+
+
+def _find_scene(data: ScreenplayData, scene_id: str) -> ScreenplayScene:
+    for scene in data.scenes:
+        if scene.id == scene_id:
+            return scene
+    raise HTTPException(status_code=404, detail="Scene not found")
+
+
+async def _resolve_source_ref(
+    store: SqliteArtifactStore,
+    project_id: str,
+    source_ref: SourceRef,
+) -> list[dict[str, Any]]:
+    chapter_id = f"ch_{source_ref.chapter}"
+    rows = await store.get_paragraphs(project_id, chapter_id=chapter_id)
+    by_index = {row["paragraph_index"]: row["text"] for row in rows}
+    if not by_index:
+        return []
+    resolved = [
+        {"index": index, "text": by_index[index]}
+        for index in source_ref.paragraphs
+        if index in by_index
+    ]
+    if len(resolved) != len(source_ref.paragraphs):
+        return []
+    return resolved
+
+
+def _traceable_beats(scene: ScreenplayScene) -> list[dict[str, Any]]:
+    return [
+        {
+            "beat_index": beat_index,
+            "source_ref": beat.source_ref.model_dump(mode="json")
+            if beat.source_ref
+            else None,
+            "flag": beat.flag.value if beat.flag else None,
+            "type": beat.type.value,
+        }
+        for beat_index, beat in enumerate(scene.beats)
+    ]
 
 
 def _scene_from_outline(
