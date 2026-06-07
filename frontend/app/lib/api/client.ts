@@ -14,6 +14,9 @@ import type {
   ImportPreview,
   IntentConstraints,
   IntentValidateResponse,
+  AuthSession,
+  AuthUser,
+  LoginInput,
   MergeSuggestionsResponse,
   MvpDirection,
   OutlineData,
@@ -25,6 +28,7 @@ import type {
   ProjectSettingsData,
   ProjectSummary,
   ReportData,
+  RegisterInput,
   ResolveResponse,
   ResegmentInput,
   ScreenplayData,
@@ -36,6 +40,15 @@ import type {
   UpdateChapterInput,
   BeatsFilterResponse,
 } from "./types";
+
+export type AuthApi = {
+  getStoredToken(): string | null;
+  setStoredToken(token: string | null): void;
+  register(input: RegisterInput): Promise<AuthSession>;
+  login(input: LoginInput): Promise<AuthSession>;
+  me(): Promise<AuthUser>;
+  logout(): Promise<void>;
+};
 
 export type ProjectsApi = {
   list(params?: {
@@ -182,6 +195,7 @@ export type SettingsApi = {
 };
 
 export type ApiClient = {
+  auth: AuthApi;
   projects: ProjectsApi;
   source: SourceApi;
   understanding: UnderstandingApi;

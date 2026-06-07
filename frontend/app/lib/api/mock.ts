@@ -3,6 +3,8 @@ import {
   ApiError,
   type ArtifactEnvelope,
   type ArtifactState,
+  type AuthSession,
+  type AuthUser,
   type Beat,
   type Chapter,
   type ChapterId,
@@ -38,6 +40,13 @@ import {
 
 const LATENCY_MS = 300;
 const MIN_CHAPTERS = 3;
+const AUTH_STORAGE_KEY = "cardenio.auth.token";
+const MOCK_SESSION_VALUE = "mock-auth-session";
+const MOCK_USER: AuthUser = {
+  id: "usr_mock",
+  email: "author@example.com",
+  display_name: "Author",
+};
 const delay = (): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, LATENCY_MS));
 
@@ -220,6 +229,29 @@ function ensureSeed(): void {
       ],
     }),
   );
+}
+
+function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(AUTH_STORAGE_KEY);
+}
+
+function setStoredToken(token: string | null): void {
+  if (typeof window === "undefined") return;
+  if (token) {
+    window.localStorage.setItem(AUTH_STORAGE_KEY, token);
+  } else {
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  }
+}
+
+function makeMockSession(): AuthSession {
+  return {
+    access_token: MOCK_SESSION_VALUE,
+    token_type: "bearer",
+    expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString(),
+    user: MOCK_USER,
+  };
 }
 
 let counter = 0;
@@ -1099,6 +1131,37 @@ function validateIntentConflicts(
 }
 
 export const mockClient: ApiClient = {
+  auth: {
+    getStoredToken,
+    setStoredToken,
+    async register() {
+      await delay();
+      const session = makeMockSession();
+      setStoredToken(session.access_token);
+      return session;
+    },
+    async login() {
+      await delay();
+      const session = makeMockSession();
+      setStoredToken(session.access_token);
+      return session;
+    },
+    async me() {
+      await delay();
+      if (!getStoredToken()) {
+        throw new ApiError(401, {
+          code: "unauthenticated",
+          message: "Missing or invalid authentication",
+          retryable: false,
+        });
+      }
+      return MOCK_USER;
+    },
+    async logout() {
+      await delay();
+      setStoredToken(null);
+    },
+  },
   projects: {
     async list() {
       ensureSeed();

@@ -155,6 +155,30 @@ export type ResegmentInput =
 
 export type Paginated<T> = { items: T[]; next_cursor: string | null };
 
+export type AuthUser = {
+  id: string;
+  email: string;
+  display_name: string | null;
+};
+
+export type AuthSession = {
+  access_token: string;
+  token_type: "bearer";
+  expires_at: string;
+  user: AuthUser;
+};
+
+export type RegisterInput = {
+  email: string;
+  password: string;
+  display_name?: string | null;
+};
+
+export type LoginInput = {
+  email: string;
+  password: string;
+};
+
 export type SourceRef = {
   chapter: number;
   paragraphs: number[];
