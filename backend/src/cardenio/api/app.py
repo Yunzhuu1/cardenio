@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -11,6 +12,13 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from cardenio.api.errors import CardenioError
 from cardenio.api.middleware import cardenio_error_handler
 from cardenio.api.routes import router
+from cardenio.gateway.providers.deepseek import (
+    DEFAULT_DEEPSEEK_BASE_URL,
+    DEFAULT_DEEPSEEK_MODEL,
+    DEFAULT_MAX_TOKENS,
+    DeepSeekGateway,
+    DeepSeekGatewayConfig,
+)
 from cardenio.gateway.providers.stub import StubLlmGateway
 from cardenio.storage.sqlite import create_engine, init_db
 
@@ -18,12 +26,15 @@ from cardenio.storage.sqlite import create_engine, init_db
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Set up DB engine, session factory, gateway on startup."""
-    engine = create_engine("sqlite+aiosqlite:///./cardenio.db")
+    database_url = os.getenv(
+        "CARDENIO_DATABASE_URL", "sqlite+aiosqlite:///./cardenio.db"
+    )
+    engine = create_engine(database_url)
     await init_db(engine)
 
     app.state.engine = engine
     app.state.session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    app.state.gateway = StubLlmGateway()
+    app.state.gateway = create_gateway_from_env()
 
     yield
     await engine.dispose()
@@ -39,3 +50,28 @@ def create_app() -> FastAPI:
     app.add_exception_handler(CardenioError, cardenio_error_handler)
     app.include_router(router, prefix="/api/v1")
     return app
+
+
+def create_gateway_from_env() -> StubLlmGateway | DeepSeekGateway:
+    """Create the configured LLM gateway, defaulting to local stub mode."""
+    provider = os.getenv("CARDENIO_LLM_PROVIDER", "stub").strip().lower()
+    if provider in {"", "stub"}:
+        return StubLlmGateway()
+    if provider != "deepseek":
+        raise ValueError("CARDENIO_LLM_PROVIDER must be 'stub' or 'deepseek'")
+
+    api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+    if not api_key:
+        raise ValueError("DEEPSEEK_API_KEY is required when CARDENIO_LLM_PROVIDER=deepseek")
+
+    timeout = float(os.getenv("DEEPSEEK_TIMEOUT_SECONDS", "60"))
+    max_tokens = int(os.getenv("DEEPSEEK_MAX_TOKENS", str(DEFAULT_MAX_TOKENS)))
+    return DeepSeekGateway(
+        DeepSeekGatewayConfig(
+            api_key=api_key,
+            model=os.getenv("DEEPSEEK_MODEL", DEFAULT_DEEPSEEK_MODEL),
+            base_url=os.getenv("DEEPSEEK_BASE_URL", DEFAULT_DEEPSEEK_BASE_URL),
+            timeout_seconds=timeout,
+            max_tokens=max_tokens,
+        )
+    )
