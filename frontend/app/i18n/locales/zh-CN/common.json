@@ -161,7 +161,7 @@
       "reconfirmTitle": "保存后需要重新确认",
       "reconfirmDescription": "已确认的作品理解被编辑后，后端会把状态置回草稿；保存后请重新确认再进入人物档案。",
       "trustTitle": "叙事与不可视化信号",
-      "trustDescription": "这些内容来自后端推断，只读展示并在保存时原样回传。",
+      "trustDescription": "这些判断帮助后续改编保持叙事方式一致，暂不支持直接编辑。",
       "nonVisualizableTitle": "不可直接视觉化的内容",
       "nonVisualizableCount": "{{count}} 条",
       "nonVisualizableEmpty": "当前没有标记不可直接视觉化的内容。",
