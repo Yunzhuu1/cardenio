@@ -40,16 +40,16 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import {
-  Dialog,
-  DialogClose,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogPanel,
-  DialogPopup,
-  DialogTitle,
-  DialogTrigger,
-} from "~/components/ui/dialog";
+  Drawer,
+  DrawerClose,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerPanel,
+  DrawerPopup,
+  DrawerTitle,
+  DrawerTrigger,
+} from "~/components/ui/drawer";
 import {
   Empty,
   EmptyDescription,
@@ -183,7 +183,7 @@ export default function AnalysisCharacters({
   const revalidator = useRevalidator();
   const { characters, understanding, projectId } = loaderData;
   const [working, setWorking] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<CharacterFormState>(emptyCharacterForm);
   const [deleteTarget, setDeleteTarget] = useState<Character | null>(null);
   const locked = understanding?.state !== "confirmed";
@@ -198,14 +198,24 @@ export default function AnalysisCharacters({
     await revalidator.revalidate();
   }
 
-  function openCreateDialog(): void {
+  function openCreateDrawer(): void {
     setForm(emptyCharacterForm());
-    setDialogOpen(true);
+    setDrawerOpen(true);
   }
 
-  function openEditDialog(character: Character): void {
+  function openEditDrawer(character: Character): void {
     setForm(characterToForm(character));
-    setDialogOpen(true);
+    setDrawerOpen(true);
+  }
+
+  function requestDeleteEditingCharacter(): void {
+    if (!editingCharacterId) return;
+    const target = characterList.find(
+      (character) => character.id === editingCharacterId,
+    );
+    if (!target) return;
+    setDeleteTarget(target);
+    setDrawerOpen(false);
   }
 
   async function generateCharacters(): Promise<void> {
@@ -261,7 +271,7 @@ export default function AnalysisCharacters({
           type: "success",
         });
       }
-      setDialogOpen(false);
+      setDrawerOpen(false);
       await refresh();
     } catch (error) {
       toastManager.add({
@@ -394,19 +404,24 @@ export default function AnalysisCharacters({
                     </AlertDialogFooter>
                   </AlertDialogPopup>
                 </AlertDialog>
-                <Dialog onOpenChange={setDialogOpen} open={dialogOpen}>
-                  <DialogTrigger render={<Button onClick={openCreateDialog} />}>
+                <Drawer
+                  onOpenChange={setDrawerOpen}
+                  open={drawerOpen}
+                  position="right"
+                >
+                  <DrawerTrigger render={<Button onClick={openCreateDrawer} />}>
                     <PlusIcon aria-hidden />
                     {t("analysis.characters.addCharacter")}
-                  </DialogTrigger>
-                  <CharacterDialog
+                  </DrawerTrigger>
+                  <CharacterDrawer
                     characters={characterList}
                     form={form}
                     onFormChange={setForm}
+                    onRequestDelete={requestDeleteEditingCharacter}
                     onSave={saveCharacter}
                     projectWorking={working}
                   />
-                </Dialog>
+                </Drawer>
                 {status !== "confirmed" ? (
                   <Button loading={working} onClick={confirmCharacters}>
                     <CheckCircleIcon aria-hidden />
@@ -427,7 +442,7 @@ export default function AnalysisCharacters({
 
           <CharacterGraph
             characters={characterList}
-            onNodeClick={openEditDialog}
+            onNodeClick={openEditDrawer}
           />
         </div>
       ) : (
@@ -678,16 +693,18 @@ function buildCharacterGraphElements(
   return [...nodes, ...edges];
 }
 
-function CharacterDialog({
+function CharacterDrawer({
   characters,
   form,
   onFormChange,
+  onRequestDelete,
   onSave,
   projectWorking,
 }: {
   characters: Character[];
   form: CharacterFormState;
   onFormChange: React.Dispatch<React.SetStateAction<CharacterFormState>>;
+  onRequestDelete: () => void;
   onSave: () => Promise<void>;
   projectWorking: boolean;
 }): React.ReactElement {
@@ -711,19 +728,19 @@ function CharacterDialog({
   }
 
   return (
-    <DialogPopup className="max-w-3xl">
-      <DialogHeader>
-        <DialogTitle>
+    <DrawerPopup showCloseButton variant="inset">
+      <DrawerHeader>
+        <DrawerTitle>
           {isEditing
             ? t("analysis.characters.editCharacter")
             : t("analysis.characters.addCharacter")}
-        </DialogTitle>
-        <DialogDescription>
+        </DrawerTitle>
+        <DrawerDescription>
           {t("analysis.characters.cardDescription")}
-        </DialogDescription>
-      </DialogHeader>
-      <DialogPanel className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
+        </DrawerDescription>
+      </DrawerHeader>
+      <DrawerPanel className="space-y-4">
+        <div className="grid gap-4">
           <Field className="w-full">
             <FieldLabel>{t("analysis.characters.fields.name")}</FieldLabel>
             <Input
@@ -738,9 +755,7 @@ function CharacterDialog({
             }
             value={form.role}
           />
-        </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
           <Field className="w-full">
             <FieldLabel>{t("analysis.characters.fields.voice")}</FieldLabel>
             <Input
@@ -795,18 +810,28 @@ function CharacterDialog({
           }
           relations={form.relations}
         />
-      </DialogPanel>
-      <DialogFooter>
-        <DialogClose render={<Button type="button" variant="ghost" />}>
+      </DrawerPanel>
+      <DrawerFooter>
+        {isEditing ? (
+          <Button
+            className="me-auto"
+            onClick={onRequestDelete}
+            type="button"
+            variant="destructive"
+          >
+            {t("analysis.characters.deleteCharacter")}
+          </Button>
+        ) : null}
+        <DrawerClose render={<Button type="button" variant="ghost" />}>
           {t("analysis.characters.cancel")}
-        </DialogClose>
+        </DrawerClose>
         <Button disabled={!canSave} loading={projectWorking} onClick={onSave}>
           {isEditing
             ? t("analysis.characters.saveCharacter")
             : t("analysis.characters.createCharacter")}
         </Button>
-      </DialogFooter>
-    </DialogPopup>
+      </DrawerFooter>
+    </DrawerPopup>
   );
 }
 
