@@ -11,6 +11,7 @@ from cardenio.domain.agents.base import AgentContext
 from cardenio.domain.agents.outline import OutlineAgent
 from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, ProjectState
 from cardenio.domain.models.outline import OutlineData
+from cardenio.domain.runtime import AgentRuntime
 from cardenio.gateway.protocol import LlmGateway
 from cardenio.storage.sqlite_store import SqliteArtifactStore
 
@@ -18,9 +19,16 @@ from cardenio.storage.sqlite_store import SqliteArtifactStore
 class OutlineService:
     """Orchestrates outline generation with merge suggestions (FR-6)."""
 
-    def __init__(self, *, gateway: LlmGateway, store: SqliteArtifactStore) -> None:
+    def __init__(
+        self,
+        *,
+        gateway: LlmGateway,
+        store: SqliteArtifactStore,
+        runtime: AgentRuntime | None = None,
+    ) -> None:
         self.gateway = gateway
         self.store = store
+        self.runtime = runtime or AgentRuntime()
 
     async def generate_outline(self, project_id: str) -> dict | JSONResponse:
         """Generate scene outline from understanding + characters + intent."""
@@ -35,11 +43,14 @@ class OutlineService:
         chapters = await self.store.list_chapters(project_id)
         understanding = await self.store.get_artifact(project_id, "understanding")
         intent = await self.store.get_artifact(project_id, "intent")
-        agent = OutlineAgent(self.gateway)
-        result = await agent.run(
-            AgentContext(
+        result = await self.runtime.run(
+            agent=OutlineAgent(self.gateway),
+            context=AgentContext(
                 source_chunks=[
-                    {"type": "adaptation_direction", "data": project["adaptation_direction"]},
+                    {
+                        "type": "adaptation_direction",
+                        "data": project["adaptation_direction"],
+                    },
                     *[chapter_context(chapter) for chapter in chapters],
                 ],
                 upstream_artifacts={
@@ -53,7 +64,7 @@ class OutlineService:
                     "hard_rules": hard_rules(characters.data),
                     "author_intent": intent.data if intent else None,
                 },
-            )
+            ),
         )
         data = OutlineData.model_validate(
             with_outline_defaults(result.data, chapters, characters.data)
