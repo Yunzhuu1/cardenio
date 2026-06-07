@@ -385,7 +385,7 @@ export default function AnalysisIntent({
               />
             </Field>
             <Separator />
-            <div className="grid gap-x-8 divide-y border-y md:grid-cols-3 md:divide-x md:divide-y-0">
+            <div className="grid gap-3 md:grid-cols-3">
               <IntentSwitch
                 checked={form.allow_new_plot}
                 description={t(
@@ -433,7 +433,7 @@ export default function AnalysisIntent({
             </div>
             <RadioGroup
               aria-label={t("analysis.intent.directionTitle")}
-              className="divide-y border-y"
+              className="grid gap-3"
               onValueChange={(value) => {
                 if (isMvpDirection(value)) void selectDirection(value);
               }}
@@ -441,7 +441,7 @@ export default function AnalysisIntent({
             >
               {mvpDirections.map((item) => (
                 <Label
-                  className="flex items-start gap-3 py-4 transition-colors hover:bg-muted/48 has-[[data-checked]]:bg-primary/6"
+                  className="flex items-start gap-3 rounded-lg border bg-card p-4 transition-colors hover:bg-muted/48 has-[[data-checked]]:border-primary has-[[data-checked]]:bg-primary/6"
                   key={item}
                 >
                   <Radio value={item} />
@@ -520,7 +520,7 @@ function IntentSwitch({
   onCheckedChange: (checked: boolean) => void;
 }): React.ReactElement {
   return (
-    <div className="flex items-start justify-between gap-4 py-4 md:px-5 md:first:pl-0 md:last:pr-0">
+    <div className="flex items-start justify-between gap-4 rounded-lg border bg-card p-4">
       <div className="grid gap-1">
         <Label htmlFor={id}>{label}</Label>
         <p className="text-muted-foreground text-sm">{description}</p>
