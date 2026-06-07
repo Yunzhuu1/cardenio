@@ -75,6 +75,67 @@ async def test_agent_runtime_preserves_needs_attention_status() -> None:
     assert result.run.status == "needs_attention"
 
 
+async def test_agent_runtime_records_internal_trace_history() -> None:
+    runtime = AgentRuntime()
+    agent = FakeAgent(
+        task_name="fake",
+        result=AgentResult(data={"ok": True}, attempts=1, status="ok"),
+    )
+    context = AgentContext(source_chunks=[{"type": "chapter"}])
+
+    await runtime.run(agent=agent, context=context)
+    await runtime.run(agent=agent, context=context)
+
+    assert len(runtime.traces) == 2
+    assert [trace.task for trace in runtime.traces] == ["fake", "fake"]
+    assert runtime.traces[0].context_summary == {
+        "source_chunk_types": ["chapter"],
+        "source_chunk_count": 1,
+        "upstream_artifact_keys": [],
+        "system_constraint_keys": [],
+    }
+
+
+async def test_agent_runtime_bounds_internal_trace_history() -> None:
+    runtime = AgentRuntime(max_trace_records=2)
+    context = AgentContext()
+
+    await runtime.run(
+        agent=FakeAgent(
+            task_name="first",
+            result=AgentResult(data={}, attempts=1, status="ok"),
+        ),
+        context=context,
+    )
+    await runtime.run(
+        agent=FakeAgent(
+            task_name="second",
+            result=AgentResult(data={}, attempts=1, status="ok"),
+        ),
+        context=context,
+    )
+    await runtime.run(
+        agent=FakeAgent(
+            task_name="third",
+            result=AgentResult(data={}, attempts=1, status="ok"),
+        ),
+        context=context,
+    )
+
+    assert [trace.task for trace in runtime.traces] == ["second", "third"]
+    runtime.clear_traces()
+    assert runtime.traces == ()
+
+
+def test_agent_runtime_rejects_empty_trace_capacity() -> None:
+    try:
+        AgentRuntime(max_trace_records=0)
+    except ValueError as exc:
+        assert str(exc) == "max_trace_records must be at least 1"
+    else:
+        raise AssertionError("AgentRuntime should reject empty trace capacity")
+
+
 def test_summarize_context_omits_source_content() -> None:
     summary = summarize_context(
         AgentContext(
