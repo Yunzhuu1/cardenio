@@ -2,6 +2,19 @@
   "app": {
     "name": "Cardenio 入戏"
   },
+  "auth": {
+    "subtitle": "登录后继续你的改编项目。",
+    "loginTab": "登录",
+    "registerTab": "注册",
+    "displayName": "昵称",
+    "email": "邮箱",
+    "password": "密码",
+    "loginSubmit": "登录",
+    "registerSubmit": "创建账号",
+    "logout": "退出登录",
+    "errorTitle": "无法完成登录",
+    "errorFallback": "请稍后重试。"
+  },
   "overview": {
     "title": "改编项目",
     "description": "选择一个项目继续，或新建一个。每个项目从导入原文开始，逐幕推进到改编报告。",

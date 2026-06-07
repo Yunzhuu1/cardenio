@@ -4,7 +4,14 @@ import {
   PanelLeftCloseIcon,
   SettingsIcon,
 } from "lucide-react";
-import { Link, NavLink, Outlet, useLocation, useMatches } from "react-router";
+import {
+  Link,
+  NavLink,
+  Outlet,
+  redirect,
+  useLocation,
+  useMatches,
+} from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/app-shell";
 import { AppSidebar } from "~/components/app-sidebar";
@@ -24,23 +31,38 @@ import {
 } from "~/components/ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "~/components/ui/tooltip";
 import { api } from "~/lib/api/client";
-import type { ProjectSummary, Source } from "~/lib/api/types";
+import { ApiError, type ProjectSummary, type Source } from "~/lib/api/types";
 import { isStageDone, stagePath, stages } from "~/lib/stages";
 import { cn } from "~/lib/utils";
 
 export async function clientLoader() {
-  const { items } = await api.projects.list();
-  return { projects: items };
+  if (!api.auth.getStoredToken()) {
+    throw redirect("/login");
+  }
+
+  try {
+    const [user, projects] = await Promise.all([
+      api.auth.me(),
+      api.projects.list(),
+    ]);
+    return { projects: projects.items, user };
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      api.auth.setStoredToken(null);
+      throw redirect("/login");
+    }
+    throw error;
+  }
 }
 
 export default function AppShell({
   loaderData,
 }: Route.ComponentProps): React.ReactElement {
-  const { projects } = loaderData;
+  const { projects, user } = loaderData;
 
   return (
     <SidebarProvider>
-      <AppSidebar projects={projects} />
+      <AppSidebar projects={projects} user={user} />
 
       <SidebarInset>
         <AppTopbar projects={projects} />
