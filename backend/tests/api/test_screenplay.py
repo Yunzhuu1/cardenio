@@ -971,6 +971,111 @@ class TestScreenplayGeneration:
 
         assert resp.status_code == 422
 
+    async def test_diff_scene_versions_reports_structured_changes(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        generated = generate_resp.json()
+        original_scene = generated["data"]["scenes"][0]
+        edited_scene = {
+            **original_scene,
+            "synopsis": "Diff target synopsis.",
+            "mood": "quiet dread",
+        }
+        edit_resp = await app_client.put(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{original_scene['id']}",
+            json=edited_scene,
+        )
+        assert edit_resp.status_code == 200
+        edited = edit_resp.json()
+
+        resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{original_scene['id']}/versions:diff",
+            params={"a": generated["version"], "b": edited["version"]},
+        )
+
+        assert resp.status_code == 200
+        diff = resp.json()
+        assert diff["scene_id"] == original_scene["id"]
+        assert diff["a"]["version"] == generated["version"]
+        assert diff["b"]["version"] == edited["version"]
+        assert diff["a"]["scene"] == original_scene
+        assert diff["b"]["scene"]["synopsis"] == "Diff target synopsis."
+        assert diff["changed"] is True
+        changes = {item["path"]: item for item in diff["changes"]}
+        assert changes["synopsis"]["from"] == original_scene["synopsis"]
+        assert changes["synopsis"]["to"] == "Diff target synopsis."
+        assert changes["mood"]["from"] == original_scene["mood"]
+        assert changes["mood"]["to"] == "quiet dread"
+
+    async def test_diff_scene_versions_same_version_has_no_changes(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        generated = generate_resp.json()
+        scene_id = generated["data"]["scenes"][0]["id"]
+
+        resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{scene_id}/versions:diff",
+            params={"a": generated["version"], "b": generated["version"]},
+        )
+
+        assert resp.status_code == 200
+        diff = resp.json()
+        assert diff["changed"] is False
+        assert diff["changes"] == []
+
+    async def test_diff_scene_versions_missing_version_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        scene_id = generate_resp.json()["data"]["scenes"][0]["id"]
+
+        resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{scene_id}/versions:diff",
+            params={"a": generate_resp.json()["version"], "b": "missing"},
+        )
+
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Scene version not found"
+
+    async def test_diff_scene_versions_missing_scene_in_version_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        generated = generate_resp.json()
+        target_scene = generated["data"]["scenes"][1]
+        data = {
+            **generated["data"],
+            "scenes": [generated["data"]["scenes"][0]],
+        }
+        edit_resp = await app_client.put(
+            f"/api/v1/projects/{project_id}/screenplay",
+            json=data,
+        )
+        assert edit_resp.status_code == 200
+        version_without_scene = edit_resp.json()
+
+        resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{target_scene['id']}/versions:diff",
+            params={"a": generated["version"], "b": version_without_scene["version"]},
+        )
+
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Scene version not found"
+
     async def test_update_scene_rejects_path_body_id_mismatch(
         self, app_client: AsyncClient, project_id: str
     ) -> None:

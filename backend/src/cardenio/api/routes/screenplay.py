@@ -518,9 +518,37 @@ async def checkout_scene_version(
 
 
 @router.get("/scenes/{scene_id}/versions:diff")
-async def diff_scene_versions(project_id: str, scene_id: str, *, a: str, b: str) -> dict:
+async def diff_scene_versions(
+    project_id: str,
+    scene_id: str,
+    *,
+    a: str,
+    b: str,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-22: Compare two scene versions."""
-    raise NotImplementedError("Version diff not yet implemented")
+    version_a = _parse_version_query(a, "a")
+    version_b = _parse_version_query(b, "b")
+    scene_a = await _get_scene_from_screenplay_version(
+        project_id=project_id,
+        scene_id=scene_id,
+        version=version_a,
+        store=store,
+    )
+    scene_b = await _get_scene_from_screenplay_version(
+        project_id=project_id,
+        scene_id=scene_id,
+        version=version_b,
+        store=store,
+    )
+    changes = _diff_scene_versions(scene_a, scene_b)
+    return {
+        "scene_id": scene_id,
+        "a": {"version": version_a, "scene": scene_a.model_dump(mode="json")},
+        "b": {"version": version_b, "scene": scene_b.model_dump(mode="json")},
+        "changes": changes,
+        "changed": bool(changes),
+    }
 
 
 def _outline_gate_error(current_state: ArtifactState | None) -> JSONResponse:
@@ -860,6 +888,53 @@ def _scene_version_item(
         "needs_recompute": artifact.needs_recompute,
         "scene": scene.model_dump(mode="json"),
     }
+
+
+def _parse_version_query(value: str, name: str) -> str:
+    version = value.strip()
+    if not version:
+        raise HTTPException(status_code=422, detail=f"{name} must not be blank")
+    return version
+
+
+async def _get_scene_from_screenplay_version(
+    *,
+    project_id: str,
+    scene_id: str,
+    version: str,
+    store: SqliteArtifactStore,
+) -> ScreenplayScene:
+    project = await store.get_project(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    artifact = await store.get_artifact_version(project_id, "screenplay", version)
+    if artifact is None:
+        raise HTTPException(status_code=404, detail="Scene version not found")
+
+    data = ScreenplayData.model_validate(artifact.data)
+    scene = _find_scene_or_none(data, scene_id)
+    if scene is None:
+        raise HTTPException(status_code=404, detail="Scene version not found")
+    return scene
+
+
+def _diff_scene_versions(
+    scene_a: ScreenplayScene,
+    scene_b: ScreenplayScene,
+) -> list[dict[str, Any]]:
+    data_a = scene_a.model_dump(mode="json")
+    data_b = scene_b.model_dump(mode="json")
+    changes = [
+        {
+            "path": key,
+            "from": data_a.get(key),
+            "to": data_b.get(key),
+        }
+        for key in data_a.keys() | data_b.keys()
+        if data_a.get(key) != data_b.get(key)
+    ]
+    return sorted(changes, key=lambda item: item["path"])
 
 
 def _coerce_rewrite_result(
