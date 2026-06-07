@@ -540,7 +540,14 @@ def _annotate_subtext_and_mood(
     annotated: list[ScreenplayScene] = []
     for scene in scenes:
         outline_scene = outline_by_id.get(scene.id)
-        mood = scene.mood or _scene_mood(outline_scene, intent, understanding)
+        fallback_mood = _scene_mood(outline_scene, intent, understanding)
+        mood = _style_guarded_mood(
+            scene.mood or fallback_mood,
+            fallback_mood,
+            outline_scene,
+            intent,
+            understanding,
+        )
         beats = [
             beat
             if beat.type == BeatType.TODO or beat.subtext
@@ -565,6 +572,62 @@ def _scene_mood(
     if understanding and understanding.mood:
         return understanding.mood
     return "controlled tension"
+
+
+def _style_guarded_mood(
+    candidate: str,
+    fallback: str,
+    outline_scene: OutlineScene | None,
+    intent: IntentConstraints | None,
+    understanding: UnderstandingData | None,
+) -> str:
+    anchor_text = " ".join(
+        part
+        for part in [
+            outline_scene.mood if outline_scene else None,
+            intent.mood_floor if intent else None,
+            understanding.mood if understanding else None,
+            understanding.style_fingerprint if understanding else None,
+        ]
+        if part
+    )
+    if not anchor_text:
+        return candidate
+    if _mood_conflicts_with_style_anchor(candidate, anchor_text):
+        return fallback
+    return candidate
+
+
+def _mood_conflicts_with_style_anchor(candidate: str, anchor_text: str) -> bool:
+    candidate_lower = candidate.lower()
+    anchor_lower = anchor_text.lower()
+    serious_anchors = (
+        "dark",
+        "dread",
+        "noir",
+        "suspense",
+        "suspenseful",
+        "tense",
+        "restrained",
+        "cold",
+        "bleak",
+        "fear",
+        "secret",
+    )
+    light_moods = (
+        "light",
+        "humorous",
+        "comedy",
+        "comic",
+        "cheerful",
+        "playful",
+        "warm",
+        "bright",
+        "romantic comedy",
+    )
+    return any(marker in anchor_lower for marker in serious_anchors) and any(
+        marker in candidate_lower for marker in light_moods
+    )
 
 
 def _beat_subtext(
