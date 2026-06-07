@@ -30,13 +30,6 @@ import {
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardPanel,
-  CardTitle,
-} from "~/components/ui/card";
-import {
   Collapsible,
   CollapsiblePanel,
   CollapsibleTrigger,
@@ -432,14 +425,11 @@ export default function AnalysisUnderstanding({
             </div>
           </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("analysis.understanding.trustTitle")}</CardTitle>
-              <CardDescription>
+          <section className="space-y-4 border-t pt-5">
+            <div className="space-y-3">
+              <div className="text-muted-foreground text-sm">
                 {t("analysis.understanding.trustDescription")}
-              </CardDescription>
-            </CardHeader>
-            <CardPanel className="space-y-4">
+              </div>
               <div className="flex flex-wrap gap-2">
                 <Badge variant="info">
                   {t("analysis.understanding.narrative.perspective", {
@@ -459,45 +449,43 @@ export default function AnalysisUnderstanding({
                     : t("analysis.understanding.narrative.reliable")}
                 </Badge>
               </div>
+            </div>
 
-              <Separator />
+            <Separator />
 
-              <Collapsible>
-                <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left font-medium text-sm hover:bg-accent/50">
-                  <span>
-                    {t("analysis.understanding.nonVisualizableTitle")}
-                  </span>
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    {t("analysis.understanding.nonVisualizableCount", {
-                      count: draft.non_visualizable.length,
-                    })}
-                    <ChevronDownIcon aria-hidden className="size-4" />
-                  </span>
-                </CollapsibleTrigger>
-                <CollapsiblePanel>
-                  <div className="space-y-2 pt-3">
-                    {draft.non_visualizable.length > 0 ? (
-                      draft.non_visualizable.map((mark, index) => (
-                        <div
-                          className="rounded-lg border bg-muted/30 p-3"
-                          key={`${mark.note}-${index}`}
-                        >
-                          <div className="mb-1 text-muted-foreground text-xs">
-                            {formatSourceRef(mark.source_ref)}
-                          </div>
-                          <p className="text-sm">{mark.note}</p>
+            <Collapsible>
+              <CollapsibleTrigger className="flex w-full items-center justify-between py-2 text-left font-medium text-sm hover:text-foreground">
+                <span>{t("analysis.understanding.nonVisualizableTitle")}</span>
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  {t("analysis.understanding.nonVisualizableCount", {
+                    count: draft.non_visualizable.length,
+                  })}
+                  <ChevronDownIcon aria-hidden className="size-4" />
+                </span>
+              </CollapsibleTrigger>
+              <CollapsiblePanel>
+                <div className="space-y-3 pt-2">
+                  {draft.non_visualizable.length > 0 ? (
+                    draft.non_visualizable.map((mark, index) => (
+                      <div
+                        className="border-l pl-3"
+                        key={`${mark.note}-${index}`}
+                      >
+                        <div className="mb-1 text-muted-foreground text-xs">
+                          {formatSourceRef(mark.source_ref)}
                         </div>
-                      ))
-                    ) : (
-                      <p className="text-muted-foreground text-sm">
-                        {t("analysis.understanding.nonVisualizableEmpty")}
-                      </p>
-                    )}
-                  </div>
-                </CollapsiblePanel>
-              </Collapsible>
-            </CardPanel>
-          </Card>
+                        <p className="text-sm">{mark.note}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground text-sm">
+                      {t("analysis.understanding.nonVisualizableEmpty")}
+                    </p>
+                  )}
+                </div>
+              </CollapsiblePanel>
+            </Collapsible>
+          </section>
         </div>
       )}
     </section>
