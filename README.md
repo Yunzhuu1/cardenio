@@ -481,6 +481,16 @@ Vite dev server 会把前端相对路径 `/api` 代理到后端服务，不改�
 
 当前 `frontend/` 中的产品文案、设计令牌、主题实现、i18n 资源和演示首页为本项目原创实现。第三方 CLI 生成的 coss/shadcn 基座仅作为通用 UI 基础设施，不代表产品原创业务功能；导入页的手动录入、文件导入预览/确认、章节列表、删除、拆分、合并、编辑和门槛逻辑，analysis 阶段的录入、编辑、门控与信任信号展示逻辑，以及剧本阶段的生成、只读查看、加戏筛选和信任标记展示逻辑为本项目业务实现。本地侧边栏 primitive 按 coss Sidebar 文档的组件结构与命名约定实现，用于应用外壳导航组合，不包含 Cardenio 的业务逻辑。
 
+### Backend privacy settings
+
+The backend exposes API-29 at `/api/v1/projects/{project_id}/settings`.
+Project source text, generated artifacts, and settings are stored in the
+configured Cardenio SQLite database for the active backend environment.
+Cardenio does not use project data for model training, and the MVP keeps
+`allow_model_training` locked to `false`. Provider access remains behind the
+backend gateway, with a local/private processing path reserved for deployments
+that require it.
+
 ### Git hooks
 
 本仓库使用 [lefthook](https://github.com/evilmartians/lefthook) 管理本地 Git hooks。lefthook 是第三方开发工具，当前仅用于提交前和推送前的工程规范检查，不属于产品原创功能。
