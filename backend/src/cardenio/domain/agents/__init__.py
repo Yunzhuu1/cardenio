@@ -5,6 +5,18 @@ The orchestrator calls agents deterministically; agents never decide what to
 do next on their own (O1).
 """
 
-from cardenio.domain.agents.base import AgentContext, AgentProtocol, AgentResult
+from cardenio.domain.agents.base import (
+    AgentContext,
+    AgentIssue,
+    AgentProtocol,
+    AgentResult,
+    ControlledAgent,
+)
 
-__all__ = ["AgentProtocol", "AgentContext", "AgentResult"]
+__all__ = [
+    "AgentProtocol",
+    "AgentContext",
+    "AgentIssue",
+    "AgentResult",
+    "ControlledAgent",
+]

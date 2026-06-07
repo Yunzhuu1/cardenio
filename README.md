@@ -536,6 +536,17 @@ path only; conflict suggestions for changed character rules remain future work.
 No third-party dependency or external model service is introduced by this
 capability.
 
+### Backend controlled agent loop
+
+The backend includes a reusable controlled agent loop for future generation
+stages. `ControlledAgent` calls the configured LLM gateway, validates the
+structured response with the stage output schema, records structured
+`AgentIssue` diagnostics, retries with repair context, and falls back to a
+`needs_attention` payload when bounded attempts are exhausted. This is a local
+workflow primitive, not an autonomous ReAct agent and not an MCP server. Existing
+HTTP API responses are unchanged until individual stages are migrated from route
+handlers into services and agents.
+
 ### Git hooks
 
 本仓库使用 [lefthook](https://github.com/evilmartians/lefthook) 管理本地 Git hooks。lefthook 是第三方开发工具，当前仅用于提交前和推送前的工程规范检查，不属于产品原创功能。
