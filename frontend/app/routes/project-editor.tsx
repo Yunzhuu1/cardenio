@@ -367,6 +367,7 @@ export default function ProjectEditor(
     | ProjectLayoutData
     | undefined;
   const [scrollSync, setScrollSync] = useState(true);
+  const [todoOnly, setTodoOnly] = useState(false);
   const [activeSource, setActiveSource] = useState<ActiveSource | null>(null);
   const [activeTodoBeat, setActiveTodoBeat] = useState<ActiveTodoBeat | null>(
     null,
@@ -396,7 +397,10 @@ export default function ProjectEditor(
   const screenplayScrollRef = useRef<HTMLDivElement>(null);
   const syncingScrollRef = useRef(false);
 
-  const scenes = screenplay?.data.scenes ?? [];
+  const scenes = useMemo(
+    () => screenplay?.data.scenes ?? [],
+    [screenplay?.data.scenes],
+  );
   const sceneById = useMemo(
     () => new Map(scenes.map((scene) => [scene.id, scene] as const)),
     [scenes],
@@ -776,13 +780,22 @@ export default function ProjectEditor(
               </CardHeader>
               <CardPanel className="space-y-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <LinkedSwitch
-                    checked={scrollSync}
-                    description={t("editor.scrollSyncDescription")}
-                    id="editor-scroll-sync"
-                    label={t("editor.scrollSyncLabel")}
-                    onCheckedChange={setScrollSync}
-                  />
+                  <div className="grid gap-3 xl:grid-cols-2">
+                    <LinkedSwitch
+                      checked={scrollSync}
+                      description={t("editor.scrollSyncDescription")}
+                      id="editor-scroll-sync"
+                      label={t("editor.scrollSyncLabel")}
+                      onCheckedChange={setScrollSync}
+                    />
+                    <LinkedSwitch
+                      checked={todoOnly}
+                      description={t("editor.todo.onlyDescription")}
+                      id="editor-todo-only"
+                      label={t("editor.todo.onlyLabel")}
+                      onCheckedChange={setTodoOnly}
+                    />
+                  </div>
                   <Button onClick={clearHighlights} size="sm" variant="outline">
                     {t("editor.clearHighlights")}
                   </Button>
@@ -838,6 +851,7 @@ export default function ProjectEditor(
                         rewrittenSceneId={rewrittenSceneId}
                         savingSceneId={savingSceneId}
                         scenes={scenes}
+                        todoOnly={todoOnly}
                       />
                     </ScrollArea>
                   </section>
@@ -1289,6 +1303,7 @@ function ScreenplayPane({
   rewrittenSceneId,
   savingSceneId,
   scenes,
+  todoOnly,
 }: {
   activeSceneIds: Set<string>;
   activeSource: ActiveSource | null;
@@ -1308,6 +1323,7 @@ function ScreenplayPane({
   rewrittenSceneId: string | null;
   savingSceneId: string | null;
   scenes: ScreenplayScene[];
+  todoOnly: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
 
@@ -1323,6 +1339,7 @@ function ScreenplayPane({
     <div className="space-y-4 p-4">
       {scenes.map((scene, sceneIndex) => {
         const isSceneActive = activeSceneIds.has(scene.id);
+        const sceneHasTodo = scene.beats.some((beat) => beat.type === "todo");
         const sourceActive =
           activeSource?.chapter === scene.source_ref.chapter &&
           scene.source_ref.paragraphs.some((paragraph) =>
@@ -1334,6 +1351,7 @@ function ScreenplayPane({
             className={cn(
               "rounded-xl shadow-none transition-[box-shadow,opacity]",
               isSceneActive || sourceActive ? "ring-2 ring-primary/32" : null,
+              todoOnly && !sceneHasTodo ? "opacity-45" : null,
             )}
             id={sceneElementId(scene.id)}
             key={scene.id}
@@ -1419,6 +1437,7 @@ function ScreenplayPane({
                       const todoActive =
                         activeTodoBeat?.sceneId === scene.id &&
                         activeTodoBeat.beatIndex === beatIndex;
+                      const isTodoBeat = beat.type === "todo";
 
                       return (
                         <div
@@ -1427,6 +1446,10 @@ function ScreenplayPane({
                             beatToneClass(beat),
                             beatActive ? "ring-2 ring-primary/32" : null,
                             todoActive ? "ring-2 ring-warning/40" : null,
+                            todoOnly && !isTodoBeat ? "opacity-40" : null,
+                            todoOnly && isTodoBeat
+                              ? "ring-2 ring-warning/40"
+                              : null,
                           )}
                           id={beatElementId(scene.id, beatIndex)}
                           key={`${scene.id}-${beatIndex}`}
