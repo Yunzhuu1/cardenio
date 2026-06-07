@@ -57,9 +57,7 @@ import { api } from "~/lib/api/client";
 import { api as loaderApi } from "~/lib/api/client";
 import {
   ApiError,
-  type ArtifactEnvelope,
   type MergeSuggestion,
-  type OutlineData,
   type OutlineScene,
   type ProjectId,
 } from "~/lib/api/types";
@@ -98,15 +96,6 @@ export async function clientLoader(args: Route.ClientLoaderArgs) {
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
-}
-
-function statusVariant(
-  state: ArtifactEnvelope<OutlineData>["state"] | "empty",
-): "default" | "secondary" | "success" | "warning" {
-  if (state === "confirmed") return "success";
-  if (state === "draft") return "warning";
-  if (state === "needs_recompute") return "warning";
-  return "secondary";
 }
 
 function nullableText(value: string): string | null {
@@ -158,7 +147,6 @@ export default function ProjectOutline({
   }, [characters]);
   const characterList = characters?.data.characters ?? [];
   const characterConfirmed = characters?.state === "confirmed";
-  const status = outline?.state ?? "empty";
   const scenes = useMemo(() => outline?.data.scenes ?? [], [outline]);
   const suggestions = mergeSuggestions?.suggestions ?? [];
   const sceneById = useMemo(() => {
@@ -412,21 +400,6 @@ export default function ProjectOutline({
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="mb-2 text-sm font-medium text-muted-foreground">
-            {t("pages.outline.milestone")}
-          </div>
-          <h2 className="app-heading text-2xl">{t("pages.outline.title")}</h2>
-          <p className="mt-2 max-w-3xl text-muted-foreground text-sm">
-            {t("pages.outline.description")}
-          </p>
-        </div>
-        <Badge variant={statusVariant(status)}>
-          {t(`outline.status.${status}`)}
-        </Badge>
-      </div>
-
       {!characterConfirmed ? (
         <Alert variant="warning">
           <AlertTitle>{t("outline.lockedTitle")}</AlertTitle>

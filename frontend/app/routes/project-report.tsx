@@ -123,15 +123,6 @@ function getErrorMessage(error: unknown): string {
   return String(error);
 }
 
-function statusVariant(
-  state: ArtifactEnvelope<ReportData>["state"] | "empty",
-): "default" | "secondary" | "success" | "warning" {
-  if (state === "confirmed") return "success";
-  if (state === "draft") return "warning";
-  if (state === "needs_recompute") return "warning";
-  return "secondary";
-}
-
 function localizedReportError(error: unknown, t: TFunction): string {
   if (error instanceof ApiError && error.code === "report_flag_mismatch") {
     return t("report.generate.flagMismatch");
@@ -196,7 +187,6 @@ export default function ProjectReport({
   const revalidator = useRevalidator();
   const { projectId, report, screenplay } = loaderData;
   const [working, setWorking] = useState(false);
-  const status = report?.state ?? "empty";
   const sceneById = useMemo(() => {
     return new Map(
       screenplay?.data.scenes.map((scene) => [scene.id, scene] as const) ?? [],
@@ -229,21 +219,6 @@ export default function ProjectReport({
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="mb-2 text-muted-foreground text-sm font-medium">
-            {t("pages.report.milestone")}
-          </div>
-          <h2 className="app-heading text-2xl">{t("pages.report.title")}</h2>
-          <p className="mt-2 max-w-3xl text-muted-foreground text-sm">
-            {t("pages.report.description")}
-          </p>
-        </div>
-        <Badge variant={statusVariant(status)}>
-          {t(`report.status.${status}`)}
-        </Badge>
-      </div>
-
       {!screenplay ? (
         <Empty className="rounded-xl border bg-card">
           <EmptyHeader>

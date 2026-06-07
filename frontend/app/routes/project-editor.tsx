@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import type * as React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useMatches, useRevalidator } from "react-router";
+import { Link, useRevalidator } from "react-router";
 import { useTranslation } from "react-i18next";
 import YAML from "yaml";
 import type { Route } from "./+types/project-editor";
@@ -85,7 +85,6 @@ import { Tabs, TabsList, TabsPanel, TabsTab } from "~/components/ui/tabs";
 import { toastManager } from "~/components/ui/toast";
 import { BeatBadges, BeatBody } from "~/components/screenplay-beat-view";
 import { SceneHeader, SceneSummary } from "~/components/screenplay-scene-view";
-import { TrustChips } from "~/components/trust-chips";
 import { api } from "~/lib/api/client";
 import { api as loaderApi } from "~/lib/api/client";
 import {
@@ -96,7 +95,6 @@ import {
   type Character,
   type Flag,
   type IntExt,
-  type Project,
   type ProjectId,
   type ScreenplayData,
   type ScreenplayScene,
@@ -122,10 +120,6 @@ type ActiveSource = {
 type ActiveTodoBeat = {
   sceneId: string;
   beatIndex: number;
-};
-
-type ProjectLayoutData = {
-  project: Project;
 };
 
 type SelectOption<T extends string> = {
@@ -241,18 +235,6 @@ function syncScroll(source: HTMLElement, target: HTMLElement): void {
   target.scrollTop = targetScrollable * ratio;
 }
 
-function projectStatusVariant(
-  state: Project["state"] | undefined,
-): "secondary" | "success" | "warning" {
-  if (state === "editing") return "success";
-  if (state === "generated") return "warning";
-  return "secondary";
-}
-
-function hasProjectData(data: unknown): data is ProjectLayoutData {
-  return typeof data === "object" && data !== null && "project" in data;
-}
-
 function cloneScene(scene: ScreenplayScene): ScreenplayScene {
   return {
     ...scene,
@@ -359,13 +341,9 @@ export default function ProjectEditor(
   props: Route.ComponentProps,
 ): React.ReactElement {
   const { t } = useTranslation();
-  const matches = useMatches();
   const revalidator = useRevalidator();
   const { loaderData } = props;
   const { characters, projectId, screenplay, source, todos } = loaderData;
-  const project = matches.find((match) => hasProjectData(match.data))?.data as
-    | ProjectLayoutData
-    | undefined;
   const [scrollSync, setScrollSync] = useState(true);
   const [todoOnly, setTodoOnly] = useState(false);
   const [activeSource, setActiveSource] = useState<ActiveSource | null>(null);
@@ -730,10 +708,6 @@ export default function ProjectEditor(
   if (!screenplay) {
     return (
       <section className="space-y-4">
-        <EditorHeader
-          projectState={project?.project.state}
-          showStatus={false}
-        />
         <Empty className="rounded-xl border bg-card">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -754,8 +728,6 @@ export default function ProjectEditor(
 
   return (
     <section className="space-y-4">
-      <EditorHeader projectState={project?.project.state} showStatus />
-
       <Tabs onValueChange={handleEditorTabChange} value={editorTab}>
         <TabsList>
           <TabsTab value="wysiwyg">{t("editor.source.wysiwygTab")}</TabsTab>
@@ -956,42 +928,6 @@ export default function ProjectEditor(
         </AlertDialogPopup>
       </AlertDialog>
     </section>
-  );
-}
-
-function EditorHeader({
-  projectState,
-  showStatus,
-}: {
-  projectState: Project["state"] | undefined;
-  showStatus: boolean;
-}): React.ReactElement {
-  const { t } = useTranslation();
-
-  return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-      <div>
-        <div className="mb-2 text-muted-foreground text-sm font-medium">
-          {t("pages.editor.milestone")}
-        </div>
-        <h2 className="app-heading text-2xl">{t("pages.editor.title")}</h2>
-        <p className="mt-2 max-w-3xl text-muted-foreground text-sm">
-          {t("pages.editor.description")}
-        </p>
-        <div className="mt-3">
-          <TrustChips />
-        </div>
-      </div>
-      {showStatus ? (
-        <Badge variant={projectStatusVariant(projectState)}>
-          {t("editor.projectStatus", {
-            state: projectState
-              ? t(`editor.states.${projectState}`)
-              : t("editor.states.unknown"),
-          })}
-        </Badge>
-      ) : null}
-    </div>
   );
 }
 

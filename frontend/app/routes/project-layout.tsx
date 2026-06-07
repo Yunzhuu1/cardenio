@@ -1,4 +1,4 @@
-import { CheckIcon, SettingsIcon } from "lucide-react";
+import { CheckIcon } from "lucide-react";
 import { NavLink, Outlet } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/project-layout";
@@ -24,26 +24,6 @@ export default function ProjectLayout({
 
   return (
     <div className="mx-auto w-full max-w-6xl">
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <div className="app-heading min-w-0 truncate text-sm font-medium text-muted-foreground">
-          {project.title}
-        </div>
-        <NavLink
-          aria-label={t("nav.projectSettings")}
-          className={({ isActive }) =>
-            cn(
-              "flex size-9 items-center justify-center rounded-md border border-border",
-              isActive
-                ? "bg-accent text-foreground"
-                : "text-muted-foreground hover:bg-accent",
-            )
-          }
-          to={stagePath(project.id, "settings")}
-        >
-          <SettingsIcon aria-hidden className="size-4" />
-        </NavLink>
-      </div>
-
       <nav
         aria-label={t("nav.stages")}
         className="mb-8 flex gap-2 overflow-x-auto border-b border-border pb-3"

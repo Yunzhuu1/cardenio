@@ -248,23 +248,6 @@ export default function AnalysisUnderstanding({
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="mb-2 text-sm font-medium text-muted-foreground">
-            {t("analysis.stepOf", { current: 1, total: 3 })}
-          </div>
-          <h2 className="app-heading text-2xl">
-            {t("analysis.understanding.title")}
-          </h2>
-          <p className="mt-2 max-w-3xl text-muted-foreground text-sm">
-            {t("analysis.understanding.description")}
-          </p>
-        </div>
-        <Badge variant={isConfirmed ? "success" : "secondary"}>
-          {t(`analysis.status.${status}`)}
-        </Badge>
-      </div>
-
       {!threshold.passed ? (
         <Alert variant="warning">
           <AlertTitle>{t("analysis.understanding.thresholdTitle")}</AlertTitle>
