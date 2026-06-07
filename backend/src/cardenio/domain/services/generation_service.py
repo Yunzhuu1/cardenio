@@ -6,9 +6,9 @@ from typing import Any
 
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from cardenio.domain.agents.base import AgentContext
-from cardenio.domain.agents.scene import SceneAgent
 from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, Flag, ProjectState
 from cardenio.domain.models.characters import CharactersData
 from cardenio.domain.models.intent import IntentConstraints
@@ -21,10 +21,14 @@ from cardenio.domain.models.screenplay import (
     ShotHints,
 )
 from cardenio.domain.models.understanding import NonVisualizableMark, UnderstandingData
+from cardenio.domain.runtime import AgentRuntime
+from cardenio.domain.tools import SceneGenerateTool, SceneGenerateToolInput, ToolRegistry
 from cardenio.domain.validation.trust import enforce_must_keep_lines
 from cardenio.gateway.protocol import LlmGateway
 from cardenio.orchestrator.trust_enforcer import enforce_pipeline_trust
 from cardenio.storage.sqlite_store import SqliteArtifactStore
+
+SCENE_GENERATE_TOOL = "scene.generate"
 
 
 class GenerationService:
@@ -34,9 +38,20 @@ class GenerationService:
     Each scene is independent; failures don't affect other scenes (NFR-6).
     """
 
-    def __init__(self, *, gateway: LlmGateway, store: SqliteArtifactStore) -> None:
+    def __init__(
+        self,
+        *,
+        gateway: LlmGateway,
+        store: SqliteArtifactStore,
+        runtime: AgentRuntime | None = None,
+        tools: ToolRegistry | None = None,
+    ) -> None:
         self.gateway = gateway
         self.store = store
+        self.runtime = runtime or AgentRuntime()
+        self.tools = tools or ToolRegistry(
+            [SceneGenerateTool(gateway=self.gateway, runtime=self.runtime)]
+        )
 
     async def generate_screenplay(
         self,
@@ -81,36 +96,43 @@ class GenerationService:
         )
         shot_hints_enabled = shot_hints_enabled_from_body(body)
         character_voices = character_voices_for(characters)
-        agent = SceneAgent(self.gateway)
-        result = await agent.run(
-            AgentContext(
-                source_chunks=[
-                    {"type": "adaptation_direction", "data": project["adaptation_direction"]},
-                    {
-                        "type": "request",
-                        "data": {**(body or {}), "shot_hints": shot_hints_enabled},
-                    },
-                ],
-                upstream_artifacts={
-                    "outline": outline.model_dump(mode="json"),
-                    "character_voices": character_voices,
-                    "author_intent": intent.model_dump(mode="json") if intent else {},
-                    "non_visualizable": [
-                        mark.model_dump(mode="json")
-                        for mark in (understanding.non_visualizable if understanding else [])
+        result = await self.tools.get(SCENE_GENERATE_TOOL).run(
+            SceneGenerateToolInput(
+                context=AgentContext(
+                    source_chunks=[
+                        {
+                            "type": "adaptation_direction",
+                            "data": project["adaptation_direction"],
+                        },
+                        {
+                            "type": "request",
+                            "data": {**(body or {}), "shot_hints": shot_hints_enabled},
+                        },
                     ],
-                },
-                system_constraints={
-                    "style_fingerprint": project["style_fingerprint"],
-                    "voice": character_voices,
-                    "author_intent": intent.model_dump(mode="json") if intent else None,
-                    "shot_hints_enabled": shot_hints_enabled,
-                },
+                    upstream_artifacts={
+                        "outline": outline.model_dump(mode="json"),
+                        "character_voices": character_voices,
+                        "author_intent": intent.model_dump(mode="json") if intent else {},
+                        "non_visualizable": [
+                            mark.model_dump(mode="json")
+                            for mark in (
+                                understanding.non_visualizable if understanding else []
+                            )
+                        ],
+                    },
+                    system_constraints={
+                        "style_fingerprint": project["style_fingerprint"],
+                        "voice": character_voices,
+                        "author_intent": intent.model_dump(mode="json") if intent else None,
+                        "shot_hints_enabled": shot_hints_enabled,
+                    },
+                )
             )
         )
+        output = tool_output_data(result)
         data = ScreenplayData.model_validate(
             with_screenplay_defaults(
-                result.data,
+                output,
                 outline,
                 understanding,
                 character_voices,
@@ -130,6 +152,13 @@ class GenerationService:
         if project["state"] == ProjectState.OUTLINED:
             await self.store.update_project_state(project_id, ProjectState.GENERATED)
         return saved.model_dump(mode="json")
+
+
+def tool_output_data(result: BaseModel) -> dict[str, Any]:
+    data = result.model_dump(mode="json").get("data")
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=500, detail="Scene tool returned invalid data")
+    return data
 
 
 def outline_gate_error(current_state: ArtifactState | None) -> JSONResponse:

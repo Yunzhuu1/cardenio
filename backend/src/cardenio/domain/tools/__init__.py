@@ -17,6 +17,11 @@ from cardenio.domain.tools.rewrite import (
     RewriteSceneToolInput,
     RewriteSceneToolOutput,
 )
+from cardenio.domain.tools.scene import (
+    SceneGenerateTool,
+    SceneGenerateToolInput,
+    SceneGenerateToolOutput,
+)
 
 __all__ = [
     "Tool",
@@ -26,6 +31,9 @@ __all__ = [
     "RewriteSceneTool",
     "RewriteSceneToolInput",
     "RewriteSceneToolOutput",
+    "SceneGenerateTool",
+    "SceneGenerateToolInput",
+    "SceneGenerateToolOutput",
     "ToolAlreadyRegisteredError",
     "ToolNotFoundError",
     "ToolRegistry",
