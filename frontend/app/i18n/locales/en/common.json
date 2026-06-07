@@ -2,6 +2,19 @@
   "app": {
     "name": "Cardenio"
   },
+  "auth": {
+    "subtitle": "Sign in to continue your adaptation projects.",
+    "loginTab": "Sign in",
+    "registerTab": "Register",
+    "displayName": "Display name",
+    "email": "Email",
+    "password": "Password",
+    "loginSubmit": "Sign in",
+    "registerSubmit": "Create account",
+    "logout": "Sign out",
+    "errorTitle": "Authentication failed",
+    "errorFallback": "Please try again later."
+  },
   "overview": {
     "title": "Adaptation projects",
     "description": "Pick a project to continue, or start a new one. Each project begins with imported source text and advances act by act to the adaptation report.",

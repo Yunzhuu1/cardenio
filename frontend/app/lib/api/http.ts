@@ -4,19 +4,23 @@ import {
   type AdaptationDirection,
   type ApiErrorBody,
   type ArtifactEnvelope,
+  type AuthSession,
   type DirectionResponse,
+  type LoginInput,
   type MvpDirection,
   type Project,
   type ProjectGates,
   type ProjectId,
   type ProjectSettingsData,
   type ProjectState,
+  type RegisterInput,
   type SourceLanguage,
   type UiLanguage,
   type OutputLanguage,
 } from "./types";
 
 const BASE_URL = "/api/v1";
+const AUTH_STORAGE_KEY = "cardenio.auth.token";
 
 type FlatProjectPayload = {
   id: ProjectId;
@@ -106,6 +110,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         : "zh-CN",
     );
   }
+  const token = getStoredToken();
+  if (token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
 
   const response = await fetch(`${BASE_URL}${path}`, {
     ...init,
@@ -129,7 +137,52 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
+function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(AUTH_STORAGE_KEY);
+}
+
+function setStoredToken(token: string | null): void {
+  if (typeof window === "undefined") return;
+  if (token) {
+    window.localStorage.setItem(AUTH_STORAGE_KEY, token);
+  } else {
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  }
+}
+
+async function storeAuthSession(
+  requestPromise: Promise<AuthSession>,
+): Promise<AuthSession> {
+  const session = await requestPromise;
+  setStoredToken(session.access_token);
+  return session;
+}
+
 export const httpClient: ApiClient = {
+  auth: {
+    getStoredToken,
+    setStoredToken,
+    register: (input: RegisterInput) =>
+      storeAuthSession(
+        request<AuthSession>("/auth/register", {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+      ),
+    login: (input: LoginInput) =>
+      storeAuthSession(
+        request<AuthSession>("/auth/login", {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+      ),
+    me: () => request("/auth/me"),
+    logout: () =>
+      request<void>("/auth/logout", { method: "POST" }).finally(() =>
+        setStoredToken(null),
+      ),
+  },
   projects: {
     list: (params) => {
       const search = new URLSearchParams();

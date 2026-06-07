@@ -515,6 +515,21 @@ user. New projects are bound to the current account, project lists only return
 that account's projects, and attempts to access another user's project return
 `403 forbidden`.
 
+### Frontend authentication
+
+The frontend now requires authors to sign in before entering the project
+workspace. `/login` provides first-party register and login forms backed by the
+backend auth endpoints, and protected app routes redirect unauthenticated users
+back to the login page.
+
+After register or login, the frontend stores the opaque bearer credential in
+browser `localStorage` under `cardenio.auth.token` and attaches it as an
+`Authorization: Bearer ...` header for API requests. Logging out calls the
+backend logout endpoint and clears the stored credential. `VITE_API_MODE=mock`
+keeps the same frontend flow with an in-memory mock session for offline UI
+development. This integration uses existing frontend dependencies and does not
+add a third-party auth provider.
+
 ### Backend privacy settings
 
 The backend exposes API-29 at `/api/v1/projects/{project_id}/settings`.
