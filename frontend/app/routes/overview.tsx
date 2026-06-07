@@ -42,7 +42,7 @@ export default function Overview({
   const creating = navigation.state !== "idle";
 
   return (
-    <div className="mx-auto w-full max-w-5xl">
+    <div className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8">
       <div className="flex justify-end">
         <Form method="post">
           <input

@@ -14,7 +14,7 @@ export function meta({ data }: Route.MetaArgs) {
 
 export default function ProjectLayout({}: Route.ComponentProps): React.ReactElement {
   return (
-    <div className="mx-auto h-full w-full max-w-6xl overflow-y-auto pb-8">
+    <div className="mx-auto h-full w-full max-w-6xl overflow-y-auto px-5 py-8 sm:px-8">
       <Outlet />
     </div>
   );
