@@ -104,6 +104,11 @@ class TestCharacterProfiles:
             stub_gateway.call_log[-1].system_constraints.style_fingerprint
             == project_resp.json()["style_fingerprint"]
         )
+        assert stub_gateway.call_log[-1].system_constraints.output_language == "zh-CN"
+        assert (
+            "All user-visible generated content must be written in Simplified Chinese."
+            in (stub_gateway.call_log[-1].system_constraints.hard_rules or [])
+        )
         context = stub_gateway.call_log[-1].context
         assert context[0]["chapter_id"]
         assert context[-3]["type"] == "upstream_artifacts"

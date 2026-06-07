@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from cardenio.domain.agents.base import AgentContext
 from cardenio.domain.agents.outline import OutlineAgent
+from cardenio.domain.language import merge_system_constraints
 from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, ProjectState
 from cardenio.domain.models.outline import OutlineData
 from cardenio.domain.runtime import AgentRuntime
@@ -63,12 +64,15 @@ class OutlineService:
                     "characters": characters.data,
                     "intent": intent.data if intent else None,
                 },
-                system_constraints={
-                    "style_fingerprint": project["style_fingerprint"],
-                    "voice": voice_constraints(characters.data),
-                    "hard_rules": hard_rules(characters.data),
-                    "author_intent": intent.data if intent else None,
-                },
+                system_constraints=merge_system_constraints(
+                    {
+                        "style_fingerprint": project["style_fingerprint"],
+                        "voice": voice_constraints(characters.data),
+                        "hard_rules": hard_rules(characters.data),
+                        "author_intent": intent.data if intent else None,
+                    },
+                    project,
+                ),
             ),
         )
         data = OutlineData.model_validate(

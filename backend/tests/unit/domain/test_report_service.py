@@ -16,6 +16,7 @@ class FakeStore:
         self.project: dict[str, Any] = {
             "id": "proj_1",
             "style_fingerprint": "restrained; tense",
+            "output_language": "zh-CN",
         }
         self.artifacts: dict[str, ArtifactEnvelope[Any]] = {
             "screenplay": _artifact("screenplay", "v_screenplay", _screenplay_data()),
@@ -63,6 +64,7 @@ class RecordingReportTool:
     def __init__(self) -> None:
         self.flag_statistics: dict[str, int] | None = None
         self.style_fingerprint: str | None = None
+        self.output_language: str | None = None
         self.has_outline = False
         self.has_understanding = False
 
@@ -70,6 +72,7 @@ class RecordingReportTool:
         context = input_data.context
         self.flag_statistics = context.upstream_artifacts["flag_statistics"]
         self.style_fingerprint = context.system_constraints["style_fingerprint"]
+        self.output_language = context.system_constraints["output_language"]
         self.has_outline = "outline" in context.upstream_artifacts
         self.has_understanding = "understanding" in context.upstream_artifacts
         return ReportGenerateToolOutput(
@@ -115,6 +118,7 @@ async def test_report_service_runs_agent_through_tool_registry() -> None:
         "ai_inferred_lines": 1,
     }
     assert tool.style_fingerprint == "restrained; tense"
+    assert tool.output_language == "zh-CN"
     assert tool.has_outline is True
     assert tool.has_understanding is True
     assert store.saved is not None

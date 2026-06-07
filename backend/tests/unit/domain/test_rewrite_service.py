@@ -17,6 +17,7 @@ class FakeStore:
             "id": "proj_1",
             "state": ProjectState.GENERATED,
             "style_fingerprint": "restrained; tense",
+            "output_language": "zh-CN",
         }
         self.artifacts: dict[str, ArtifactEnvelope[Any]] = {
             "screenplay": _artifact("screenplay", "v_screenplay", _screenplay_data()),
@@ -84,11 +85,13 @@ class RecordingRewriteTool:
     def __init__(self) -> None:
         self.context_scene_id: str | None = None
         self.request_scene_id: str | None = None
+        self.output_language: str | None = None
 
     async def run(self, input_data: RewriteSceneToolInput) -> RewriteSceneToolOutput:
         context = input_data.context
         self.context_scene_id = context.upstream_artifacts["target_scene"]["id"]
         self.request_scene_id = context.source_chunks[0]["data"]["scene_id"]
+        self.output_language = context.system_constraints["output_language"]
         return RewriteSceneToolOutput(
             data={
                 **context.upstream_artifacts["target_scene"],
@@ -123,6 +126,7 @@ async def test_rewrite_service_runs_agent_through_runtime() -> None:
 
     assert tool.context_scene_id == "sc_001"
     assert tool.request_scene_id == "sc_001"
+    assert tool.output_language == "zh-CN"
     assert store.saved is not None
     assert store.saved.parent_version == "v_screenplay"
     assert store.updated_state == ProjectState.EDITING

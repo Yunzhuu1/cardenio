@@ -173,6 +173,7 @@ def _system_constraints_from_context(context: AgentContext) -> SystemConstraints
     constraints = context.system_constraints
     return SystemConstraints(
         style_fingerprint=constraints.get("style_fingerprint"),
+        output_language=constraints.get("output_language"),
         voice=constraints.get("voice"),
         hard_rules=constraints.get("hard_rules"),
         author_intent=constraints.get("author_intent"),

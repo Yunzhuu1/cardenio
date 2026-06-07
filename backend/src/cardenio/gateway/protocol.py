@@ -20,6 +20,7 @@ class SystemConstraints:
     """
 
     style_fingerprint: str | None = None
+    output_language: str | None = None
     voice: dict[str, str] | None = None
     hard_rules: list[str] | None = None
     author_intent: dict[str, Any] | None = None

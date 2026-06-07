@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from cardenio.domain.agents.base import AgentContext
+from cardenio.domain.language import merge_system_constraints
 from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, Flag, ProjectState
 from cardenio.domain.models.characters import CharactersData
 from cardenio.domain.models.intent import IntentConstraints
@@ -125,12 +126,17 @@ class GenerationService:
                             )
                         ],
                     },
-                    system_constraints={
-                        "style_fingerprint": project["style_fingerprint"],
-                        "voice": character_voices,
-                        "author_intent": intent.model_dump(mode="json") if intent else None,
-                        "shot_hints_enabled": shot_hints_enabled,
-                    },
+                    system_constraints=merge_system_constraints(
+                        {
+                            "style_fingerprint": project["style_fingerprint"],
+                            "voice": character_voices,
+                            "author_intent": intent.model_dump(mode="json")
+                            if intent
+                            else None,
+                            "shot_hints_enabled": shot_hints_enabled,
+                        },
+                        project,
+                    ),
                 )
             )
         )

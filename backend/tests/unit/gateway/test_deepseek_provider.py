@@ -45,8 +45,11 @@ async def test_deepseek_gateway_builds_json_chat_request() -> None:
     assert gateway.payload["model"] == "deepseek-v4-flash"
     assert gateway.payload["response_format"] == {"type": "json_object"}
     assert gateway.payload["max_tokens"] == 8192
+    assert "system_constraints.output_language" in gateway.payload["messages"][0]["content"]
     assert gateway.payload["messages"][1]["role"] == "user"
-    assert "understand" in gateway.payload["messages"][1]["content"]
+    user_content = gateway.payload["messages"][1]["content"]
+    assert "understand" in user_content
+    assert "style_fingerprint" in user_content
 
 
 async def test_deepseek_gateway_accepts_fenced_json_content() -> None:

@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from cardenio.api.errors import ReportFlagMismatchError
 from cardenio.domain.agents.base import AgentContext
+from cardenio.domain.language import merge_system_constraints
 from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, Flag, SourceRef
 from cardenio.domain.models.report import (
     ExternalizationEntry,
@@ -74,9 +75,10 @@ class ReportService:
             ReportGenerateToolInput(
                 context=AgentContext(
                     upstream_artifacts=upstream_artifacts,
-                    system_constraints={
-                        "style_fingerprint": project["style_fingerprint"],
-                    },
+                    system_constraints=merge_system_constraints(
+                        {"style_fingerprint": project["style_fingerprint"]},
+                        project,
+                    ),
                 )
             )
         )

@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 
 from cardenio.domain.agents.base import AgentContext
+from cardenio.domain.language import merge_system_constraints
 from cardenio.domain.models.base import ArtifactEnvelope, SourceRef
 from cardenio.domain.models.characters import CharactersData
 from cardenio.domain.models.intent import IntentConstraints
@@ -118,12 +119,15 @@ class ContextAssembler:
                 if understanding
                 else {},
             },
-            system_constraints={
-                "style_fingerprint": project["style_fingerprint"],
-                "voice": character_voices,
-                "author_intent": intent.model_dump(mode="json") if intent else None,
-                "shot_hints_enabled": screenplay.shot_hints.enabled,
-            },
+            system_constraints=merge_system_constraints(
+                {
+                    "style_fingerprint": project["style_fingerprint"],
+                    "voice": character_voices,
+                    "author_intent": intent.model_dump(mode="json") if intent else None,
+                    "shot_hints_enabled": screenplay.shot_hints.enabled,
+                },
+                project,
+            ),
         )
 
         return RewriteContextBundle(
