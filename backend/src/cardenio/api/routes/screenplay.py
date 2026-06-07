@@ -24,9 +24,9 @@ from cardenio.domain.models.screenplay import (
     BeatType,
     ScreenplayData,
     ScreenplayScene,
-    ShotHints,
 )
 from cardenio.domain.models.understanding import NonVisualizableMark, UnderstandingData
+from cardenio.domain.services.generation_service import GenerationService
 from cardenio.domain.validation.trust import enforce_must_keep_lines
 from cardenio.gateway.protocol import GenerateRequest, LlmGateway, SystemConstraints
 from cardenio.orchestrator.trust_enforcer import enforce_pipeline_trust
@@ -75,89 +75,8 @@ async def generate_screenplay(
     gateway: LlmGateway = Depends(get_gateway),
 ) -> dict:
     """API-17: Generate screenplay draft from confirmed outline."""
-    project = await store.get_project(project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    outline_artifact = await store.get_artifact(project_id, "outline")
-    if outline_artifact is None or outline_artifact.state != ArtifactState.CONFIRMED:
-        return _outline_gate_error(outline_artifact.state if outline_artifact else None)
-
-    outline = OutlineData.model_validate(outline_artifact.data)
-    understanding_artifact = await store.get_artifact(project_id, "understanding")
-    understanding = (
-        UnderstandingData.model_validate(understanding_artifact.data)
-        if understanding_artifact is not None
-        else None
-    )
-    characters_artifact = await store.get_artifact(project_id, "characters")
-    characters = (
-        CharactersData.model_validate(characters_artifact.data)
-        if characters_artifact is not None
-        else None
-    )
-    intent_artifact = await store.get_artifact(project_id, "intent")
-    intent = (
-        IntentConstraints.model_validate(intent_artifact.data)
-        if intent_artifact is not None
-        else None
-    )
-    shot_hints_enabled = _shot_hints_enabled(body)
-    character_voices = _character_voices(characters)
-    result = await gateway.generate(
-        GenerateRequest(
-            task="scene",
-            system_constraints=SystemConstraints(
-                style_fingerprint=project["style_fingerprint"],
-                voice=character_voices,
-                author_intent=intent.model_dump(mode="json") if intent else None,
-                shot_hints_enabled=shot_hints_enabled,
-            ),
-            context=[
-                {"type": "outline", "data": outline.model_dump(mode="json")},
-                {"type": "character_voices", "data": character_voices},
-                {
-                    "type": "author_intent",
-                    "data": intent.model_dump(mode="json") if intent else {},
-                },
-                {
-                    "type": "non_visualizable",
-                    "data": [
-                        mark.model_dump(mode="json")
-                        for mark in (understanding.non_visualizable if understanding else [])
-                    ],
-                },
-                {"type": "adaptation_direction", "data": project["adaptation_direction"]},
-                {
-                    "type": "request",
-                    "data": {**(body or {}), "shot_hints": shot_hints_enabled},
-                },
-            ],
-            output_schema=ScreenplayData.model_json_schema(),
-        )
-    )
-    data = ScreenplayData.model_validate(
-        _with_screenplay_defaults(
-            result.data,
-            outline,
-            understanding,
-            character_voices,
-            shot_hints_enabled,
-        )
-    )
-    data = data.model_copy(update={"shot_hints": ShotHints(enabled=shot_hints_enabled)})
-    data = _enforce_screenplay_trust(data, outline, intent, understanding)
-    previous = await store.get_artifact(project_id, "screenplay")
-    envelope = ArtifactEnvelope[ScreenplayData](
-        type="screenplay",
-        state=ArtifactState.DRAFT,
-        parent_version=previous.version if previous else None,
-        data=data,
-    )
-    saved = await store.save_artifact(project_id, envelope)
-    if project["state"] == ProjectState.OUTLINED:
-        await store.update_project_state(project_id, ProjectState.GENERATED)
-    return saved.model_dump(mode="json")
+    service = GenerationService(gateway=gateway, store=store)
+    return await service.generate_screenplay(project_id, body=body)
 
 
 @router.get("")
