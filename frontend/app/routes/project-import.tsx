@@ -15,6 +15,12 @@ import { Form, Link, useNavigation, useRevalidator } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { Route } from "./+types/project-import";
 import {
+  Accordion,
+  AccordionItem,
+  AccordionPanel,
+  AccordionTrigger,
+} from "~/components/ui/accordion";
+import {
   Alert,
   AlertAction,
   AlertDescription,
@@ -35,17 +41,11 @@ import { Button } from "~/components/ui/button";
 import {
   Card,
   CardAction,
-  CardDescription,
   CardHeader,
   CardPanel,
   CardTitle,
 } from "~/components/ui/card";
 import { Checkbox } from "~/components/ui/checkbox";
-import {
-  Collapsible,
-  CollapsiblePanel,
-  CollapsibleTrigger,
-} from "~/components/ui/collapsible";
 import {
   Dialog,
   DialogClose,
@@ -525,9 +525,9 @@ export default function ProjectImport({
             </EmptyHeader>
           </Empty>
         ) : (
-          <div className="grid gap-4">
+          <Accordion multiple>
             {source.chapters.map((chapter) => (
-              <ChapterCard
+              <ChapterAccordionItem
                 chapter={chapter}
                 deleting={deletingChapterId === chapter.id}
                 key={chapter.id}
@@ -545,7 +545,7 @@ export default function ProjectImport({
                 selected={validSelectedChapterIds.includes(chapter.id)}
               />
             ))}
-          </div>
+          </Accordion>
         )}
       </section>
 
@@ -720,7 +720,7 @@ function FileUploadCard({
   );
 }
 
-function ChapterCard({
+function ChapterAccordionItem({
   chapter,
   deleting,
   onEdit,
@@ -742,19 +742,21 @@ function ChapterCard({
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <div className="flex items-start gap-3">
+      <AccordionItem value={chapter.id}>
+        <div className="flex items-center gap-3 py-4">
+          <div className="flex shrink-0 items-center">
             <Checkbox
               aria-label={`${t("import.selectChapter")} ${chapter.order}`}
               checked={selected}
               onCheckedChange={(checked) => onSelect(checked === true)}
             />
-            <div className="min-w-0">
-              <CardTitle>
+          </div>
+          <AccordionTrigger className="group gap-3 self-stretch">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <div className="shrink-0 text-sm font-normal leading-none text-foreground">
                 {t("import.chapterLabel", { n: chapter.order })}
-              </CardTitle>
-              <CardDescription className="mt-2 flex flex-wrap gap-2">
+              </div>
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <Badge variant="secondary">
                   {t("import.charCount", { count: chapter.char_count })}
                 </Badge>
@@ -763,73 +765,61 @@ function ChapterCard({
                     count: chapter.paragraphs.length,
                   })}
                 </Badge>
-              </CardDescription>
-            </div>
-          </div>
-          <CardAction>
-            <Menu>
-              <MenuTrigger
-                render={
-                  <Button
-                    aria-label={t("import.chapterActions")}
-                    size="icon"
-                    variant="ghost"
-                  />
-                }
-              >
-                <MoreHorizontalIcon aria-hidden />
-              </MenuTrigger>
-              <MenuPopup align="end">
-                <MenuGroup>
-                  <MenuItem onClick={onEdit}>
-                    <PencilIcon aria-hidden />
-                    {t("import.edit")}
-                  </MenuItem>
-                  <MenuItem disabled={!canSplit} onClick={onSplit}>
-                    <ScissorsIcon aria-hidden />
-                    {canSplit
-                      ? t("import.split")
-                      : t("import.splitUnavailable")}
-                  </MenuItem>
-                </MenuGroup>
-                <MenuSeparator />
-                <MenuItem
-                  onClick={() => setDeleteOpen(true)}
-                  variant="destructive"
-                >
-                  <Trash2Icon aria-hidden />
-                  {t("import.delete")}
-                </MenuItem>
-              </MenuPopup>
-            </Menu>
-          </CardAction>
-        </CardHeader>
-        <CardPanel>
-          <Collapsible>
-            <CollapsibleTrigger className="inline-flex items-center gap-2 text-sm font-medium text-foreground hover:text-primary">
-              {t("import.previewToggle")}
-              <ChevronDownIcon aria-hidden data-icon="inline-end" />
-            </CollapsibleTrigger>
-            <CollapsiblePanel>
-              <div className="mt-4 flex flex-col gap-3 rounded-lg border border-border bg-muted/40 p-4">
-                <div className="text-sm font-medium text-foreground">
-                  {t("import.sourcePreview")}
-                </div>
-                <div className="flex flex-col gap-4">
-                  {chapter.paragraphs.map((paragraph) => (
-                    <p
-                      className="whitespace-pre-wrap text-sm leading-7 text-foreground"
-                      key={paragraph.index}
-                    >
-                      {paragraph.text}
-                    </p>
-                  ))}
-                </div>
               </div>
-            </CollapsiblePanel>
-          </Collapsible>
-        </CardPanel>
-      </Card>
+            </div>
+            <ChevronDownIcon
+              aria-hidden
+              className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[panel-open]:rotate-180"
+            />
+          </AccordionTrigger>
+          <Menu>
+            <MenuTrigger
+              render={
+                <Button
+                  aria-label={t("import.chapterActions")}
+                  className="shrink-0"
+                  size="icon"
+                  variant="ghost"
+                />
+              }
+            >
+              <MoreHorizontalIcon aria-hidden />
+            </MenuTrigger>
+            <MenuPopup align="end">
+              <MenuGroup>
+                <MenuItem onClick={onEdit}>
+                  <PencilIcon aria-hidden />
+                  {t("import.edit")}
+                </MenuItem>
+                <MenuItem disabled={!canSplit} onClick={onSplit}>
+                  <ScissorsIcon aria-hidden />
+                  {canSplit ? t("import.split") : t("import.splitUnavailable")}
+                </MenuItem>
+              </MenuGroup>
+              <MenuSeparator />
+              <MenuItem
+                onClick={() => setDeleteOpen(true)}
+                variant="destructive"
+              >
+                <Trash2Icon aria-hidden />
+                {t("import.delete")}
+              </MenuItem>
+            </MenuPopup>
+          </Menu>
+        </div>
+        <AccordionPanel>
+          <div className="flex flex-col gap-4 pb-5 pl-9 pr-3">
+            {chapter.paragraphs.map((paragraph) => (
+              <p
+                className="whitespace-pre-wrap text-sm leading-7 text-foreground"
+                key={paragraph.index}
+              >
+                {paragraph.text}
+              </p>
+            ))}
+          </div>
+        </AccordionPanel>
+      </AccordionItem>
       <AlertDialog onOpenChange={setDeleteOpen} open={deleteOpen}>
         <AlertDialogPopup>
           <AlertDialogHeader>
