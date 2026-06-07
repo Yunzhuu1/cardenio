@@ -44,4 +44,14 @@ async def app_client(
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        auth_resp = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "test@example.com",
+                "password": "correct horse battery staple",
+                "display_name": "Test User",
+            },
+        )
+        assert auth_resp.status_code == 201
+        client.headers["Authorization"] = f"Bearer {auth_resp.json()['access_token']}"
         yield client

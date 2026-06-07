@@ -74,7 +74,7 @@ async def test_login_wrong_password_returns_401(app_client: AsyncClient) -> None
 
 
 async def test_me_requires_bearer_token(app_client: AsyncClient) -> None:
-    resp = await app_client.get("/api/v1/auth/me")
+    resp = await app_client.get("/api/v1/auth/me", headers={"Authorization": ""})
 
     assert resp.status_code == 401
     assert resp.json()["error"]["code"] == "unauthenticated"

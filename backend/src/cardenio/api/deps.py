@@ -36,22 +36,6 @@ async def get_db_session(request: Request) -> AsyncGenerator[AsyncSession, None]
             raise
 
 
-def get_artifact_store(
-    request: Request,
-    session: AsyncSession = Depends(get_db_session),
-) -> SqliteArtifactStore:
-    """Provide a per-request SQLite-backed ArtifactStore."""
-    return SqliteArtifactStore(session)
-
-
-def get_job_store(
-    request: Request,
-    session: AsyncSession = Depends(get_db_session),
-) -> SqliteJobStore:
-    """Provide a per-request SQLite-backed JobStore."""
-    return SqliteJobStore(session)
-
-
 async def get_current_user(
     request: Request,
     session: AsyncSession = Depends(get_db_session),
@@ -75,6 +59,30 @@ async def get_current_user(
         email=user.email,
         display_name=user.display_name,
     )
+
+
+def get_artifact_store(
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> SqliteArtifactStore:
+    """Provide a per-request SQLite-backed ArtifactStore."""
+    del request
+    return SqliteArtifactStore(
+        session,
+        current_user_id=current_user.id,
+        enforce_owner=True,
+    )
+
+
+def get_job_store(
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> SqliteJobStore:
+    """Provide a per-request SQLite-backed JobStore."""
+    del request, current_user
+    return SqliteJobStore(session)
 
 
 def get_engine(request: Request) -> AsyncEngine:

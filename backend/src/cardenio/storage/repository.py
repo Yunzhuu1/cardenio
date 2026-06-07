@@ -117,6 +117,35 @@ class ProjectRepository:
     async def get_any(self, project_id: str) -> ProjectModel | None:
         return await self.session.get(ProjectModel, project_id)
 
+    async def get_for_owner(
+        self,
+        project_id: str,
+        owner_user_id: str,
+    ) -> ProjectModel | None:
+        stmt = (
+            select(ProjectModel)
+            .where(
+                ProjectModel.id == project_id,
+                ProjectModel.owner_user_id == owner_user_id,
+                ProjectModel.deleted_at.is_(None),
+            )
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def exists(self, project_id: str) -> bool:
+        stmt = (
+            select(ProjectModel.id)
+            .where(
+                ProjectModel.id == project_id,
+                ProjectModel.deleted_at.is_(None),
+            )
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none() is not None
+
     async def create(self, **kwargs: Any) -> ProjectModel:
         project = ProjectModel(**kwargs)
         self.session.add(project)
@@ -163,7 +192,11 @@ class ProjectRepository:
         return True
 
     async def list_projects(
-        self, *, limit: int = 20, cursor: str | None = None
+        self,
+        *,
+        limit: int = 20,
+        cursor: str | None = None,
+        owner_user_id: str | None = None,
     ) -> list[ProjectModel]:
         stmt = (
             select(ProjectModel)
@@ -171,6 +204,8 @@ class ProjectRepository:
             .order_by(ProjectModel.updated_at.desc())
             .limit(limit)
         )
+        if owner_user_id is not None:
+            stmt = stmt.where(ProjectModel.owner_user_id == owner_user_id)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 

@@ -510,9 +510,10 @@ return an opaque bearer `access_token`; clients must send it as
 `Authorization: Bearer <access_token>` when calling protected auth endpoints.
 The token is stored server-side as a hash and can be revoked by logout.
 
-Project ownership enforcement is implemented separately from the login
-endpoints. Until that access-control layer is enabled, existing project APIs
-remain callable by the current MVP clients.
+Project APIs require the bearer token and are isolated by the authenticated
+user. New projects are bound to the current account, project lists only return
+that account's projects, and attempts to access another user's project return
+`403 forbidden`.
 
 ### Backend privacy settings
 
