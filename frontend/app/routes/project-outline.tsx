@@ -35,14 +35,6 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardHeader,
-  CardPanel,
-  CardTitle,
-} from "~/components/ui/card";
 import { Dialog, DialogTrigger } from "~/components/ui/dialog";
 import {
   Empty,
@@ -61,7 +53,7 @@ import {
   type OutlineScene,
   type ProjectId,
 } from "~/lib/api/types";
-import { analysisStepPath, stagePath } from "~/lib/stages";
+import { analysisStepPath } from "~/lib/stages";
 
 async function getOrNull<T>(request: Promise<T>): Promise<T | null> {
   try {
@@ -122,10 +114,10 @@ function outlineSceneTitle(scene: OutlineScene): string {
 
 function mergeStatusVariant(
   status: MergeSuggestion["status"],
-): "secondary" | "success" | "warning" {
+): "info" | "secondary" | "success" {
   if (status === "applied") return "success";
   if (status === "dismissed") return "secondary";
-  return "warning";
+  return "info";
 }
 
 export default function ProjectOutline({
@@ -436,224 +428,181 @@ export default function ProjectOutline({
 
       {outline ? (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("outline.cardTitle")}</CardTitle>
-              <CardDescription>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 space-y-1">
+              <h1 className="app-heading text-xl">{t("outline.cardTitle")}</h1>
+              <p className="text-muted-foreground text-sm">
                 {t("outline.cardDescription", { count: scenes.length })}
-              </CardDescription>
-              <CardAction className="flex flex-wrap gap-2">
-                <Dialog
-                  onOpenChange={(open) => {
-                    if (!open) setSceneForm(null);
-                  }}
-                  open={Boolean(sceneForm)}
-                >
-                  <DialogTrigger
-                    render={
-                      <Button
-                        disabled={working}
-                        onClick={openCreateScene}
-                        size="sm"
-                        variant="outline"
-                      />
-                    }
-                  >
-                    <PlusIcon aria-hidden />
-                    {t("outline.edit.addScene")}
-                  </DialogTrigger>
-                  {sceneForm ? (
-                    <SceneDialog
-                      characters={characterList}
-                      form={sceneForm}
-                      onFormChange={setSceneForm}
-                      onSave={saveScene}
-                      source={source}
-                      working={working}
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <Dialog
+                onOpenChange={(open) => {
+                  if (!open) setSceneForm(null);
+                }}
+                open={Boolean(sceneForm)}
+              >
+                <DialogTrigger
+                  render={
+                    <Button
+                      disabled={working}
+                      onClick={openCreateScene}
+                      size="sm"
+                      variant="outline"
                     />
-                  ) : null}
-                </Dialog>
-                <AlertDialog>
-                  <AlertDialogTrigger
-                    render={
-                      <Button disabled={working} size="sm" variant="outline" />
-                    }
-                  >
-                    <RefreshCwIcon />
-                    {t("outline.regenerate")}
-                  </AlertDialogTrigger>
-                  <AlertDialogPopup>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        {t("outline.regenerateTitle")}
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {t("outline.regenerateDescription")}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogClose render={<Button variant="ghost" />}>
-                        {t("outline.cancel")}
-                      </AlertDialogClose>
-                      <AlertDialogClose
-                        render={
-                          <Button
-                            loading={working}
-                            onClick={generateOutline}
-                            variant="destructive"
-                          />
-                        }
-                      >
-                        {t("outline.regenerateConfirm")}
-                      </AlertDialogClose>
-                    </AlertDialogFooter>
-                  </AlertDialogPopup>
-                </AlertDialog>
-                {outline.state === "draft" ? (
-                  <Button loading={working} onClick={confirmOutline} size="sm">
-                    <CheckCircleIcon />
-                    {t("outline.confirm")}
-                  </Button>
-                ) : (
-                  <Button
-                    render={<Link to={stagePath(projectId, "script")} />}
-                    size="sm"
-                  >
-                    {t("outline.scriptCta")}
-                  </Button>
-                )}
-              </CardAction>
-            </CardHeader>
-            <CardPanel>
-              {outline.state === "draft" ? (
-                <Alert className="mb-4" variant="info">
-                  <AlertTitle>{t("outline.needsConfirmTitle")}</AlertTitle>
-                  <AlertDescription>
-                    {t("outline.needsConfirmDescription")}
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-              <div className="grid gap-4">
-                {scenes.map((scene, scenePosition) => (
-                  <OutlineSceneCard
-                    characterNameById={characterNameById}
-                    canMoveDown={scenePosition < scenes.length - 1}
-                    canMoveUp={scenePosition > 0}
-                    index={scenePosition}
-                    key={scene.id}
-                    onDelete={setDeleteTarget}
-                    onEdit={openEditScene}
-                    onMoveDown={() => moveScene(scenePosition, 1)}
-                    onMoveUp={() => moveScene(scenePosition, -1)}
-                    scene={scene}
+                  }
+                >
+                  <PlusIcon aria-hidden />
+                  {t("outline.edit.addScene")}
+                </DialogTrigger>
+                {sceneForm ? (
+                  <SceneDialog
+                    characters={characterList}
+                    form={sceneForm}
+                    onFormChange={setSceneForm}
+                    onSave={saveScene}
                     source={source}
                     working={working}
                   />
-                ))}
-              </div>
-            </CardPanel>
-          </Card>
+                ) : null}
+              </Dialog>
+              <AlertDialog>
+                <AlertDialogTrigger
+                  render={
+                    <Button disabled={working} size="sm" variant="outline" />
+                  }
+                >
+                  <RefreshCwIcon />
+                  {t("outline.regenerate")}
+                </AlertDialogTrigger>
+                <AlertDialogPopup>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {t("outline.regenerateTitle")}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t("outline.regenerateDescription")}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogClose render={<Button variant="ghost" />}>
+                      {t("outline.cancel")}
+                    </AlertDialogClose>
+                    <AlertDialogClose
+                      render={
+                        <Button
+                          loading={working}
+                          onClick={generateOutline}
+                          variant="destructive"
+                        />
+                      }
+                    >
+                      {t("outline.regenerateConfirm")}
+                    </AlertDialogClose>
+                  </AlertDialogFooter>
+                </AlertDialogPopup>
+              </AlertDialog>
+              {outline.state === "draft" ? (
+                <Button loading={working} onClick={confirmOutline} size="sm">
+                  <CheckCircleIcon />
+                  {t("outline.confirm")}
+                </Button>
+              ) : null}
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <div className="divide-y">
+            {scenes.map((scene, scenePosition) => (
+              <OutlineSceneCard
+                characterNameById={characterNameById}
+                canMoveDown={scenePosition < scenes.length - 1}
+                canMoveUp={scenePosition > 0}
+                index={scenePosition}
+                key={scene.id}
+                onDelete={setDeleteTarget}
+                onEdit={openEditScene}
+                onMoveDown={() => moveScene(scenePosition, 1)}
+                onMoveUp={() => moveScene(scenePosition, -1)}
+                scene={scene}
+                source={source}
+                working={working}
+              />
+            ))}
+          </div>
+
+          <section className="space-y-4 border-t pt-6">
+            <div className="space-y-1">
+              <h2 className="flex items-center gap-2 font-medium text-base">
                 <GitMergeIcon className="size-5" aria-hidden />
                 {t("outline.merge.title")}
-              </CardTitle>
-              <CardDescription>
+              </h2>
+              <p className="text-muted-foreground text-sm">
                 {t("outline.merge.description")}
-              </CardDescription>
-            </CardHeader>
-            <CardPanel className="space-y-4">
-              <Alert variant="info">
-                <AlertTitle>{t("outline.merge.guardrailTitle")}</AlertTitle>
-                <AlertDescription>
-                  {t("outline.merge.guardrailDescription")}
-                </AlertDescription>
-              </Alert>
+              </p>
+            </div>
 
-              {suggestions.length > 0 ? (
-                <div className="grid gap-3">
-                  {suggestions.map((suggestion) => (
-                    <div
-                      className="rounded-lg border bg-muted/24 p-4"
-                      key={suggestion.id}
-                    >
-                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            {suggestion.scene_ids.map((sceneId) => {
-                              const scene = sceneById.get(sceneId);
-                              return (
-                                <Badge key={sceneId} variant="outline">
-                                  {scene
-                                    ? outlineSceneTitle(scene)
-                                    : t("outline.merge.missingScene", {
-                                        id: sceneId,
-                                      })}
-                                </Badge>
-                              );
-                            })}
-                          </div>
-                          <p className="text-sm">{suggestion.reason}</p>
+            {suggestions.length > 0 ? (
+              <div className="grid gap-3">
+                {suggestions.map((suggestion) => (
+                  <div
+                    className="rounded-lg border bg-muted/24 p-4"
+                    key={suggestion.id}
+                  >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {suggestion.scene_ids.map((sceneId) => {
+                            const scene = sceneById.get(sceneId);
+                            return (
+                              <Badge key={sceneId} variant="outline">
+                                {scene
+                                  ? outlineSceneTitle(scene)
+                                  : t("outline.merge.missingScene", {
+                                      id: sceneId,
+                                    })}
+                              </Badge>
+                            );
+                          })}
                         </div>
-                        <Badge variant={mergeStatusVariant(suggestion.status)}>
-                          {t(`outline.merge.status.${suggestion.status}`)}
-                        </Badge>
+                        <p className="text-sm">{suggestion.reason}</p>
                       </div>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <Button
-                          disabled={working || suggestion.status === "applied"}
-                          onClick={() =>
-                            resolveMergeSuggestion(suggestion, "applied")
-                          }
-                          size="sm"
-                          type="button"
-                          variant="outline"
-                        >
-                          {t("outline.merge.apply")}
-                        </Button>
-                        <Button
-                          disabled={
-                            working || suggestion.status === "dismissed"
-                          }
-                          onClick={() =>
-                            resolveMergeSuggestion(suggestion, "dismissed")
-                          }
-                          size="sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          {t("outline.merge.dismiss")}
-                        </Button>
-                      </div>
+                      <Badge variant={mergeStatusVariant(suggestion.status)}>
+                        {t(`outline.merge.status.${suggestion.status}`)}
+                      </Badge>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground text-sm">
-                  {t("outline.merge.empty")}
-                </div>
-              )}
-            </CardPanel>
-          </Card>
-
-          {outline.state === "confirmed" ? (
-            <Alert variant="success">
-              <AlertTitle>{t("outline.confirmedTitle")}</AlertTitle>
-              <AlertDescription>
-                {t("outline.confirmedDescription")}
-              </AlertDescription>
-              <AlertAction>
-                <Button
-                  render={<Link to={stagePath(projectId, "script")} />}
-                  size="sm"
-                >
-                  {t("outline.scriptCta")}
-                </Button>
-              </AlertAction>
-            </Alert>
-          ) : null}
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button
+                        disabled={working || suggestion.status === "applied"}
+                        onClick={() =>
+                          resolveMergeSuggestion(suggestion, "applied")
+                        }
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        {t("outline.merge.apply")}
+                      </Button>
+                      <Button
+                        disabled={working || suggestion.status === "dismissed"}
+                        onClick={() =>
+                          resolveMergeSuggestion(suggestion, "dismissed")
+                        }
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        {t("outline.merge.dismiss")}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground text-sm">
+                {t("outline.merge.empty")}
+              </div>
+            )}
+          </section>
         </>
       ) : null}
 

@@ -380,6 +380,7 @@
     "confirmedTitle": "Scene outline confirmed",
     "confirmedDescription": "You can continue to screenplay generation. The backend will use this outline as the prerequisite artifact.",
     "scriptCta": "Continue to screenplay",
+    "nextStepDisabledTooltip": "Confirm the scene outline first.",
     "sceneNumber": "Scene {{number}}",
     "sourceRef": "Chapter {{chapter}} · Paragraphs {{paragraphs}}",
     "chapterHint": "{{title}} · {{paragraphs}} paragraphs",

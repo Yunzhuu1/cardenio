@@ -13,14 +13,6 @@ import { useTranslation } from "react-i18next";
 import { StringListEditor } from "~/components/string-list-editor";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardHeader,
-  CardPanel,
-  CardTitle,
-} from "~/components/ui/card";
 import { Checkbox } from "~/components/ui/checkbox";
 import {
   Collapsible,
@@ -201,30 +193,34 @@ export function OutlineSceneCard({
   ].filter(([, value]) => value);
 
   return (
-    <Card className="rounded-lg shadow-none">
-      <CardHeader className="gap-3">
-        <CardTitle className="text-base">
-          {t("outline.sceneNumber", { number: index + 1 })} ·{" "}
-          {sceneTitle(scene)}
-        </CardTitle>
-        <CardDescription>
-          {chapter
-            ? t("outline.chapterHint", {
-                paragraphs: chapter.paragraphs.length,
-                title: chapter.title,
-              })
-            : t("outline.chapterMissing")}
-        </CardDescription>
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="outline">
-            {t(`outline.int_ext.${scene.heading.int_ext}`)}
-          </Badge>
-          <Badge variant="outline">
-            {t(`outline.time.${scene.heading.time}`)}
-          </Badge>
-          <Badge variant="info">{sourceLabel}</Badge>
+    <article className="py-5 first:pt-0 last:pb-0">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-2">
+          <div className="space-y-1">
+            <h2 className="font-medium text-base">
+              {t("outline.sceneNumber", { number: index + 1 })} ·{" "}
+              {sceneTitle(scene)}
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              {chapter
+                ? t("outline.chapterHint", {
+                    paragraphs: chapter.paragraphs.length,
+                    title: chapter.title,
+                  })
+                : t("outline.chapterMissing")}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline">
+              {t(`outline.int_ext.${scene.heading.int_ext}`)}
+            </Badge>
+            <Badge variant="outline">
+              {t(`outline.time.${scene.heading.time}`)}
+            </Badge>
+            <Badge variant="info">{sourceLabel}</Badge>
+          </div>
         </div>
-        <CardAction className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <Button
             aria-label={t("outline.edit.moveUp")}
             disabled={!canMoveUp || working}
@@ -263,9 +259,9 @@ export function OutlineSceneCard({
               </MenuItem>
             </MenuPopup>
           </Menu>
-        </CardAction>
-      </CardHeader>
-      <CardPanel className="space-y-4">
+        </div>
+      </header>
+      <div className="mt-4 space-y-4">
         <div className="grid gap-3 md:grid-cols-2">
           {detailRows.map(([key, value]) => (
             <div className="rounded-lg border bg-muted/32 p-3" key={key}>
@@ -329,8 +325,8 @@ export function OutlineSceneCard({
             </div>
           </CollapsiblePanel>
         </Collapsible>
-      </CardPanel>
-    </Card>
+      </div>
+    </article>
   );
 }
 

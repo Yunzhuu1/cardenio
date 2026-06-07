@@ -381,6 +381,7 @@
     "confirmedTitle": "分场大纲已确认",
     "confirmedDescription": "现在可以进入剧本生成步骤，后端会以这份大纲作为剧本生成前置。",
     "scriptCta": "进入剧本生成",
+    "nextStepDisabledTooltip": "请先确认分场大纲。",
     "sceneNumber": "第 {{number}} 场",
     "sourceRef": "第 {{chapter}} 章 · 第 {{paragraphs}} 段",
     "chapterHint": "{{title}} · 共 {{paragraphs}} 段",
