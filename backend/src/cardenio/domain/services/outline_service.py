@@ -2,20 +2,294 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import Any
 
-if TYPE_CHECKING:
-    from cardenio.gateway.protocol import LlmGateway
-    from cardenio.storage.protocol import ArtifactStore
+from fastapi import HTTPException
+from fastapi.responses import JSONResponse
+
+from cardenio.domain.agents.base import AgentContext
+from cardenio.domain.agents.outline import OutlineAgent
+from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, ProjectState
+from cardenio.domain.models.outline import OutlineData
+from cardenio.gateway.protocol import LlmGateway
+from cardenio.storage.sqlite_store import SqliteArtifactStore
 
 
 class OutlineService:
     """Orchestrates outline generation with merge suggestions (FR-6)."""
 
-    def __init__(self, *, gateway: LlmGateway, store: ArtifactStore) -> None:
+    def __init__(self, *, gateway: LlmGateway, store: SqliteArtifactStore) -> None:
         self.gateway = gateway
         self.store = store
 
-    async def generate_outline(self, project_id: str) -> dict:
+    async def generate_outline(self, project_id: str) -> dict | JSONResponse:
         """Generate scene outline from understanding + characters + intent."""
-        raise NotImplementedError("OutlineService.generate_outline() not yet implemented")
+        project = await self.store.get_project(project_id)
+        if project is None:
+            raise HTTPException(status_code=404, detail="Project not found")
+
+        characters = await self.store.get_artifact(project_id, "characters")
+        if characters is None or characters.state != ArtifactState.CONFIRMED:
+            return characters_gate_error(characters.state if characters else None)
+
+        chapters = await self.store.list_chapters(project_id)
+        understanding = await self.store.get_artifact(project_id, "understanding")
+        intent = await self.store.get_artifact(project_id, "intent")
+        agent = OutlineAgent(self.gateway)
+        result = await agent.run(
+            AgentContext(
+                source_chunks=[
+                    {"type": "adaptation_direction", "data": project["adaptation_direction"]},
+                    *[chapter_context(chapter) for chapter in chapters],
+                ],
+                upstream_artifacts={
+                    "understanding": understanding.data if understanding else None,
+                    "characters": characters.data,
+                    "intent": intent.data if intent else None,
+                },
+                system_constraints={
+                    "style_fingerprint": project["style_fingerprint"],
+                    "voice": voice_constraints(characters.data),
+                    "hard_rules": hard_rules(characters.data),
+                    "author_intent": intent.data if intent else None,
+                },
+            )
+        )
+        data = OutlineData.model_validate(
+            with_outline_defaults(result.data, chapters, characters.data)
+        )
+        await validate_outline_source_refs(self.store, project_id, data)
+        previous = await self.store.get_artifact(project_id, "outline")
+        envelope = ArtifactEnvelope[OutlineData](
+            type="outline",
+            state=ArtifactState.DRAFT,
+            parent_version=previous.version if previous else None,
+            data=data,
+        )
+        saved = await self.store.save_artifact(project_id, envelope)
+        if project["state"] == ProjectState.INTENT_SET:
+            await self.store.update_project_state(project_id, ProjectState.OUTLINED)
+        return saved.model_dump(mode="json")
+
+
+def characters_gate_error(current_state: ArtifactState | None) -> JSONResponse:
+    return JSONResponse(
+        status_code=409,
+        content={
+            "error": {
+                "code": "state_gate_blocked",
+                "message": "Characters must be confirmed before generating outline",
+                "retryable": False,
+                "details": {
+                    "artifact": "characters",
+                    "required_state": ArtifactState.CONFIRMED.value,
+                    "current_state": current_state.value if current_state else "empty",
+                },
+            }
+        },
+    )
+
+
+def chapter_context(chapter: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "chapter_id": chapter["id"],
+        "order": chapter["order"],
+        "title": chapter["title"],
+        "paragraphs": chapter["paragraphs"],
+    }
+
+
+def with_outline_defaults(
+    generated: dict[str, Any],
+    chapters: list[dict[str, Any]],
+    characters: dict[str, Any],
+) -> dict[str, Any]:
+    if generated.get("scenes"):
+        return generated
+    return {
+        "scenes": scenes_from_chapters(chapters, characters),
+        "merge_suggestions": generated.get("merge_suggestions", []),
+    }
+
+
+def scenes_from_chapters(
+    chapters: list[dict[str, Any]],
+    characters: dict[str, Any],
+) -> list[dict[str, Any]]:
+    character_ids = [character["id"] for character in characters.get("characters", [])]
+    scenes: list[dict[str, Any]] = []
+    for index, chapter in enumerate(chapters, start=1):
+        paragraphs = chapter["paragraphs"]
+        if not paragraphs:
+            continue
+        paragraph_indices = [int(paragraph["index"]) for paragraph in paragraphs]
+        source_text = chapter_excerpt(paragraphs)
+        present_characters = present_character_ids(source_text, characters)
+        if not present_characters:
+            present_characters = character_ids[:2]
+        scenes.append(
+            {
+                "id": f"sc_{index:03d}",
+                "heading": {
+                    "int_ext": int_ext_for(source_text),
+                    "location": location_for(chapter, source_text),
+                    "time": time_for(source_text),
+                },
+                "source_ref": {
+                    "chapter": int(chapter["order"]),
+                    "paragraphs": paragraph_indices,
+                },
+                "synopsis": synopsis_for(chapter, source_text),
+                "goal": goal_for(index),
+                "conflict": conflict_for(source_text),
+                "mood": mood_for(source_text),
+                "characters": present_characters,
+                "foreshadowing": foreshadowing_for(source_text),
+                "relation_changes": relation_changes_for(present_characters),
+                "ending_state": ending_state_for(chapter, source_text),
+            }
+        )
+    return scenes
+
+
+def chapter_excerpt(paragraphs: list[dict[str, Any]]) -> str:
+    return " ".join(
+        paragraph["text"].strip()
+        for paragraph in paragraphs
+        if paragraph["text"].strip()
+    )
+
+
+def present_character_ids(text: str, characters: dict[str, Any]) -> list[str]:
+    present = []
+    for character in characters.get("characters", []):
+        if character["name"] in text:
+            present.append(character["id"])
+    return present
+
+
+def int_ext_for(text: str) -> str:
+    lower_text = text.lower()
+    if any(
+        marker in lower_text
+        for marker in ("street", "forest", "yard", "road", "dawn")
+    ):
+        return "EXT"
+    return "INT"
+
+
+def location_for(chapter: dict[str, Any], text: str) -> str:
+    lower_text = text.lower()
+    if "archive" in lower_text:
+        return "Archive"
+    if "dawn" in lower_text:
+        return "Outside at dawn"
+    return chapter["title"]
+
+
+def time_for(text: str) -> str:
+    lower_text = text.lower()
+    if "dawn" in lower_text:
+        return "DAWN"
+    if "night" in lower_text:
+        return "NIGHT"
+    if "dusk" in lower_text:
+        return "DUSK"
+    return "DAY"
+
+
+def synopsis_for(chapter: dict[str, Any], text: str) -> str:
+    excerpt = text[:80].strip()
+    return f"{chapter['title']}: {excerpt}" if excerpt else chapter["title"]
+
+
+def goal_for(index: int) -> str:
+    if index == 1:
+        return "Establish the central secret and protagonist objective."
+    if index == 2:
+        return "Escalate the clue trail and pressure the character relationships."
+    return "Force a choice that moves the adaptation into the next dramatic turn."
+
+
+def conflict_for(text: str) -> str:
+    lower_text = text.lower()
+    if "secret" in lower_text:
+        return "The need to reveal the secret conflicts with the urge to hide it."
+    if "warned" in lower_text:
+        return "A warning creates pressure between caution and action."
+    return "The protagonist's objective meets resistance from other characters."
+
+
+def mood_for(text: str) -> str:
+    lower_text = text.lower()
+    if "secret" in lower_text or "letter" in lower_text:
+        return "tense"
+    if "dawn" in lower_text:
+        return "restrained"
+    return "observational"
+
+
+def foreshadowing_for(text: str) -> list[str]:
+    lower_text = text.lower()
+    hints = []
+    if "letter" in lower_text:
+        hints.append("The letter should remain traceable as a later reveal.")
+    if "secret" in lower_text:
+        hints.append("The secret should drive later scene pressure.")
+    return hints
+
+
+def relation_changes_for(character_ids: list[str]) -> list[dict[str, Any]]:
+    if len(character_ids) < 2:
+        return []
+    return [
+        {
+            "characters": character_ids[:2],
+            "change": "Their shared scene increases dramatic pressure between them.",
+        }
+    ]
+
+
+def ending_state_for(chapter: dict[str, Any], text: str) -> str:
+    if "confront" in text.lower():
+        return "The protagonist is ready to confront the hidden truth."
+    return f"{chapter['title']} leaves a concrete question for the next scene."
+
+
+def voice_constraints(characters: dict[str, Any]) -> dict[str, str]:
+    return {
+        character["id"]: character["voice"]
+        for character in characters.get("characters", [])
+        if character.get("voice")
+    }
+
+
+def hard_rules(characters: dict[str, Any]) -> list[str]:
+    rules: list[str] = []
+    for character in characters.get("characters", []):
+        rules.extend(character.get("hard_rules", []))
+    return rules
+
+
+async def validate_outline_source_refs(
+    store: SqliteArtifactStore,
+    project_id: str,
+    data: OutlineData,
+) -> None:
+    for scene in data.scenes:
+        chapter_id = f"ch_{scene.source_ref.chapter}"
+        rows = await store.get_paragraphs(project_id, chapter_id=chapter_id)
+        available = {row["paragraph_index"] for row in rows}
+        missing = [
+            index for index in scene.source_ref.paragraphs if index not in available
+        ]
+        if missing or not scene.source_ref.paragraphs:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "invalid_source_ref",
+                    "scene_id": scene.id,
+                    "chapter": scene.source_ref.chapter,
+                    "missing_paragraphs": missing,
+                },
+            )

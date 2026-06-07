@@ -102,7 +102,10 @@ class TestOutlineGeneration:
         assert error["details"]["artifact"] == "characters"
 
     async def test_generate_outline_with_complete_scene_fields(
-        self, app_client: AsyncClient, project_id: str
+        self,
+        app_client: AsyncClient,
+        project_id: str,
+        stub_gateway: StubLlmGateway,
     ) -> None:
         await move_project_to_confirmed_characters(app_client, project_id)
 
@@ -132,6 +135,21 @@ class TestOutlineGeneration:
         assert first_scene["source_ref"] == {"chapter": 1, "paragraphs": [1, 2]}
         assert first_scene["foreshadowing"]
         assert first_scene["relation_changes"]
+        assert stub_gateway.call_log[-1].task == "outline"
+        assert stub_gateway.call_log[-1].output_schema is not None
+        context = stub_gateway.call_log[-1].context
+        assert context[0]["type"] == "adaptation_direction"
+        assert context[1]["chapter_id"]
+        assert context[-3]["type"] == "upstream_artifacts"
+        assert context[-3]["data"]["understanding"] is not None
+        assert context[-3]["data"]["characters"] is not None
+        assert "intent" in context[-3]["data"]
+        assert context[-2]["type"] == "repair_issues"
+        assert context[-1]["type"] == "previous_output"
+        constraints = stub_gateway.call_log[-1].system_constraints
+        assert constraints.style_fingerprint
+        assert constraints.voice
+        assert constraints.hard_rules
 
         resolve_resp = await app_client.get(
             f"/api/v1/projects/{project_id}/source:resolve",
