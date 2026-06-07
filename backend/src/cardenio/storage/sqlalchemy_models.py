@@ -79,6 +79,9 @@ class ProjectModel(Base):
     id: Mapped[str] = mapped_column(
         String(36), primary_key=True, default=lambda: f"prj_{uuid4().hex[:8]}"
     )
+    owner_user_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True, index=True
+    )
     title: Mapped[str] = mapped_column(String(500))
     ui_language: Mapped[str] = mapped_column(String(10), default="zh-CN")
     source_language: Mapped[str] = mapped_column(String(10), default="zh-CN")

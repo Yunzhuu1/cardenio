@@ -30,3 +30,7 @@ async def init_db(engine: AsyncEngine) -> None:
             names = {row[1] for row in columns}
             if "deleted_at" not in names:
                 await conn.execute(text("ALTER TABLE projects ADD COLUMN deleted_at DATETIME"))
+            if "owner_user_id" not in names:
+                await conn.execute(
+                    text("ALTER TABLE projects ADD COLUMN owner_user_id VARCHAR(36)")
+                )
