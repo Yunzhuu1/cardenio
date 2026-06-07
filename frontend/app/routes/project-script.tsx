@@ -256,98 +256,97 @@ export default function ProjectScript({
 
       {screenplay ? (
         <>
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("script.cardTitle")}</CardTitle>
-              <CardDescription>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 space-y-1">
+              <h1 className="app-heading text-xl">{t("script.cardTitle")}</h1>
+              <p className="text-muted-foreground text-sm">
                 {t("script.cardDescription", {
                   beatCount,
                   sceneCount: scenes.length,
                 })}
-              </CardDescription>
-              <CardAction className="flex flex-wrap gap-2">
-                <AlertDialog>
-                  <AlertDialogTrigger
-                    render={
-                      <Button disabled={working} size="sm" variant="outline" />
-                    }
-                  >
-                    <RefreshCwIcon />
-                    {t("script.regenerate")}
-                  </AlertDialogTrigger>
-                  <AlertDialogPopup>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        {t("script.regenerateTitle")}
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {t("script.regenerateDescription")}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogClose render={<Button variant="ghost" />}>
-                        {t("script.cancel")}
-                      </AlertDialogClose>
-                      <AlertDialogClose
-                        render={
-                          <Button
-                            loading={working}
-                            onClick={generateScreenplay}
-                            variant="destructive"
-                          />
-                        }
-                      >
-                        {t("script.regenerateConfirm")}
-                      </AlertDialogClose>
-                    </AlertDialogFooter>
-                  </AlertDialogPopup>
-                </AlertDialog>
-                <Button
-                  render={<Link to={stagePath(projectId, "editor")} />}
-                  size="sm"
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <AlertDialog>
+                <AlertDialogTrigger
+                  render={
+                    <Button disabled={working} size="sm" variant="outline" />
+                  }
                 >
-                  {t("script.editorCta")}
-                </Button>
-              </CardAction>
-            </CardHeader>
-            <CardPanel className="space-y-4">
-              <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                <ShotHintsSwitch
-                  checked={shotHints}
-                  description={t("script.shotHintsDescription")}
-                  id="screenplay-shot-hints-existing"
-                  label={t("script.shotHintsLabel")}
-                  onCheckedChange={setShotHints}
-                />
-                <Badge
-                  className="justify-self-start md:justify-self-end"
-                  variant="secondary"
-                >
-                  {t("script.shotHintsState", {
-                    state: t(
-                      screenplay.data.shot_hints.enabled
-                        ? "script.shotHintsOn"
-                        : "script.shotHintsOff",
-                    ),
-                  })}
-                </Badge>
-              </div>
-              <Separator />
-              <BeatFilterControl filter={filter} onFilterChange={setFilter} />
-              <Separator />
-              <div className="grid gap-4">
-                {scenes.map((scene, index) => (
-                  <ScreenplaySceneCard
-                    characterNameById={characterNameById}
-                    filter={filter}
-                    key={scene.id}
-                    scene={scene}
-                    sceneNumber={index + 1}
-                  />
-                ))}
-              </div>
-            </CardPanel>
-          </Card>
+                  <RefreshCwIcon />
+                  {t("script.regenerate")}
+                </AlertDialogTrigger>
+                <AlertDialogPopup>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {t("script.regenerateTitle")}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t("script.regenerateDescription")}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogClose render={<Button variant="ghost" />}>
+                      {t("script.cancel")}
+                    </AlertDialogClose>
+                    <AlertDialogClose
+                      render={
+                        <Button
+                          loading={working}
+                          onClick={generateScreenplay}
+                          variant="destructive"
+                        />
+                      }
+                    >
+                      {t("script.regenerateConfirm")}
+                    </AlertDialogClose>
+                  </AlertDialogFooter>
+                </AlertDialogPopup>
+              </AlertDialog>
+              <Button
+                render={<Link to={stagePath(projectId, "editor")} />}
+                size="sm"
+              >
+                {t("script.editorCta")}
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+            <ShotHintsSwitch
+              checked={shotHints}
+              description={t("script.shotHintsDescription")}
+              id="screenplay-shot-hints-existing"
+              label={t("script.shotHintsLabel")}
+              onCheckedChange={setShotHints}
+            />
+            <Badge
+              className="justify-self-start md:justify-self-end"
+              variant="secondary"
+            >
+              {t("script.shotHintsState", {
+                state: t(
+                  screenplay.data.shot_hints.enabled
+                    ? "script.shotHintsOn"
+                    : "script.shotHintsOff",
+                ),
+              })}
+            </Badge>
+          </div>
+          <Separator />
+          <BeatFilterControl filter={filter} onFilterChange={setFilter} />
+          <Separator />
+          <div className="grid gap-4">
+            {scenes.map((scene, index) => (
+              <ScreenplaySceneCard
+                characterNameById={characterNameById}
+                filter={filter}
+                key={scene.id}
+                scene={scene}
+                sceneNumber={index + 1}
+              />
+            ))}
+          </div>
 
           <AiInferredListCard
             aiList={aiList}
