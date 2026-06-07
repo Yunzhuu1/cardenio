@@ -50,6 +50,46 @@ class TestFileImport:
         assert len(data["chapters"]) == 3
         assert data["chapters"][0]["text"].startswith("第一章 初遇")
 
+    async def test_import_txt_with_hui_chapter_markers(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        """TXT with 第X回 markers auto-detects chapter boundaries."""
+        content = (
+            "第一回 梦醒\n\n她听见窗外雨声。\n\n"
+            "第二回 归来\n\n旧宅门环轻响。\n\n"
+            "第一百二十回 终章\n\n众人终于散去。"
+        )
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/source/import",
+            files={"file": ("novel.txt", content.encode("utf-8"), "text/plain")},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["chapters"]) == 3
+        assert data["chapters"][0]["title"] == "第一回 梦醒"
+        assert data["chapters"][2]["title"] == "第一百二十回 终章"
+
+    async def test_import_txt_with_formal_chinese_numerals(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        """TXT with formal Chinese numerals auto-detects chapter boundaries."""
+        content = (
+            "第壹章 雨夜\n\n她站在长街尽头。\n\n"
+            "第贰拾回 旧案\n\n卷宗重新摊开。\n\n"
+            "第叁章 尾声\n\n灯火一点点熄灭。"
+        )
+        resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/source/import",
+            files={"file": ("novel.txt", content.encode("utf-8"), "text/plain")},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data["chapters"]) == 3
+        assert data["chapters"][0]["title"] == "第壹章 雨夜"
+        assert data["chapters"][1]["title"] == "第贰拾回 旧案"
+
     async def test_import_txt_gbk_encoding(
         self, app_client: AsyncClient, project_id: str
     ) -> None:
