@@ -648,6 +648,59 @@
       "failureDescription": "请稍后重试。",
       "reviewHint": "本场刚被重生成，请重点复查 AI 新增内容。"
     },
+    "edit": {
+      "button": "编辑本场",
+      "missingTrustFields": "本场有节拍缺少来源或 AI 标记，请补全后再保存。",
+      "successTitle": "已保存本场",
+      "successDescription": "本场修改已持久保存。",
+      "failureTitle": "保存失败",
+      "failureDescription": "请稍后重试。",
+      "discardTitle": "放弃未保存修改？",
+      "discardDescription": "当前场景有未保存的修改。继续操作会丢弃这些修改。",
+      "keepEditing": "继续编辑",
+      "discard": "放弃修改",
+      "intExtLabel": "内外景",
+      "timeLabel": "时间",
+      "locationLabel": "地点",
+      "moodLabel": "情绪",
+      "cancel": "取消",
+      "save": "保存本场",
+      "moveUp": "上移节拍",
+      "moveDown": "下移节拍",
+      "removeBeat": "删除节拍",
+      "parentheticalLabel": "语气提示",
+      "dialogueLabel": "对白",
+      "textLabel": "正文",
+      "optionsReadonly": "保留选项",
+      "subtextLabel": "潜台词",
+      "flagLabel": "来源标记",
+      "missingSourceRef": "缺少来源引用",
+      "noCharacter": "无说话人",
+      "characterLabel": "说话人",
+      "addBeat": "添加节拍",
+      "intExt": {
+        "INT": "内景",
+        "EXT": "外景"
+      },
+      "time": {
+        "DAY": "日",
+        "NIGHT": "夜",
+        "DAWN": "黎明",
+        "DUSK": "黄昏"
+      },
+      "flag": {
+        "from_source": "原文",
+        "ai_inferred": "AI 新增"
+      },
+      "beatType": {
+        "action": "动作",
+        "dialogue": "对白",
+        "voice_over": "旁白",
+        "off_screen": "画外音",
+        "note": "注释",
+        "todo": "待补"
+      }
+    },
     "states": {
       "empty": "空项目",
       "imported": "已导入",
