@@ -204,15 +204,50 @@ async def get_scene_trace(
 
 
 @router.put("")
-async def update_screenplay(project_id: str, body: dict) -> dict:
+async def update_screenplay(
+    project_id: str,
+    body: ScreenplayData,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-19: Rewrite full screenplay (YAML or JSON)."""
-    raise NotImplementedError("Screenplay update not yet implemented")
+    previous, _ = await _get_screenplay_data(store, project_id)
+    _validate_edit_trust_fields(body)
+    saved = await _save_screenplay(store, project_id, body, previous)
+    await _mark_project_editing(store, project_id)
+    return saved.model_dump(mode="json")
 
 
 @router.put("/scenes/{scene_id}")
-async def update_scene(project_id: str, scene_id: str, body: dict) -> dict:
+async def update_scene(
+    project_id: str,
+    scene_id: str,
+    body: ScreenplayScene,
+    store: SqliteArtifactStore = Depends(get_artifact_store),
+) -> dict:
     """API-19: Rewrite a single scene."""
-    raise NotImplementedError("Scene update not yet implemented")
+    if body.id != scene_id:
+        raise HTTPException(
+            status_code=422,
+            detail="Scene id in request body must match path scene_id",
+        )
+
+    previous, data = await _get_screenplay_data(store, project_id)
+    scenes = []
+    found = False
+    for scene in data.scenes:
+        if scene.id == scene_id:
+            scenes.append(body)
+            found = True
+        else:
+            scenes.append(scene)
+    if not found:
+        raise HTTPException(status_code=404, detail="Scene not found")
+
+    updated = data.model_copy(update={"scenes": scenes})
+    _validate_edit_trust_fields(updated)
+    saved = await _save_screenplay(store, project_id, updated, previous)
+    await _mark_project_editing(store, project_id)
+    return saved.model_dump(mode="json")
 
 
 @router.get("/beats")
@@ -539,6 +574,74 @@ def _find_scene(data: ScreenplayData, scene_id: str) -> ScreenplayScene:
         if scene.id == scene_id:
             return scene
     raise HTTPException(status_code=404, detail="Scene not found")
+
+
+def _validate_edit_trust_fields(data: ScreenplayData) -> None:
+    missing: list[dict[str, Any]] = []
+    for scene in data.scenes:
+        for beat_index, beat in enumerate(scene.beats):
+            if beat.type == BeatType.TODO:
+                continue
+            fields = []
+            if beat.source_ref is None:
+                fields.append("source_ref")
+            if beat.flag is None:
+                fields.append("flag")
+            if fields:
+                missing.append(
+                    {
+                        "scene_id": scene.id,
+                        "beat_index": beat_index,
+                        "fields": fields,
+                    }
+                )
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "missing_trust_fields",
+                "message": "Non-TODO beats must keep source_ref and flag",
+                "items": missing,
+            },
+        )
+
+
+async def _get_screenplay_data(
+    store: SqliteArtifactStore,
+    project_id: str,
+) -> tuple[ArtifactEnvelope[Any], ScreenplayData]:
+    project = await store.get_project(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    artifact = await store.get_artifact(project_id, "screenplay")
+    if artifact is None:
+        raise HTTPException(status_code=404, detail="Screenplay not found")
+    return artifact, ScreenplayData.model_validate(artifact.data)
+
+
+async def _save_screenplay(
+    store: SqliteArtifactStore,
+    project_id: str,
+    data: ScreenplayData,
+    previous: ArtifactEnvelope[Any],
+) -> ArtifactEnvelope[Any]:
+    envelope = ArtifactEnvelope[ScreenplayData](
+        type="screenplay",
+        state=ArtifactState.DRAFT,
+        parent_version=previous.version,
+        data=data,
+    )
+    return await store.save_artifact(project_id, envelope)
+
+
+async def _mark_project_editing(
+    store: SqliteArtifactStore,
+    project_id: str,
+) -> None:
+    project = await store.get_project(project_id)
+    if project is not None and project["state"] != ProjectState.EDITING:
+        await store.update_project_state(project_id, ProjectState.EDITING)
 
 
 async def _resolve_source_ref(
