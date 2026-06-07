@@ -2,7 +2,6 @@ import {
   CheckCircleIcon,
   ClipboardCheckIcon,
   GitPullRequestArrowIcon,
-  SlidersHorizontalIcon,
 } from "lucide-react";
 import type * as React from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -23,20 +22,6 @@ import {
   AlertTitle,
 } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardPanel,
-  CardTitle,
-} from "~/components/ui/card";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "~/components/ui/empty";
 import { Field, FieldDescription, FieldLabel } from "~/components/ui/field";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -340,208 +325,181 @@ export default function AnalysisIntent({
           </AlertAction>
         </Alert>
       ) : (
-        <div className="space-y-4">
-          {!savedIntent ? (
-            <Empty className="rounded-lg border border-dashed">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <SlidersHorizontalIcon aria-hidden className="size-4" />
-                </EmptyMedia>
-                <EmptyTitle>{t("analysis.intent.emptyTitle")}</EmptyTitle>
-                <EmptyDescription>
-                  {t("analysis.intent.emptyDescription")}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : null}
-
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("analysis.intent.formTitle")}</CardTitle>
-              <CardDescription>
+        <div className="space-y-8">
+          <section className="space-y-5">
+            <div className="space-y-1">
+              <h2 className="font-medium text-base">
+                {t("analysis.intent.formTitle")}
+              </h2>
+              <p className="text-muted-foreground text-sm">
                 {t("analysis.intent.formDescription")}
-              </CardDescription>
-            </CardHeader>
-            <CardPanel className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <StringListEditor
-                  description={t("analysis.intent.fieldDescriptions.keep")}
-                  label={t("analysis.intent.fields.keep")}
-                  onChange={(values) => updateList("keep", values)}
-                  placeholder={t("analysis.intent.placeholders.keep")}
-                  values={form.keep}
-                />
-                <StringListEditor
-                  description={t("analysis.intent.fieldDescriptions.no_delete")}
-                  label={t("analysis.intent.fields.no_delete")}
-                  onChange={(values) => updateList("no_delete", values)}
-                  placeholder={t("analysis.intent.placeholders.no_delete")}
-                  values={form.no_delete}
-                />
-                <StringListEditor
-                  description={t("analysis.intent.fieldDescriptions.no_merge")}
-                  label={t("analysis.intent.fields.no_merge")}
-                  onChange={(values) => updateList("no_merge", values)}
-                  placeholder={t("analysis.intent.placeholders.no_merge")}
-                  values={form.no_merge}
-                />
-                <StringListEditor
-                  description={t(
-                    "analysis.intent.fieldDescriptions.must_keep_lines",
-                  )}
-                  label={t("analysis.intent.fields.must_keep_lines")}
-                  onChange={(values) => updateList("must_keep_lines", values)}
-                  placeholder={t(
-                    "analysis.intent.placeholders.must_keep_lines",
-                  )}
-                  values={form.must_keep_lines}
-                />
-              </div>
-              <Field className="w-full">
-                <FieldLabel>
-                  {t("analysis.intent.fields.mood_floor")}
-                </FieldLabel>
-                <FieldDescription>
-                  {t("analysis.intent.fieldDescriptions.mood_floor")}
-                </FieldDescription>
-                <Input
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      mood_floor: event.target.value,
-                    }))
-                  }
-                  placeholder={t("analysis.intent.placeholders.mood_floor")}
-                  type="text"
-                  value={form.mood_floor ?? ""}
-                />
-              </Field>
-              <Separator />
-              <div className="grid gap-3 md:grid-cols-3">
-                <IntentSwitch
-                  checked={form.allow_new_plot}
-                  description={t(
-                    "analysis.intent.fieldDescriptions.allow_new_plot",
-                  )}
-                  id="allow-new-plot"
-                  label={t("analysis.intent.fields.allow_new_plot")}
-                  onCheckedChange={(value) =>
-                    updateBoolean("allow_new_plot", value)
-                  }
-                />
-                <IntentSwitch
-                  checked={form.allow_reorder}
-                  description={t(
-                    "analysis.intent.fieldDescriptions.allow_reorder",
-                  )}
-                  id="allow-reorder"
-                  label={t("analysis.intent.fields.allow_reorder")}
-                  onCheckedChange={(value) =>
-                    updateBoolean("allow_reorder", value)
-                  }
-                />
-                <IntentSwitch
-                  checked={form.allow_new_ending}
-                  description={t(
-                    "analysis.intent.fieldDescriptions.allow_new_ending",
-                  )}
-                  id="allow-new-ending"
-                  label={t("analysis.intent.fields.allow_new_ending")}
-                  onCheckedChange={(value) =>
-                    updateBoolean("allow_new_ending", value)
-                  }
-                />
-              </div>
-            </CardPanel>
-          </Card>
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <StringListEditor
+                description={t("analysis.intent.fieldDescriptions.keep")}
+                label={t("analysis.intent.fields.keep")}
+                onChange={(values) => updateList("keep", values)}
+                placeholder={t("analysis.intent.placeholders.keep")}
+                values={form.keep}
+              />
+              <StringListEditor
+                description={t("analysis.intent.fieldDescriptions.no_delete")}
+                label={t("analysis.intent.fields.no_delete")}
+                onChange={(values) => updateList("no_delete", values)}
+                placeholder={t("analysis.intent.placeholders.no_delete")}
+                values={form.no_delete}
+              />
+              <StringListEditor
+                description={t("analysis.intent.fieldDescriptions.no_merge")}
+                label={t("analysis.intent.fields.no_merge")}
+                onChange={(values) => updateList("no_merge", values)}
+                placeholder={t("analysis.intent.placeholders.no_merge")}
+                values={form.no_merge}
+              />
+              <StringListEditor
+                description={t(
+                  "analysis.intent.fieldDescriptions.must_keep_lines",
+                )}
+                label={t("analysis.intent.fields.must_keep_lines")}
+                onChange={(values) => updateList("must_keep_lines", values)}
+                placeholder={t("analysis.intent.placeholders.must_keep_lines")}
+                values={form.must_keep_lines}
+              />
+            </div>
+            <Field className="w-full">
+              <FieldLabel>{t("analysis.intent.fields.mood_floor")}</FieldLabel>
+              <FieldDescription>
+                {t("analysis.intent.fieldDescriptions.mood_floor")}
+              </FieldDescription>
+              <Input
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    mood_floor: event.target.value,
+                  }))
+                }
+                placeholder={t("analysis.intent.placeholders.mood_floor")}
+                type="text"
+                value={form.mood_floor ?? ""}
+              />
+            </Field>
+            <Separator />
+            <div className="grid gap-x-8 divide-y border-y md:grid-cols-3 md:divide-x md:divide-y-0">
+              <IntentSwitch
+                checked={form.allow_new_plot}
+                description={t(
+                  "analysis.intent.fieldDescriptions.allow_new_plot",
+                )}
+                id="allow-new-plot"
+                label={t("analysis.intent.fields.allow_new_plot")}
+                onCheckedChange={(value) =>
+                  updateBoolean("allow_new_plot", value)
+                }
+              />
+              <IntentSwitch
+                checked={form.allow_reorder}
+                description={t(
+                  "analysis.intent.fieldDescriptions.allow_reorder",
+                )}
+                id="allow-reorder"
+                label={t("analysis.intent.fields.allow_reorder")}
+                onCheckedChange={(value) =>
+                  updateBoolean("allow_reorder", value)
+                }
+              />
+              <IntentSwitch
+                checked={form.allow_new_ending}
+                description={t(
+                  "analysis.intent.fieldDescriptions.allow_new_ending",
+                )}
+                id="allow-new-ending"
+                label={t("analysis.intent.fields.allow_new_ending")}
+                onCheckedChange={(value) =>
+                  updateBoolean("allow_new_ending", value)
+                }
+              />
+            </div>
+          </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("analysis.intent.directionTitle")}</CardTitle>
-              <CardDescription>
+          <section className="space-y-4 border-t pt-6">
+            <div className="space-y-1">
+              <h2 className="font-medium text-base">
+                {t("analysis.intent.directionTitle")}
+              </h2>
+              <p className="text-muted-foreground text-sm">
                 {t("analysis.intent.directionDescription")}
-              </CardDescription>
-            </CardHeader>
-            <CardPanel>
-              <RadioGroup
-                aria-label={t("analysis.intent.directionTitle")}
-                onValueChange={(value) => {
-                  if (isMvpDirection(value)) void selectDirection(value);
-                }}
-                value={direction ?? undefined}
-              >
-                {mvpDirections.map((item) => (
-                  <Label
-                    className="flex items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/64 has-[[data-checked]]:border-primary has-[[data-checked]]:bg-primary/6"
-                    key={item}
-                  >
-                    <Radio value={item} />
-                    <span className="grid gap-1">
-                      <span>
-                        {t(`analysis.intent.directions.${item}.label`)}
-                      </span>
-                      <span className="font-normal text-muted-foreground text-sm">
-                        {t(`analysis.intent.directions.${item}.description`)}
-                      </span>
+              </p>
+            </div>
+            <RadioGroup
+              aria-label={t("analysis.intent.directionTitle")}
+              className="divide-y border-y"
+              onValueChange={(value) => {
+                if (isMvpDirection(value)) void selectDirection(value);
+              }}
+              value={direction ?? undefined}
+            >
+              {mvpDirections.map((item) => (
+                <Label
+                  className="flex items-start gap-3 py-4 transition-colors hover:bg-muted/48 has-[[data-checked]]:bg-primary/6"
+                  key={item}
+                >
+                  <Radio value={item} />
+                  <span className="grid gap-1">
+                    <span>{t(`analysis.intent.directions.${item}.label`)}</span>
+                    <span className="font-normal text-muted-foreground text-sm">
+                      {t(`analysis.intent.directions.${item}.description`)}
                     </span>
-                  </Label>
-                ))}
-              </RadioGroup>
-            </CardPanel>
-          </Card>
+                  </span>
+                </Label>
+              ))}
+            </RadioGroup>
+          </section>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("analysis.intent.validationTitle")}</CardTitle>
-              <CardDescription>
+          <section className="space-y-4 border-t pt-6">
+            <div className="space-y-1">
+              <h2 className="font-medium text-base">
+                {t("analysis.intent.validationTitle")}
+              </h2>
+              <p className="text-muted-foreground text-sm">
                 {t("analysis.intent.validationDescription")}
-              </CardDescription>
-            </CardHeader>
-            <CardPanel className="space-y-3">
-              {!canValidate ? (
-                <Alert variant="info">
-                  <AlertTitle>{t("analysis.intent.validateFirst")}</AlertTitle>
+              </p>
+            </div>
+            {conflicts ? (
+              conflicts.length === 0 ? (
+                <Alert variant="success">
+                  <AlertTitle>
+                    {t("analysis.intent.noConflictsTitle")}
+                  </AlertTitle>
                   <AlertDescription>
-                    {t("analysis.intent.validationDescription")}
+                    {t("analysis.intent.noConflictsDescription")}
                   </AlertDescription>
                 </Alert>
-              ) : null}
-              {conflicts ? (
-                conflicts.length === 0 ? (
-                  <Alert variant="success">
-                    <AlertTitle>
-                      {t("analysis.intent.noConflictsTitle")}
-                    </AlertTitle>
-                    <AlertDescription>
-                      {t("analysis.intent.noConflictsDescription")}
-                    </AlertDescription>
-                  </Alert>
-                ) : (
-                  <div className="space-y-2">
-                    {conflicts.map((conflict) => (
-                      <Alert key={conflict.code} variant="warning">
-                        <AlertTitle>
-                          {t("analysis.intent.conflictTitle")}
-                        </AlertTitle>
-                        <AlertDescription>
-                          <span className="block">
-                            {t(`analysis.intent.conflicts.${conflict.code}`, {
-                              defaultValue:
-                                conflict.message ||
-                                t("analysis.intent.conflicts.unknown"),
-                            })}
-                          </span>
-                          <span className="mt-1 block">
-                            {t("analysis.intent.conflictDescription")}
-                          </span>
-                        </AlertDescription>
-                      </Alert>
-                    ))}
-                  </div>
-                )
-              ) : null}
-            </CardPanel>
-          </Card>
+              ) : (
+                <div className="space-y-2">
+                  {conflicts.map((conflict) => (
+                    <Alert key={conflict.code} variant="warning">
+                      <AlertTitle>
+                        {t("analysis.intent.conflictTitle")}
+                      </AlertTitle>
+                      <AlertDescription>
+                        <span className="block">
+                          {t(`analysis.intent.conflicts.${conflict.code}`, {
+                            defaultValue:
+                              conflict.message ||
+                              t("analysis.intent.conflicts.unknown"),
+                          })}
+                        </span>
+                        <span className="mt-1 block">
+                          {t("analysis.intent.conflictDescription")}
+                        </span>
+                      </AlertDescription>
+                    </Alert>
+                  ))}
+                </div>
+              )
+            ) : null}
+          </section>
         </div>
       )}
     </section>
@@ -562,7 +520,7 @@ function IntentSwitch({
   onCheckedChange: (checked: boolean) => void;
 }): React.ReactElement {
   return (
-    <div className="flex items-start justify-between gap-4 rounded-lg border p-3">
+    <div className="flex items-start justify-between gap-4 py-4 md:px-5 md:first:pl-0 md:last:pr-0">
       <div className="grid gap-1">
         <Label htmlFor={id}>{label}</Label>
         <p className="text-muted-foreground text-sm">{description}</p>
