@@ -163,6 +163,14 @@ export const httpClient: ApiClient = {
         method: "POST",
         body: JSON.stringify(input),
       }),
+    resolve: (projectId, chapter, paragraphs) => {
+      const search = new URLSearchParams();
+      search.set("chapter", String(chapter));
+      search.set("paragraphs", paragraphs);
+      return request(
+        `/projects/${projectId}/source:resolve?${search.toString()}`,
+      );
+    },
   },
   understanding: {
     get: (projectId) => request(`/projects/${projectId}/understanding`),
@@ -289,9 +297,31 @@ export const httpClient: ApiClient = {
     },
     getScene: (projectId, sceneId) =>
       request(`/projects/${projectId}/screenplay/scenes/${sceneId}`),
-    getBeats: (projectId, flag) => {
+    updateScreenplay: (projectId, data) =>
+      request(`/projects/${projectId}/screenplay`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    updateScene: (projectId, sceneId, scene) =>
+      request(`/projects/${projectId}/screenplay/scenes/${sceneId}`, {
+        method: "PUT",
+        body: JSON.stringify(scene),
+      }),
+    rewriteScene: (projectId, sceneId, instruction) =>
+      request(`/projects/${projectId}/screenplay/scenes/${sceneId}:rewrite`, {
+        method: "POST",
+        body: JSON.stringify({ instruction }),
+      }),
+    getTodos: (projectId) => request(`/projects/${projectId}/screenplay/todos`),
+    getTrace: (projectId, sceneId) =>
+      request(`/projects/${projectId}/screenplay/scenes/${sceneId}/trace`),
+    getBeats: (projectId, flag, source) => {
       const search = new URLSearchParams();
       if (flag) search.set("flag", flag);
+      if (source) {
+        search.set("source_chapter", String(source.chapter));
+        search.set("source_paragraph", String(source.paragraph));
+      }
       const qs = search.toString();
       return request(
         `/projects/${projectId}/screenplay/beats${qs ? `?${qs}` : ""}`,
