@@ -130,9 +130,13 @@ function AppStageFooter({
   const analysisComplete =
     getAnalysisCompleteFromMatches(matches) ??
     isStageDone("analysis", projectState);
+  const outlineConfirmed =
+    getOutlineConfirmedFromMatches(matches) ??
+    isStageDone("outline", projectState);
   const showImportNextAction =
     routeContext.stageSegment === "import" && importSource !== null;
   const showAnalysisNextAction = routeContext.stageSegment === "analysis";
+  const showOutlineNextAction = routeContext.stageSegment === "outline";
 
   return (
     <footer className="shrink-0 px-5 py-3 sm:px-8">
@@ -186,6 +190,12 @@ function AppStageFooter({
         {showAnalysisNextAction ? (
           <AnalysisFooterNextAction
             complete={analysisComplete}
+            projectId={routeContext.projectId}
+          />
+        ) : null}
+        {showOutlineNextAction ? (
+          <OutlineFooterNextAction
+            confirmed={outlineConfirmed}
             projectId={routeContext.projectId}
           />
         ) : null}
@@ -278,6 +288,47 @@ function AnalysisFooterNextAction({
   );
 }
 
+function OutlineFooterNextAction({
+  confirmed,
+  projectId,
+}: {
+  confirmed: boolean;
+  projectId: string;
+}): React.ReactElement {
+  const { t } = useTranslation();
+
+  if (confirmed) {
+    return (
+      <Button
+        className="shrink-0"
+        render={<Link to={stagePath(projectId, "script")} />}
+      >
+        {t("outline.scriptCta")}
+      </Button>
+    );
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            aria-disabled
+            className="shrink-0 cursor-not-allowed opacity-64 hover:bg-primary"
+            onClick={(event) => event.preventDefault()}
+            type="button"
+          />
+        }
+      >
+        {t("outline.scriptCta")}
+      </TooltipTrigger>
+      <TooltipPopup align="end">
+        {t("outline.nextStepDisabledTooltip")}
+      </TooltipPopup>
+    </Tooltip>
+  );
+}
+
 function getProjectRouteContext(
   pathname: string,
   projects: ProjectSummary[],
@@ -344,6 +395,19 @@ function getAnalysisCompleteFromMatches(
         isConfirmedArtifact(analysisData.characters) &&
         analysisData.intent !== null
       );
+    }
+  }
+
+  return null;
+}
+
+function getOutlineConfirmedFromMatches(
+  matches: ReturnType<typeof useMatches>,
+): boolean | null {
+  for (const match of matches) {
+    const data = match.data;
+    if (typeof data === "object" && data !== null && "outline" in data) {
+      return isConfirmedArtifact((data as { outline: unknown }).outline);
     }
   }
 

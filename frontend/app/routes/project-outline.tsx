@@ -60,7 +60,7 @@ import {
   type OutlineScene,
   type ProjectId,
 } from "~/lib/api/types";
-import { analysisStepPath, stagePath } from "~/lib/stages";
+import { analysisStepPath } from "~/lib/stages";
 
 async function getOrNull<T>(request: Promise<T>): Promise<T | null> {
   try {
@@ -514,14 +514,7 @@ export default function ProjectOutline({
                   <CheckCircleIcon />
                   {t("outline.confirm")}
                 </Button>
-              ) : (
-                <Button
-                  render={<Link to={stagePath(projectId, "script")} />}
-                  size="sm"
-                >
-                  {t("outline.scriptCta")}
-                </Button>
-              )}
+              ) : null}
             </div>
           </div>
 
