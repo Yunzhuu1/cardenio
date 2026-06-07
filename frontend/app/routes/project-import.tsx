@@ -423,10 +423,8 @@ export default function ProjectImport({
     <div className="flex flex-col gap-8">
       <section
         className={cn(
-          "flex justify-center",
-          hasChapters
-            ? "items-start"
-            : "min-h-[calc(100dvh-11rem)] items-center",
+          "flex items-center justify-center overflow-hidden transition-[min-height] duration-300 ease-out motion-reduce:transition-none",
+          hasChapters ? "min-h-0" : "min-h-[calc(100dvh-11rem)]",
         )}
       >
         {entryMode === "upload" ? (
