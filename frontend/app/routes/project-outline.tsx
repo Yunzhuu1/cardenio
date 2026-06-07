@@ -35,13 +35,6 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardPanel,
-  CardTitle,
-} from "~/components/ui/card";
 import { Dialog, DialogTrigger } from "~/components/ui/dialog";
 import {
   Empty,
@@ -537,89 +530,79 @@ export default function ProjectOutline({
             ))}
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
+          <section className="space-y-4 border-t pt-6">
+            <div className="space-y-1">
+              <h2 className="flex items-center gap-2 font-medium text-base">
                 <GitMergeIcon className="size-5" aria-hidden />
                 {t("outline.merge.title")}
-              </CardTitle>
-              <CardDescription>
+              </h2>
+              <p className="text-muted-foreground text-sm">
                 {t("outline.merge.description")}
-              </CardDescription>
-            </CardHeader>
-            <CardPanel className="space-y-4">
-              <Alert variant="info">
-                <AlertTitle>{t("outline.merge.guardrailTitle")}</AlertTitle>
-                <AlertDescription>
-                  {t("outline.merge.guardrailDescription")}
-                </AlertDescription>
-              </Alert>
+              </p>
+            </div>
 
-              {suggestions.length > 0 ? (
-                <div className="grid gap-3">
-                  {suggestions.map((suggestion) => (
-                    <div
-                      className="rounded-lg border bg-muted/24 p-4"
-                      key={suggestion.id}
-                    >
-                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            {suggestion.scene_ids.map((sceneId) => {
-                              const scene = sceneById.get(sceneId);
-                              return (
-                                <Badge key={sceneId} variant="outline">
-                                  {scene
-                                    ? outlineSceneTitle(scene)
-                                    : t("outline.merge.missingScene", {
-                                        id: sceneId,
-                                      })}
-                                </Badge>
-                              );
-                            })}
-                          </div>
-                          <p className="text-sm">{suggestion.reason}</p>
+            {suggestions.length > 0 ? (
+              <div className="grid gap-3">
+                {suggestions.map((suggestion) => (
+                  <div
+                    className="rounded-lg border bg-muted/24 p-4"
+                    key={suggestion.id}
+                  >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {suggestion.scene_ids.map((sceneId) => {
+                            const scene = sceneById.get(sceneId);
+                            return (
+                              <Badge key={sceneId} variant="outline">
+                                {scene
+                                  ? outlineSceneTitle(scene)
+                                  : t("outline.merge.missingScene", {
+                                      id: sceneId,
+                                    })}
+                              </Badge>
+                            );
+                          })}
                         </div>
-                        <Badge variant={mergeStatusVariant(suggestion.status)}>
-                          {t(`outline.merge.status.${suggestion.status}`)}
-                        </Badge>
+                        <p className="text-sm">{suggestion.reason}</p>
                       </div>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <Button
-                          disabled={working || suggestion.status === "applied"}
-                          onClick={() =>
-                            resolveMergeSuggestion(suggestion, "applied")
-                          }
-                          size="sm"
-                          type="button"
-                          variant="outline"
-                        >
-                          {t("outline.merge.apply")}
-                        </Button>
-                        <Button
-                          disabled={
-                            working || suggestion.status === "dismissed"
-                          }
-                          onClick={() =>
-                            resolveMergeSuggestion(suggestion, "dismissed")
-                          }
-                          size="sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          {t("outline.merge.dismiss")}
-                        </Button>
-                      </div>
+                      <Badge variant={mergeStatusVariant(suggestion.status)}>
+                        {t(`outline.merge.status.${suggestion.status}`)}
+                      </Badge>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground text-sm">
-                  {t("outline.merge.empty")}
-                </div>
-              )}
-            </CardPanel>
-          </Card>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button
+                        disabled={working || suggestion.status === "applied"}
+                        onClick={() =>
+                          resolveMergeSuggestion(suggestion, "applied")
+                        }
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        {t("outline.merge.apply")}
+                      </Button>
+                      <Button
+                        disabled={working || suggestion.status === "dismissed"}
+                        onClick={() =>
+                          resolveMergeSuggestion(suggestion, "dismissed")
+                        }
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        {t("outline.merge.dismiss")}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed p-6 text-center text-muted-foreground text-sm">
+                {t("outline.merge.empty")}
+              </div>
+            )}
+          </section>
         </>
       ) : null}
 
