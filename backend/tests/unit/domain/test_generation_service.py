@@ -18,6 +18,7 @@ class FakeStore:
             "state": ProjectState.OUTLINED,
             "adaptation_direction": "short_drama",
             "style_fingerprint": "restrained; tense",
+            "output_language": "zh-CN",
         }
         self.artifacts: dict[str, ArtifactEnvelope[Any]] = {
             "outline": _artifact(
@@ -75,6 +76,8 @@ class RecordingSceneTool:
         self.outline_scene_ids: list[str] = []
         self.shot_hints_enabled: bool | None = None
         self.voice: dict[str, str] | None = None
+        self.output_language: str | None = None
+        self.hard_rules: list[str] | None = None
 
     async def run(self, input_data: SceneGenerateToolInput) -> SceneGenerateToolOutput:
         context = input_data.context
@@ -84,6 +87,8 @@ class RecordingSceneTool:
         ]
         self.shot_hints_enabled = context.system_constraints["shot_hints_enabled"]
         self.voice = context.system_constraints["voice"]
+        self.output_language = context.system_constraints["output_language"]
+        self.hard_rules = context.system_constraints["hard_rules"]
         return SceneGenerateToolOutput(
             data={
                 "scenes": [
@@ -136,6 +141,10 @@ async def test_generation_service_runs_scene_agent_through_tool_registry() -> No
     assert tool.outline_scene_ids == ["sc_001"]
     assert tool.shot_hints_enabled is True
     assert tool.voice == {"lin_wan": "Quiet, clipped."}
+    assert tool.output_language == "zh-CN"
+    assert tool.hard_rules == [
+        "All user-visible generated content must be written in Simplified Chinese."
+    ]
     assert store.saved is not None
     assert store.saved.type == "screenplay"
     assert store.updated_state == ProjectState.GENERATED

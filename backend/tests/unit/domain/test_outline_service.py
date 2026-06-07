@@ -18,6 +18,7 @@ class FakeStore:
             "state": ProjectState.INTENT_SET,
             "adaptation_direction": "short_drama",
             "style_fingerprint": "restrained; tense",
+            "output_language": "zh-CN",
         }
         self.artifacts: dict[str, ArtifactEnvelope[Any]] = {
             "characters": _artifact(
@@ -167,8 +168,12 @@ async def test_outline_service_runs_agent_through_runtime() -> None:
     }
     assert runtime.context.system_constraints == {
         "style_fingerprint": "restrained; tense",
+        "output_language": "zh-CN",
         "voice": {"lin_wan": "Quiet, clipped."},
-        "hard_rules": ["Do not make Lin Wan cheerful."],
+        "hard_rules": [
+            "All user-visible generated content must be written in Simplified Chinese.",
+            "Do not make Lin Wan cheerful.",
+        ],
         "author_intent": {"keep": ["sealed letter"], "allow_new_plot": False},
     }
     assert store.saved is not None

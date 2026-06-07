@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from cardenio.domain.agents.base import AgentContext
 from cardenio.domain.agents.profile import ProfileAgent
 from cardenio.domain.agents.understand import UnderstandAgent
+from cardenio.domain.language import merge_system_constraints
 from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, ProjectState
 from cardenio.domain.models.characters import CharactersData
 from cardenio.domain.models.understanding import UnderstandingData
@@ -93,7 +94,10 @@ class AnalysisService:
 
         agent = UnderstandAgent(self.gateway)
         result = await agent.run(
-            AgentContext(source_chunks=[chapter_context(chapter) for chapter in chapters])
+            AgentContext(
+                source_chunks=[chapter_context(chapter) for chapter in chapters],
+                system_constraints=merge_system_constraints({}, project),
+            )
         )
         data = UnderstandingData.model_validate(
             with_m2_t1_defaults(result.data, chapters)
@@ -131,7 +135,10 @@ class AnalysisService:
             AgentContext(
                 source_chunks=[chapter_context(chapter) for chapter in chapters],
                 upstream_artifacts={"understanding": understanding.data},
-                system_constraints={"style_fingerprint": project["style_fingerprint"]},
+                system_constraints=merge_system_constraints(
+                    {"style_fingerprint": project["style_fingerprint"]},
+                    project,
+                ),
             )
         )
         data = CharactersData.model_validate(

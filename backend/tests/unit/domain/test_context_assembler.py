@@ -16,6 +16,7 @@ class FakeStore:
         self.project: dict[str, Any] | None = {
             "id": "proj_1",
             "style_fingerprint": "restrained; tense",
+            "output_language": "zh-CN",
         }
         self.artifacts: dict[str, ArtifactEnvelope[Any]] = {}
         self.paragraphs: list[dict[str, Any]] = [
@@ -114,7 +115,11 @@ async def test_for_rewrite_builds_context_with_versions() -> None:
     )
     assert context.system_constraints == {
         "style_fingerprint": "restrained; tense",
+        "output_language": "zh-CN",
         "voice": {"lin_wan": "Quiet, clipped."},
+        "hard_rules": [
+            "All user-visible generated content must be written in Simplified Chinese."
+        ],
         "author_intent": context.upstream_artifacts["author_intent"],
         "shot_hints_enabled": False,
     }

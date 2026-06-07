@@ -51,7 +51,9 @@ class DeepSeekGateway:
                     "content": (
                         "You are Cardenio's structured adaptation assistant. "
                         "Return only valid JSON that matches the requested schema. "
-                        "Do not wrap the JSON in markdown."
+                        "Do not wrap the JSON in markdown. "
+                        "Follow system_constraints.output_language and "
+                        "system_constraints.hard_rules for all user-visible text."
                     ),
                 },
                 {
