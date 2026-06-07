@@ -25,6 +25,7 @@ from cardenio.domain.runtime import AgentRuntime
 from cardenio.domain.tools import SceneGenerateTool, SceneGenerateToolInput, ToolRegistry
 from cardenio.domain.validation.trust import enforce_must_keep_lines
 from cardenio.gateway.protocol import LlmGateway
+from cardenio.orchestrator.gates import generation_gate_response
 from cardenio.orchestrator.trust_enforcer import enforce_pipeline_trust
 from cardenio.storage.sqlite_store import SqliteArtifactStore
 
@@ -66,8 +67,12 @@ class GenerationService:
             raise HTTPException(status_code=404, detail="Project not found")
 
         outline_artifact = await self.store.get_artifact(project_id, "outline")
-        if outline_artifact is None or outline_artifact.state != ArtifactState.CONFIRMED:
-            return outline_gate_error(outline_artifact.state if outline_artifact else None)
+        gate_error = generation_gate_response(
+            "screenplay:generate",
+            {"outline": outline_artifact},
+        )
+        if gate_error is not None:
+            return gate_error
 
         outline = OutlineData.model_validate(outline_artifact.data)
         if scene_ids is not None:
@@ -159,24 +164,6 @@ def tool_output_data(result: BaseModel) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise HTTPException(status_code=500, detail="Scene tool returned invalid data")
     return data
-
-
-def outline_gate_error(current_state: ArtifactState | None) -> JSONResponse:
-    return JSONResponse(
-        status_code=409,
-        content={
-            "error": {
-                "code": "state_gate_blocked",
-                "message": "Outline must be confirmed before generating screenplay",
-                "retryable": False,
-                "details": {
-                    "artifact": "outline",
-                    "required_state": ArtifactState.CONFIRMED.value,
-                    "current_state": current_state.value if current_state else "empty",
-                },
-            }
-        },
-    )
 
 
 def with_screenplay_defaults(

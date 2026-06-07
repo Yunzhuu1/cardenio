@@ -13,6 +13,7 @@ from cardenio.domain.models.base import ArtifactEnvelope, ArtifactState, Project
 from cardenio.domain.models.outline import OutlineData
 from cardenio.domain.runtime import AgentRuntime
 from cardenio.gateway.protocol import LlmGateway
+from cardenio.orchestrator.gates import generation_gate_response
 from cardenio.storage.sqlite_store import SqliteArtifactStore
 
 
@@ -37,8 +38,12 @@ class OutlineService:
             raise HTTPException(status_code=404, detail="Project not found")
 
         characters = await self.store.get_artifact(project_id, "characters")
-        if characters is None or characters.state != ArtifactState.CONFIRMED:
-            return characters_gate_error(characters.state if characters else None)
+        gate_error = generation_gate_response(
+            "outline:generate",
+            {"characters": characters},
+        )
+        if gate_error is not None:
+            return gate_error
 
         chapters = await self.store.list_chapters(project_id)
         understanding = await self.store.get_artifact(project_id, "understanding")
@@ -81,24 +86,6 @@ class OutlineService:
         if project["state"] == ProjectState.INTENT_SET:
             await self.store.update_project_state(project_id, ProjectState.OUTLINED)
         return saved.model_dump(mode="json")
-
-
-def characters_gate_error(current_state: ArtifactState | None) -> JSONResponse:
-    return JSONResponse(
-        status_code=409,
-        content={
-            "error": {
-                "code": "state_gate_blocked",
-                "message": "Characters must be confirmed before generating outline",
-                "retryable": False,
-                "details": {
-                    "artifact": "characters",
-                    "required_state": ArtifactState.CONFIRMED.value,
-                    "current_state": current_state.value if current_state else "empty",
-                },
-            }
-        },
-    )
 
 
 def chapter_context(chapter: dict[str, Any]) -> dict[str, Any]:

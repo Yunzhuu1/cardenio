@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from cardenio.api.deps import get_artifact_store, get_gateway
@@ -391,24 +390,6 @@ async def diff_scene_versions(
         "changes": changes,
         "changed": bool(changes),
     }
-
-
-def _outline_gate_error(current_state: ArtifactState | None) -> JSONResponse:
-    return JSONResponse(
-        status_code=409,
-        content={
-            "error": {
-                "code": "state_gate_blocked",
-                "message": "Outline must be confirmed before generating screenplay",
-                "retryable": False,
-                "details": {
-                    "artifact": "outline",
-                    "required_state": ArtifactState.CONFIRMED.value,
-                    "current_state": current_state.value if current_state else "empty",
-                },
-            }
-        },
-    )
 
 
 def _with_screenplay_defaults(
