@@ -499,6 +499,10 @@ The backend keeps saved artifacts as versioned records. Recovery endpoints at
 `/api/v1/projects/{project_id}/artifacts/{artifact_type}/versions/{version}`
 list and read prior versions without mutating the latest artifact, so local
 edits and rewrites can be inspected or recovered after interruption.
+Screenplay scene history is also exposed at
+`/api/v1/projects/{project_id}/screenplay/scenes/{scene_id}/versions`, which
+lists the target scene snapshot from each saved screenplay version that still
+contains that scene.
 
 ### Git hooks
 

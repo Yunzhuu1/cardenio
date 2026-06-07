@@ -775,6 +775,100 @@ class TestScreenplayGeneration:
         assert scene_resp.status_code == 200
         assert scene_resp.json()["synopsis"] == "Edited scene synopsis."
 
+    async def test_list_scene_versions_returns_scene_history(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        generated = generate_resp.json()
+        original_scene = generated["data"]["scenes"][0]
+        edited_scene = {**original_scene, "synopsis": "Versioned scene edit."}
+        edit_resp = await app_client.put(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{original_scene['id']}",
+            json=edited_scene,
+        )
+        assert edit_resp.status_code == 200
+        edited = edit_resp.json()
+
+        resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{original_scene['id']}/versions"
+        )
+
+        assert resp.status_code == 200
+        history = resp.json()
+        assert history["count"] == 2
+        assert [item["version"] for item in history["items"]] == [
+            edited["version"],
+            generated["version"],
+        ]
+        assert history["items"][0]["parent_version"] == generated["version"]
+        assert history["items"][0]["scene"]["synopsis"] == "Versioned scene edit."
+        assert history["items"][1]["scene"] == original_scene
+
+    async def test_list_scene_versions_skips_versions_without_scene(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        generate_resp = await app_client.post(
+            f"/api/v1/projects/{project_id}/screenplay:generate"
+        )
+        generated = generate_resp.json()
+        removed_scene = generated["data"]["scenes"][1]
+        data = {
+            **generated["data"],
+            "scenes": [generated["data"]["scenes"][0]],
+        }
+        edit_resp = await app_client.put(
+            f"/api/v1/projects/{project_id}/screenplay",
+            json=data,
+        )
+        assert edit_resp.status_code == 200
+
+        resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/{removed_scene['id']}/versions"
+        )
+
+        assert resp.status_code == 200
+        history = resp.json()
+        assert history["count"] == 1
+        assert history["items"][0]["version"] == generated["version"]
+        assert history["items"][0]["scene"] == removed_scene
+
+    async def test_list_scene_versions_missing_scene_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        await generate_confirmed_outline(app_client, project_id)
+        await app_client.post(f"/api/v1/projects/{project_id}/screenplay:generate")
+
+        resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/missing/versions"
+        )
+
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Scene not found"
+
+    async def test_list_scene_versions_missing_screenplay_returns_404(
+        self, app_client: AsyncClient, project_id: str
+    ) -> None:
+        resp = await app_client.get(
+            f"/api/v1/projects/{project_id}/screenplay/scenes/sc_001/versions"
+        )
+
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Screenplay not found"
+
+    async def test_list_scene_versions_missing_project_returns_404(
+        self, app_client: AsyncClient
+    ) -> None:
+        resp = await app_client.get(
+            "/api/v1/projects/missing/screenplay/scenes/sc_001/versions"
+        )
+
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "Project not found"
+
     async def test_update_scene_rejects_path_body_id_mismatch(
         self, app_client: AsyncClient, project_id: str
     ) -> None:
