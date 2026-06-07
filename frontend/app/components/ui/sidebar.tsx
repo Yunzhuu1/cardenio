@@ -132,7 +132,7 @@ export function Sidebar({
       className={cn(
         "peer fixed inset-y-0 left-0 z-20 flex w-[var(--sidebar-width)] shrink-0 flex-col gap-2 border-r border-sidebar-border bg-background p-2 text-sidebar-foreground dark:bg-sidebar md:static md:z-auto",
         open
-          ? "translate-x-0 md:mr-0"
+          ? "translate-x-0 md:pr-0"
           : "-translate-x-full pointer-events-none md:-mr-[var(--sidebar-width)]",
         variant === "inset" && "border-r-0",
         className,
@@ -299,7 +299,7 @@ export function SidebarInset({
       data-slot="sidebar-inset"
       className={cn(
         "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-sidebar dark:bg-background",
-        "md:peer-data-[variant=inset]:my-2 md:peer-data-[variant=inset]:mr-2 md:peer-data-[variant=inset]:overflow-hidden md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm",
+        "md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:overflow-hidden md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm",
         className,
       )}
       {...props}
