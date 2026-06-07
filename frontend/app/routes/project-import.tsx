@@ -1177,31 +1177,27 @@ function SplitPreview({
   return (
     <section
       aria-label={t("import.splitPreview")}
-      className="flex flex-col gap-3 rounded-lg border bg-muted/32 p-3"
+      className="flex flex-col gap-4 border-border border-y py-4"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="text-sm font-medium text-foreground">
           {t("import.splitPreview")}
         </div>
-        <Badge variant="info">{t("import.splitMarker", { n: splitAt })}</Badge>
       </div>
-      <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr]">
-        <SplitPreviewColumn
+      <div className="flex flex-col gap-4">
+        <SplitPreviewSection
           label={t("import.splitBefore")}
           paragraphs={beforeParagraphs}
         />
-        <div className="flex items-center justify-center">
-          <div className="hidden h-full w-px bg-destructive/36 sm:block" />
-          <div className="flex w-full items-center gap-2 sm:hidden">
-            <div className="h-px flex-1 bg-destructive/36" />
-            <ScissorsIcon
-              aria-hidden
-              className="size-4 shrink-0 text-destructive"
-            />
-            <div className="h-px flex-1 bg-destructive/36" />
+        <div className="flex items-center gap-3 text-destructive">
+          <div className="h-px flex-1 bg-destructive/36" />
+          <div className="flex shrink-0 items-center gap-2 text-xs font-medium">
+            <ScissorsIcon aria-hidden className="size-4" />
+            {t("import.splitMarker", { n: splitAt })}
           </div>
+          <div className="h-px flex-1 bg-destructive/36" />
         </div>
-        <SplitPreviewColumn
+        <SplitPreviewSection
           label={t("import.splitAfter")}
           paragraphs={afterParagraphs}
         />
@@ -1210,7 +1206,7 @@ function SplitPreview({
   );
 }
 
-function SplitPreviewColumn({
+function SplitPreviewSection({
   label,
   paragraphs,
 }: {
@@ -1220,15 +1216,12 @@ function SplitPreviewColumn({
   const { t } = useTranslation();
 
   return (
-    <div className="flex min-w-0 flex-col gap-2">
+    <div className="flex min-w-0 flex-col gap-3">
       <div className="text-muted-foreground text-xs font-medium">{label}</div>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-3">
         {paragraphs.map((paragraph) => (
-          <div
-            className="rounded-md border bg-background/80 p-2 text-sm"
-            key={paragraph.index}
-          >
-            <div className="mb-1 text-muted-foreground text-xs">
+          <div className="text-sm" key={paragraph.index}>
+            <div className="mb-1 text-muted-foreground text-xs tabular-nums">
               {t("import.paragraphLabel", { n: paragraph.index })}
             </div>
             <p className="leading-6 text-foreground">
