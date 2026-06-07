@@ -92,6 +92,20 @@ class SqliteArtifactStore:
             return None
         return self._row_to_envelope(row)
 
+    async def get_artifact_version(
+        self, project_id: str, artifact_type: str, version: str
+    ) -> ArtifactEnvelope[Any] | None:
+        row = await self._artifacts.get_version(project_id, artifact_type, version)
+        if row is None:
+            return None
+        return self._row_to_envelope(row)
+
+    async def list_artifact_versions(
+        self, project_id: str, artifact_type: str
+    ) -> list[ArtifactEnvelope[Any]]:
+        rows = await self._artifacts.list_versions(project_id, artifact_type)
+        return [self._row_to_envelope(row) for row in rows]
+
     async def save_artifact(
         self, project_id: str, artifact: ArtifactEnvelope[Any]
     ) -> ArtifactEnvelope[Any]:
