@@ -1200,14 +1200,23 @@ class TestScreenplayGeneration:
         assert saved["data"]["scenes"][0]["beats"][0]["text"].startswith("Lin Wan closes")
         assert saved["data"]["scenes"][1:] == original_scenes[1:]
         assert stub_gateway.call_log[-1].task == "rewrite"
-        request_context = {
-            item["type"]: item["data"] for item in stub_gateway.call_log[-1].context
-        }
-        assert request_context["rewrite_request"]["instruction"] == (
+        assert stub_gateway.call_log[-1].output_schema is not None
+        context = stub_gateway.call_log[-1].context
+        assert context[0]["type"] == "rewrite_request"
+        assert context[0]["data"]["instruction"] == (
             "Bring the conflict forward."
         )
-        assert request_context["target_scene"]["id"] == target_scene["id"]
-        assert "next" in request_context["adjacent_scenes"]
+        assert context[0]["data"]["scene_id"] == target_scene["id"]
+        assert context[-3]["type"] == "upstream_artifacts"
+        upstream = context[-3]["data"]
+        assert upstream["target_scene"]["id"] == target_scene["id"]
+        assert "next" in upstream["adjacent_scenes"]
+        assert upstream["source_paragraphs"]
+        assert upstream["character_voices"]
+        assert "author_intent" in upstream
+        assert "understanding" in upstream
+        assert context[-2]["type"] == "repair_issues"
+        assert context[-1]["type"] == "previous_output"
 
         project_resp = await app_client.get(f"/api/v1/projects/{project_id}")
         assert project_resp.status_code == 200
