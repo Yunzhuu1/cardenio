@@ -32,13 +32,7 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardHeader,
-  CardPanel,
-  CardTitle,
-} from "~/components/ui/card";
+import { Card, CardPanel } from "~/components/ui/card";
 import { Checkbox } from "~/components/ui/checkbox";
 import {
   Dialog,
@@ -902,62 +896,61 @@ function ImportPreviewDialog({
               </Alert>
             )}
             {previewChapters.map((chapter, index) => (
-              <Card key={`${index}-${chapter.title}`}>
-                <CardHeader>
-                  <CardTitle>
+              <section
+                className="flex flex-col gap-4 border-border border-b pb-5 last:border-b-0 last:pb-0"
+                key={`${index}-${chapter.title}`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-medium text-foreground">
                     {t("import.chapterLabel", { n: index + 1 })}
-                  </CardTitle>
-                  <CardAction>
-                    <Button
-                      aria-label={t("import.previewRemove")}
-                      onClick={() =>
-                        onPreviewChange((current) =>
-                          current.filter(
-                            (_, chapterIndex) => chapterIndex !== index,
-                          ),
-                        )
-                      }
-                      size="icon"
-                      type="button"
-                      variant="ghost"
-                    >
-                      <Trash2Icon aria-hidden />
-                    </Button>
-                  </CardAction>
-                </CardHeader>
-                <CardPanel className="flex flex-col gap-4">
-                  <Field>
-                    <FieldLabel htmlFor={`preview-title-${index}`}>
-                      {t("import.titleLabel")}
-                    </FieldLabel>
-                    <Input
-                      id={`preview-title-${index}`}
-                      onChange={(event) =>
-                        updatePreviewChapter(index, "title", event.target.value)
-                      }
-                      type="text"
-                      value={chapter.title}
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor={`preview-text-${index}`}>
-                      {t("import.textLabel")}
-                    </FieldLabel>
-                    <Textarea
-                      id={`preview-text-${index}`}
-                      onChange={(event) =>
-                        updatePreviewChapter(index, "text", event.target.value)
-                      }
-                      rows={10}
-                      size="lg"
-                      value={chapter.text}
-                    />
-                    <FieldDescription>
-                      {t("import.paragraphSpacingHint")}
-                    </FieldDescription>
-                  </Field>
-                </CardPanel>
-              </Card>
+                  </div>
+                  <Button
+                    aria-label={t("import.previewRemove")}
+                    onClick={() =>
+                      onPreviewChange((current) =>
+                        current.filter(
+                          (_, chapterIndex) => chapterIndex !== index,
+                        ),
+                      )
+                    }
+                    size="icon"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Trash2Icon aria-hidden />
+                  </Button>
+                </div>
+                <Field>
+                  <FieldLabel htmlFor={`preview-title-${index}`}>
+                    {t("import.titleLabel")}
+                  </FieldLabel>
+                  <Input
+                    id={`preview-title-${index}`}
+                    onChange={(event) =>
+                      updatePreviewChapter(index, "title", event.target.value)
+                    }
+                    type="text"
+                    value={chapter.title}
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor={`preview-text-${index}`}>
+                    {t("import.textLabel")}
+                  </FieldLabel>
+                  <Textarea
+                    id={`preview-text-${index}`}
+                    onChange={(event) =>
+                      updatePreviewChapter(index, "text", event.target.value)
+                    }
+                    rows={10}
+                    size="lg"
+                    value={chapter.text}
+                  />
+                  <FieldDescription>
+                    {t("import.paragraphSpacingHint")}
+                  </FieldDescription>
+                </Field>
+              </section>
             ))}
           </DialogPanel>
           <DialogFooter>
