@@ -13,8 +13,15 @@ from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from typing import Any
 
+from dotenv import load_dotenv
 import pytest
 from httpx import ASGITransport, AsyncClient
+
+from pathlib import Path
+
+# Load backend/.env so DEEPSEEK_API_KEY can be kept out of the conversation
+# and out of git (backend/.env is gitignored).
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
 from cardenio.api.app import create_app
