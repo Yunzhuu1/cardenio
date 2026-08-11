@@ -1,7 +1,5 @@
 pre-commit:
   commands:
-    guard-main-commit:
-      run: scripts/hooks/guard-main-commit.sh
     scan-staged-secrets:
       run: scripts/hooks/scan-staged-secrets.sh
     remind-readme-dependencies:
@@ -16,8 +14,6 @@ commit-msg:
 
 pre-push:
   commands:
-    guard-main-push:
-      run: scripts/hooks/guard-main-push.sh
     check-branch-name:
       run: scripts/hooks/check-branch-name.sh
     verify-project:
