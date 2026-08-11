@@ -12,19 +12,32 @@ novel authors. This is a monorepo:
   AgentRuntime → ControlledAgent → LlmGateway (stub or DeepSeek).
 - `frontend/` — React 19 / React Router 7 / Vite / Tailwind v4 / TypeScript.
 - `docs/` — PRD, technical design, API contract, milestone plans (historical archive).
-- `scripts/hooks/` + `lefthook.yml` — local git hooks (commit message, branch name,
-  secret scan, README dependency reminder).
+- `docs/development.md` — the personal development guidelines for this solo repo.
+
+## Repository Workflow (solo fork, no PRs)
+
+This is the owner's personal fork. Changes are integrated locally and pushed
+directly to `main`; there is no PR process.
+
+- Small changes (fixes, docs, config) may be committed on `main` directly.
+- New features / larger changes must be developed on a topic branch
+  (`feat/xxx`, `fix/xxx`, `docs/xxx`, `refactor/xxx`, `chore/xxx`, `test/xxx`),
+  verified, merged into `main` with `git merge --no-ff`, then pushed.
+- Commit subjects follow Conventional Commits: `<type>(<scope>): <summary>`.
+- `main` must remain runnable after every push.
+
+See `docs/development.md` for the full personal development guidelines.
 
 ## Lightweight Conventions
 
-- Use topic branches for changes (e.g. `feat/xxx`, `fix/xxx`, `docs/xxx`); keep
-  `main` runnable and deliver larger features through pull requests.
-- Commit subjects should follow Conventional Commits: `<type>(<scope>): <summary>`.
-- When adding a third-party dependency or external source, note it in the PR
-  description and update `README.md` if runtime/build instructions change.
+- When adding a third-party dependency or external source, note it in the
+  commit / PR description and update `README.md` if runtime/build instructions
+  change.
 - Run the relevant tests/build after changing code:
   - backend: `cd backend && uv run pytest -q`
   - frontend: `pnpm typecheck && pnpm lint && pnpm build`
+- Local git hooks are defined in `lefthook.yml`; install with
+  `pnpm install && pnpm exec lefthook install`.
 
 ## History Note
 
