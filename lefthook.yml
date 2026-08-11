@@ -22,5 +22,3 @@ pre-push:
       run: scripts/hooks/check-branch-name.sh
     verify-project:
       run: scripts/hooks/verify-project.sh
-    remind-commit-window:
-      run: scripts/hooks/remind-commit-window.sh
