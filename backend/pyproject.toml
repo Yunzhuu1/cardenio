@@ -36,6 +36,7 @@ packages = ["src/cardenio"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
+addopts = "-m 'not eval'"
 markers = [
     "eval: DeepSeek end-to-end generation eval (requires DEEPSEEK_API_KEY)",
 ]

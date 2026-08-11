@@ -20,7 +20,10 @@ THRESHOLDS: dict[str, Any] = {
     "must_keep_hit_rate": 1.0,
 }
 
-REPORT_DIR = os.getenv("CARDENIO_EVAL_REPORT_DIR", "docs/eval")
+REPORT_DIR = os.getenv(
+    "CARDENIO_EVAL_REPORT_DIR",
+    str(Path(__file__).resolve().parents[3] / "docs" / "eval"),
+)
 
 
 def compute_schema_pass_rate(stage_results: list[dict[str, Any]]) -> float:
@@ -90,6 +93,27 @@ def compute_must_keep_hit_rate(
     }
     hits = sum(1 for line in must_keep_lines if line.strip() in texts)
     return round(hits / len(must_keep_lines), 4)
+
+
+DEFAULT_LOGLINE_MARKER = "展开的改编前作品理解"  # analysis_service with_m2_t1_defaults
+
+
+def detect_fallback_usage(artifacts: dict[str, Any]) -> list[str]:
+    """Heuristic: detect deterministic fallback (with_xxx_defaults) usage.
+
+    Returns a list of human-readable triggers. v1 heuristic only inspects
+    the understanding artifact for the default logline template; refine by
+    instrumenting the services in a later pass.
+    """
+    triggered: list[str] = []
+    understanding = (artifacts or {}).get("understanding")
+    if isinstance(understanding, dict):
+        logline = str(understanding.get("logline") or "")
+        if DEFAULT_LOGLINE_MARKER in logline:
+            triggered.append(
+                "understanding: 命中默认 logline 模板（模型输出缺失，落入确定性兜底）"
+            )
+    return triggered
 
 
 def summarize_records(records: list[dict[str, Any]]) -> dict[str, float]:
@@ -193,6 +217,16 @@ def write_baseline_report(
     lines.append(f"- 输入 token 合计：{usage['total_input_tokens']}")
     lines.append(f"- 输出 token 合计：{usage['total_output_tokens']}")
     lines.append(f"- 平均单次延迟：{usage['avg_latency_ms']} ms")
+    lines.append("")
+
+    fallback_triggers = detect_fallback_usage({})
+    lines.append("## 兜底触发检测")
+    lines.append("")
+    if fallback_triggers:
+        for trigger in fallback_triggers:
+            lines.append(f"- {trigger}")
+    else:
+        lines.append("- 未检测到确定性兜底触发（v1 启发式：检查 understanding 默认 logline 模板）。")
     lines.append("")
 
     lines.append("## 备注")
