@@ -22,4 +22,4 @@
 
 - [x] 4.1 README 补充 DeepSeek 模式端到端运行说明与 eval 使用说明
 - [x] 4.2 确认 `uv run pytest -q` 全绿（stub 模式无回归），`pnpm run build` 通过
-- [ ] 4.3 归档 openspec change（`openspec archive`），确认归档后 specs 进入 `openspec/specs/`
+- [x] 4.3 归档 openspec change（`openspec archive`），确认归档后 specs 进入 `openspec/specs/`
