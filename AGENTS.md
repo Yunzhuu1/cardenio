@@ -25,6 +25,8 @@ directly to `main`; there is no PR process.
   verified, merged into `main` with `git merge --no-ff`, then pushed.
 - Commit subjects follow Conventional Commits: `<type>(<scope>): <summary>`.
 - `main` must remain runnable after every push.
+- **Approval gate**: before every `git commit` and `git push`, show the owner
+  the changes to be committed / pushed and wait for explicit approval.
 
 See `docs/development.md` for the full personal development guidelines.
 

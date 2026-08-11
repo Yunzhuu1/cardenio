@@ -116,3 +116,9 @@ git config --local --get http.proxy   # http://127.0.0.1:7892
 - 不把 `.env`、密钥、token 提交进仓库。
 - 不在 `main` 上直接做破坏性重构；先开分支验证。
 - 不引入无法说明来源的第三方代码。
+
+## 提交与推送审批（Commit/Push Approval Gate）
+
+- 每次 `git commit` 前，必须先向仓库所有者展示本次暂存改动（文件清单 + `git diff --cached` 摘要），获得明确同意后方可提交。
+- 每次 `git push` 前，必须先展示待推送的提交与影响范围，获得明确同意后方可推送。
+- 未获得所有者同意，不得执行 commit 或 push。
