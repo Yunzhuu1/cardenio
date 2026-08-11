@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -14,7 +15,7 @@ from cardenio.gateway.protocol import GenerateRequest, GenerateResult
 
 DEFAULT_DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-flash"
-DEFAULT_TIMEOUT_SECONDS = 60.0
+DEFAULT_TIMEOUT_SECONDS = 120.0
 DEFAULT_MAX_TOKENS = 8192
 
 
@@ -38,9 +39,12 @@ class DeepSeekGateway:
         self.config = config
 
     async def generate(self, request: GenerateRequest) -> GenerateResult:
+        started = time.perf_counter()
         payload = self._build_payload(request)
         response = await asyncio.to_thread(self._post_json, payload)
-        return self._parse_response(response)
+        result = self._parse_response(response)
+        result.usage["latency_ms"] = int((time.perf_counter() - started) * 1000)
+        return result
 
     def _build_payload(self, request: GenerateRequest) -> dict[str, Any]:
         return {

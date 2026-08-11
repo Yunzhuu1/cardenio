@@ -88,10 +88,36 @@ class ControlledAgent:
         request = self.build_request(context, issues=issues, previous=None)
 
         final_attempt = 0
+        previous_data: dict[str, Any] | None = None
         for attempt in range(1, self.max_attempts + 1):
             final_attempt = attempt
-            generated = await self.gateway.generate(request)
+            try:
+                generated = await self.gateway.generate(request)
+            except Exception as exc:  # noqa: BLE001 - gateway errors are recorded as issues
+                retryable = bool(getattr(exc, "retryable", False))
+                issues.append(
+                    AgentIssue(
+                        code="gateway_error",
+                        message=str(exc) or exc.__class__.__name__,
+                        retryable=retryable,
+                    )
+                )
+                if retryable and attempt < self.max_attempts:
+                    request = self.build_request(
+                        context,
+                        issues=issues,
+                        previous=previous_data,
+                    )
+                    continue
+                return AgentResult(
+                    data=self.fallback(context, issues),
+                    usage=usage,
+                    issues=issues,
+                    attempts=attempt,
+                    status="needs_attention",
+                )
             usage = _merge_usage(usage, generated.usage)
+            previous_data = generated.data
             parsed, parse_issues = self._parse(generated.data)
             current_issues = [*parse_issues]
 
@@ -112,7 +138,7 @@ class ControlledAgent:
                 request = self.build_request(
                     context,
                     issues=issues,
-                    previous=generated.data,
+                    previous=previous_data,
                 )
                 continue
 
