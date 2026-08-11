@@ -58,7 +58,7 @@ git push origin --delete feat/xxx
 - 格式：`<type>(<scope>): <summary>`
 - `type`：`feat` / `fix` / `docs` / `style` / `refactor` / `test` / `chore`
 - `scope` 可选，写模块名，如 `backend`、`frontend`、`import`、`export`。
-- subject 用 ASCII English，尽量 ≤ 72 字符；不用「，。」等全角标点。
+- subject 用中文撰写（便于仓库所有者审阅），类型/scope 保留英文；commit-msg 钩子已放开 ASCII 限制，仅校验格式。
 - 一个 commit 只做一个逻辑单元；避免 `update`、`wip`、`misc` 这类模糊消息。
 
 示例：

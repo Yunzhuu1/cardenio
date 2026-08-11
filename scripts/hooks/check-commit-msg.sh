@@ -17,9 +17,3 @@ if ! printf '%s\n' "$subject" | grep -E '^(feat|fix|docs|chore|test|refactor|sty
   exit 1
 fi
 
-if printf '%s\n' "$subject" | LC_ALL=C grep '[^ -~]' >/dev/null 2>&1; then
-  echo "Invalid commit message." >&2
-  echo "Commit subject must be written in ASCII English." >&2
-  echo "Do not use full-width punctuation such as ， 。 ：" >&2
-  exit 1
-fi
