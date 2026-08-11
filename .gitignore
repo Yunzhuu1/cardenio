@@ -45,7 +45,6 @@ dist/
 .vscode/
 
 
-# Local AI tooling (OpenSpec / Claude Code / Codex)
+# Local AI tooling (Claude Code / Codex)
 .claude/
 .codex/
-openspec/
