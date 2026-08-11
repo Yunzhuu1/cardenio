@@ -86,7 +86,7 @@ uv run uvicorn cardenio.api.app:create_app --factory --reload --host 127.0.0.1 -
 默认配置：
 
 - 数据库：`sqlite+aiosqlite:///./cardenio.db`
-- LLM：本地 `StubLlmGateway`
+- LLM：默认 DeepSeek（LLM 模式）；未配置 `DEEPSEEK_API_KEY` 时自动回退本地 `StubLlmGateway`
 - API 前缀：`/api/v1`
 
 ### 3. 启动前端
@@ -99,24 +99,31 @@ pnpm dev
 
 前端默认使用真实 HTTP API，Vite dev server 会把 `/api` 代理到 `http://localhost:8000`。打开前端页面后先注册或登录，再创建项目并执行改编流程。
 
-## DeepSeek 模式
+## LLM 模式（默认 DeepSeek）
 
-后端默认不会调用外部模型。需要使用 DeepSeek V4 Flash 时，在启动后端前设置：
+后端**默认使用 DeepSeek**（LLM 模式）。启动时后端会从 `backend/.env` 读取配置（未找到则用环境变量），只要配置了 `DEEPSEEK_API_KEY` 即走真实模型；**未配置 key 时自动回退到本地 `StubLlmGateway`**，保证应用始终可启动。
+
+推荐把 key 写入 `backend/.env`（已被 gitignore 忽略，不会进仓库）：
 
 ```bash
-CARDENIO_LLM_PROVIDER=deepseek
 DEEPSEEK_API_KEY=<your-api-key>
 DEEPSEEK_MODEL=deepseek-v4-flash
 DEEPSEEK_BASE_URL=https://api.deepseek.com
-DEEPSEEK_TIMEOUT_SECONDS=60
+DEEPSEEK_TIMEOUT_SECONDS=120
 DEEPSEEK_MAX_TOKENS=8192
 ```
 
-然后仍然用 uv 启动：
+然后直接用 uv 启动：
 
 ```bash
 cd backend
 uv run uvicorn cardenio.api.app:create_app --factory --reload --host 127.0.0.1 --port 8000
+```
+
+如需显式回到 stub 模式（离线/无费用调试）：
+
+```bash
+CARDENIO_LLM_PROVIDER=stub uv run uvicorn cardenio.api.app:create_app --factory --reload --host 127.0.0.1 --port 8000
 ```
 
 ## 环境变量
@@ -126,8 +133,8 @@ uv run uvicorn cardenio.api.app:create_app --factory --reload --host 127.0.0.1 -
 | 变量                       | 默认值                              | 说明                  |
 | -------------------------- | ----------------------------------- | --------------------- |
 | `CARDENIO_DATABASE_URL`    | `sqlite+aiosqlite:///./cardenio.db` | 后端数据库连接 URL    |
-| `CARDENIO_LLM_PROVIDER`    | `stub`                              | `stub` 或 `deepseek`  |
-| `DEEPSEEK_API_KEY`         | 无                                  | DeepSeek 模式必填     |
+| `CARDENIO_LLM_PROVIDER`    | `deepseek`                          | `deepseek`（默认）或 `stub`；缺 key 时自动回退 stub |
+| `DEEPSEEK_API_KEY`         | 无                                  | 配置后走 LLM 模式；未配置回退 stub |
 | `DEEPSEEK_MODEL`           | `deepseek-v4-flash`                 | DeepSeek 模型名       |
 | `DEEPSEEK_BASE_URL`        | `https://api.deepseek.com`          | DeepSeek API Base URL |
 | `DEEPSEEK_TIMEOUT_SECONDS` | `60`                                | LLM 请求超时          |
@@ -283,7 +290,7 @@ uv run pytest -m eval
 
 - 前端：Vite、React、React Router、Tailwind CSS、coss.ui / shadcn registry、Base UI、lucide-react、i18next、yaml、cytoscape、GSAP、字体包和 ESLint/Prettier 工具链。
 - 后端：FastAPI、Uvicorn、Pydantic、SQLAlchemy、aiosqlite、Alembic、sse-starlette、python-multipart、PyYAML、python-docx、pytest、ruff、httpx。
-- 外部服务：DeepSeek API 为可选 LLM provider；未启用 `CARDENIO_LLM_PROVIDER=deepseek` 时不会调用外部模型。
+- 外部服务：DeepSeek API 为默认 LLM provider；配置 `DEEPSEEK_API_KEY` 后调用外部模型，未配置时回退本地 stub，不调用外部服务。
 - 开发工具：lefthook 用于本地 Git hooks。
 
 coss/shadcn 组件源码作为通用 UI 基础设施，不代表 Cardenio 的业务原创功能。ZeoSeven Fonts 的 Zhuque Fangsong CSS 和各字体包仅作为显示资源。

@@ -9,7 +9,20 @@ from cardenio.gateway.providers.deepseek import DeepSeekGateway
 from cardenio.gateway.providers.stub import StubLlmGateway
 
 
-def test_create_gateway_defaults_to_stub(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_create_gateway_defaults_to_deepseek_with_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("CARDENIO_LLM_PROVIDER", raising=False)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+
+    gateway = create_gateway_from_env()
+
+    assert isinstance(gateway, DeepSeekGateway)
+
+
+def test_create_gateway_falls_back_to_stub_without_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.delenv("CARDENIO_LLM_PROVIDER", raising=False)
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
 
@@ -38,12 +51,15 @@ def test_create_gateway_uses_deepseek_when_configured(
     assert gateway.config.max_tokens == 4096
 
 
-def test_create_gateway_requires_deepseek_key(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_create_gateway_falls_back_to_stub_when_deepseek_key_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("CARDENIO_LLM_PROVIDER", "deepseek")
     monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
 
-    with pytest.raises(ValueError, match="DEEPSEEK_API_KEY"):
-        create_gateway_from_env()
+    gateway = create_gateway_from_env()
+
+    assert isinstance(gateway, StubLlmGateway)
 
 
 def test_create_gateway_rejects_unknown_provider(
