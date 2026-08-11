@@ -44,5 +44,8 @@ dist/
 .idea/
 .vscode/
 
-# Claude worktrees
-.claude/worktrees/
+
+# Local AI tooling (OpenSpec / Claude Code / Codex)
+.claude/
+.codex/
+openspec/
