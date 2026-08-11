@@ -34,6 +34,10 @@ packages = ["src/cardenio"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "eval: DeepSeek end-to-end generation eval (requires DEEPSEEK_API_KEY)",
+]
 
 [tool.ruff]
 target-version = "py312"
