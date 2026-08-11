@@ -223,11 +223,29 @@ cd backend
 uv sync
 uv run pytest
 uv run pytest tests/api
+uv run pytest -m eval  # 生成质量基线（需 DEEPSEEK_API_KEY）
 uv run ruff check src tests
 uv run uvicorn cardenio.api.app:create_app --factory --reload --host 127.0.0.1 --port 8000
 ```
 
+## 生成质量评估（Eval）
+
+后端提供可重复运行的生成质量基线（OpenSpec 变更 `llm-quality-baseline` 引入）：
+
+- **运行前提**：配置 `DEEPSEEK_API_KEY`（见上文 DeepSeek 模式）；未配置时 eval 用例自动跳过。
+- **运行方式**：
+
+```bash
+cd backend
+uv run pytest -m eval
+```
+
+- **覆盖流程**：导入固定 3 章中文小说 fixture（`backend/tests/fixtures/novel_sample_3chapters.txt`）→ 理解 → 人物 → 意图 → 大纲 → 剧本 → 报告。
+- **输出**：`docs/eval/baseline-<YYYY-MM-DD>.md`，包含分阶段结果、指标（schema 通过率、`source_ref` 覆盖率、TODO 降级率、报告统计一致性、`must_keep_lines` 命中率）与 LLM 调用统计（token、延迟、重试代理指标），不覆盖历史基线。
+- **指标口径**：`must_keep_lines` 在基线中默认关闭（避免整链失败），该能力由单测覆盖；阈值与口径见 `backend/tests/eval/metrics.py`。
+
 ## 测试状态
+
 
 后端测试覆盖：
 
